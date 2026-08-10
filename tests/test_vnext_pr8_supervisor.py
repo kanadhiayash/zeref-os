@@ -268,15 +268,13 @@ def test_resume_never_reruns_completed_irreversible_step(tmp_path: Path) -> None
 # Capability revocation mid-run — no silent substitution
 # ---------------------------------------------------------------------------
 
-def test_pre_revoked_capability_causes_failure(tmp_path: Path) -> None:
+def test_pre_revoked_capability_pauses_permission(tmp_path: Path) -> None:
     """Pre-revoke a capability the plan depends on; supervisor's
-    per-step assert_executable trips → run FAILS.
+    per-step assert_executable trips and the run pauses with the
+    specific PAUSED_PERMISSION state (not a generic post-retry FAILED).
 
-    Note: mid-run revocation via a second connection is impractical to
-    test in-process under SQLite WAL. The revocation contract is that
-    every step passes through assert_executable BEFORE invoking its
-    adapter (verified here by revoking upfront); PR 4's gate tests
-    exercise the digest / lifecycle logic itself.
+    Mid-run revocation from a live in-process session is covered by
+    test_capability_lifecycle_registry.py.
     """
     run_id = _seed(tmp_path)
     conn = sqlite3.connect(tmp_path / "memory" / "state" / "shiroe.sqlite")
@@ -297,5 +295,5 @@ def test_pre_revoked_capability_causes_failure(tmp_path: Path) -> None:
         result = sup.run()
     finally:
         sup.close()
-    assert result.state == "FAILED"
+    assert result.state == "PAUSED_PERMISSION"
     assert "capability gate" in (result.paused_reason or "").lower()

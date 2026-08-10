@@ -176,11 +176,22 @@ class Supervisor:
     def _invoke_step(self, step_id: str, step_name: str,
                      capability_id: str) -> AdapterResult:
         # Adapter invocation runs through the policy engine already, plus a
-        # capability-gate assert here so revocation mid-run trips instantly.
+        # capability-gate assert here so revocation / digest drift mid-run
+        # trips instantly. The gate recomputes the on-disk digest and
+        # re-quarantines on drift; if the capability was revoked between
+        # steps the lifecycle check catches it. Flagging the result with a
+        # policy `deny` verdict routes through the PERMISSION_DENIED /
+        # PAUSED_PERMISSION path so the run halts with a specific state
+        # (not a generic post-retry FAILED).
         try:
             assert_executable(self.root, capability_id)
         except CapabilityGateError as e:
-            return AdapterResult(ok=False, error=f"capability gate: {e}")
+            return AdapterResult(
+                ok=False,
+                error=f"capability gate: {e}",
+                metadata={"policy": {"verdict": "deny",
+                                     "deciding_layer": "capability_gate"}},
+            )
 
         # Pre-flight policy check on memory.write (every step writes a
         # `step.completed` event).
