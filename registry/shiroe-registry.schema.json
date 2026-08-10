@@ -59,10 +59,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["command", "path"],
+        "required": ["command", "path", "status"],
         "properties": {
           "command": { "type": "string" },
-          "path": { "type": "string", "pattern": "^commands/.+\\.md$" }
+          "path": { "type": "string", "pattern": "^commands/.+\\.md$" },
+          "status": {
+            "type": "string",
+            "enum": ["runtime", "adapter", "contract", "experimental"]
+          }
         }
       }
     },
@@ -70,11 +74,15 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["pack", "type", "path"],
+        "required": ["pack", "type", "path", "status"],
         "properties": {
           "pack": { "type": "string" },
           "type": { "type": "string", "enum": ["role", "profile"] },
-          "path": { "type": "string", "pattern": "^team-packs/.+\\.md$" }
+          "path": { "type": "string", "pattern": "^team-packs/.+\\.md$" },
+          "status": {
+            "type": "string",
+            "enum": ["runtime", "adapter", "contract", "experimental"]
+          }
         }
       }
     },
@@ -82,10 +90,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["gate", "path"],
+        "required": ["gate", "path", "status"],
         "properties": {
           "gate": { "type": "string" },
-          "path": { "type": "string", "pattern": "^shiroe/guards/.+\\.py$" }
+          "path": { "type": "string", "pattern": "^shiroe/guards/.+\\.py$" },
+          "status": {
+            "type": "string",
+            "enum": ["runtime", "adapter", "contract", "experimental"]
+          }
         }
       }
     }

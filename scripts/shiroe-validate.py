@@ -28,12 +28,21 @@ Checks:
 Exit 0 on pass, 1 on fail.
 """
 
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Which statuses claim on-disk runtime backing. Entries with these statuses MUST
+# resolve to real artifacts; other statuses (contract / experimental) are honest
+# labels that the entry is a spec surface only. See registry parity gate.
+ACTIVE_STATUSES = {"runtime", "adapter"}
+# Statuses tolerated on disk-absent entries. Kept aligned with the schema enum
+# in registry/shiroe-registry.schema.json.
+INACTIVE_STATUSES = {"contract", "experimental"}
 
 EXPECTED = {
     "root_manifests": ["SKILL.md", "AGENTS.md", "CLAUDE.md", "GEMINI.md"],
@@ -100,14 +109,15 @@ def check_yaml_frontmatter(path, required_keys):
             errors.append(f"{path}: missing frontmatter key '{k}'")
 
 
-def load_registry():
+def load_registry(reg_path=None):
     """Load shiroe-registry.json: skill list + declared structure counts + raw dict.
 
     Returns (skills, declared, raw) — raw is None if the file is missing or
     not valid JSON (schema validation is skipped in that case; the parse
     failure is already recorded as an error).
     """
-    reg_path = ROOT / "shiroe-registry.json"
+    if reg_path is None:
+        reg_path = ROOT / "shiroe-registry.json"
     if not reg_path.is_file():
         errors.append("missing shiroe-registry.json (required for dynamic skill count)")
         return [], {}, None
@@ -172,6 +182,66 @@ def _schema_check(instance, schema, path):
 
     if type_ok and "enum" in schema and instance not in schema["enum"]:
         errors.append(f"registry schema: {path}: {instance!r} not in allowed values {schema['enum']}")
+
+
+def _module_path_resolves(root, dotted_id):
+    """Resolve `shiroe.foo.bar` to either `shiroe/foo/bar/` or `shiroe/foo/bar.py`."""
+    rel = Path(*dotted_id.split("."))
+    return (root / rel).is_dir() or (root / (str(rel) + ".py")).is_file()
+
+
+def check_registry_parity(reg, root=None):
+    """Every entry with an active status resolves to an on-disk artifact; every
+    entry without one carries an honest non-active status. Complements the
+    filesystem-count check by verifying per-entry path/module presence, so
+    the two registry surfaces cannot silently claim runtime backing they lack.
+    """
+    if reg is None:
+        return
+    if root is None:
+        root = ROOT
+
+    # shiroe-registry.json — the hand-authored surface. Each list is (key_for_id,
+    # optional path key, artifact resolver). Skills resolve as `skills/<id>/`;
+    # everything else has an explicit path field the schema constrains.
+    for entry in reg.get("skills", []):
+        name = entry.get("skill", "<?>")
+        status = entry.get("status")
+        artifact = root / "skills" / name
+        if status in ACTIVE_STATUSES and not artifact.is_dir():
+            errors.append(f"registry parity: skill '{name}' status={status!r} but skills/{name}/ missing")
+        elif status not in ACTIVE_STATUSES and status not in INACTIVE_STATUSES:
+            errors.append(f"registry parity: skill '{name}' has unknown status {status!r}")
+
+    for kind, id_key in (("agents", "agent"), ("commands", "command"),
+                        ("team_packs", "pack"), ("gates", "gate")):
+        for entry in reg.get(kind, []):
+            name = entry.get(id_key, "<?>")
+            status = entry.get("status")
+            path = entry.get("path")
+            if status in ACTIVE_STATUSES:
+                if not path or not (root / path).is_file():
+                    errors.append(f"registry parity: {kind[:-1]} '{name}' status={status!r} but path {path!r} missing")
+            elif status not in INACTIVE_STATUSES:
+                errors.append(f"registry parity: {kind[:-1]} '{name}' has unknown status {status!r}")
+
+    # registry/components.json — generated surface. Component ids are dotted
+    # Python module paths; runtime/adapter entries must resolve to a real module.
+    comp_path = root / "registry" / "components.json"
+    if comp_path.is_file():
+        try:
+            comp = json.loads(comp_path.read_text())
+        except json.JSONDecodeError as e:
+            errors.append(f"registry/components.json: invalid JSON ({e})")
+            return
+        for entry in comp.get("components", []):
+            cid = entry.get("id", "<?>")
+            status = entry.get("status")
+            if status in ACTIVE_STATUSES:
+                if not _module_path_resolves(root, cid):
+                    errors.append(f"registry parity: component '{cid}' status={status!r} but no module found on disk")
+            elif status not in INACTIVE_STATUSES:
+                errors.append(f"registry parity: component '{cid}' has unknown status {status!r}")
 
 
 def check_registry_schema(reg):
@@ -266,11 +336,23 @@ def lint_patterns_log(skill_inventory, agent_files):
 
 
 def main():
+    ap = argparse.ArgumentParser(description="Validate Shiroe plugin structure")
+    ap.add_argument(
+        "--registry",
+        type=Path,
+        default=None,
+        help="Path to shiroe-registry.json (defaults to <ROOT>/shiroe-registry.json). "
+             "Overriding this while leaving the on-disk tree in place is how the "
+             "parity test injects a deliberately mislabeled entry.",
+    )
+    args = ap.parse_args()
+
     # L1: load skill inventory + declared counts from registry
-    skill_inventory, declared_counts, registry_raw = load_registry()
+    skill_inventory, declared_counts, registry_raw = load_registry(args.registry)
     schema_errors_before = len(errors)
     check_registry_schema(registry_raw)
     schema_error_count = len(errors) - schema_errors_before
+    check_registry_parity(registry_raw)
     skill_count_expected = len(skill_inventory)
     skill_count_actual = sum((ROOT / "skills" / s).is_dir() for s in skill_inventory)
 
