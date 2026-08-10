@@ -109,6 +109,12 @@ def generate_capabilities(root: Path) -> Path:
         rows = store.list()
     finally:
         store.close()
+    # Surface digest + lifecycle_state on every entry so registry consumers
+    # (readme, wiki, CLI, snapshot tests) can see when a capability is
+    # revoked or drifted without opening the SQLite store.
+    for row in rows:
+        row["digest"] = row.get("current_digest")
+        row["lifecycle_state"] = row.get("lifecycle")
     return _write(root / "registry" / "capabilities.json",
                   {"schema": "shiroe.registry-capabilities/v1",
                    "capabilities": rows})
