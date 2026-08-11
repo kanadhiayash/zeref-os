@@ -30,10 +30,10 @@ This is a warn-and-translate layer, not a hard failure — old configs, scripts,
 
 ## Migration guidance
 
-- **Execution policies**: replace `small`/`medium`/`enterprise` with `lean`/`balanced`/`assured` in any policy config, CLI flag, or team-pack profile reference. `enterprise` wording is banned from user-facing policy names going forward per the architecture plan (§9.2) — don't reintroduce it even as a synonym.
+- **Execution policies**: legacy Mission/Team execution policies were removed in vNext Phase 04. New execution constraints live on Work Graph nodes and the Execution Engine budget/criticality primitives.
 - **Component names**: replace `skill-router` → `capability-resolver`, `fleet-activator` → `capability-prober`, `skill-importer` → `capability-manager` in any script, doc, or automation that names these components directly. The renamed components take on a broader lifecycle scope (all capability types, not just skills) — don't treat this as a pure find-and-replace if you're extending behavior, only if you're referencing the name.
 - **Model-tier names**: replace `haiku`/`sonnet`/`opus` with the provider-neutral `fast`/`balanced`/`deep` reasoning classes anywhere a task specifies how much reasoning it needs. Concrete provider model ids (e.g. which model `deep` resolves to) now live only under `shiroe/adapters/providers/<provider>.json` — never hardcode a model id in a mission, skill, or config file again.
-- **Team-pack file renames are not yet live.** `team-packs/small.md`, `team-packs/medium.md`, and `team-packs/enterprise.md` still exist on disk under their old filenames — the file renames to `lean.md`/`balanced.md`/`assured.md` (and the broader `team-packs/*.md` → `missions/*.yaml` restructure per the architecture plan §5.1) land in the missions PR (PR 6), not this PR. The alias layer above works today for anything that resolves the *name*; it does not move files.
+- **Team-pack file renames are closed.** Team Packs and Missions are removed product surfaces. Do not add compatibility aliases for them.
 
 ## Legacy-identity aliases (SHR-014 / SHR-015)
 

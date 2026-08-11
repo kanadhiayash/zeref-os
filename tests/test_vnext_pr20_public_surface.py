@@ -48,16 +48,12 @@ def test_plugin_manifest_version() -> None:
 # ---------------------------------------------------------------------------
 
 REGISTRY_FILES = (
-    "components.json", "missions.json", "adapters.json",
+    "components.json", "adapters.json",
     "codecs.json", "capabilities.json",
 )
 
 
 def test_generate_all_writes_registry_files(tmp_path: Path) -> None:
-    # Seed missions + policies dirs for the missions registry to load.
-    import shutil
-    for name in ("missions", "policies"):
-        shutil.copytree(REPO_ROOT / name, tmp_path / name)
     written = generate_all(tmp_path)
     names = {p.name for p in written}
     assert names == set(REGISTRY_FILES)
@@ -84,18 +80,12 @@ def test_generated_components_schema_shape() -> None:
     data = json.loads(_read(REPO_ROOT / "registry" / "components.json"))
     ids = {c["id"] for c in data["components"]}
     for expected in ("shiroe.storage", "shiroe.policy", "shiroe.capabilities",
-                     "shiroe.runtime", "shiroe.teams", "shiroe.codecs",
+                     "shiroe.work", "shiroe.execution", "shiroe.codecs",
                      "shiroe.evidence"):
         assert expected in ids
     for row in data["components"]:
         assert row["status"] in ("runtime", "adapter", "contract",
                                  "experimental")
-
-
-def test_generated_missions_covers_all_six() -> None:
-    data = json.loads(_read(REPO_ROOT / "registry" / "missions.json"))
-    ids = {m["id"] for m in data["missions"]}
-    assert ids == {"solo", "build", "research", "red", "audit", "ship"}
 
 
 def test_generated_adapters_reports_all_harnesses() -> None:

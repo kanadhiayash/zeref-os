@@ -116,7 +116,6 @@ a graph is *not* in order to say what it is.
         "registry/capabilities.json",
         "registry/codecs.json",
         "registry/components.json",
-        "registry/missions.json",
         "docs/wiki/**"
       ],
       "exclude": ["docs/wiki/Glossary.md"]
@@ -178,7 +177,6 @@ a graph is *not* in order to say what it is.
     ".cursor/**",
     ".claude-plugin/**",
     "assets/**",
-    "missions/**",
     "policies/**",
     "config/**",
     "memory/**",

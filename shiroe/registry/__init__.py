@@ -9,7 +9,6 @@ from shiroe.registry.generator import (
     RegistryGenerationError,
     generate_all,
     generate_components,
-    generate_missions,
     generate_adapters,
     generate_codecs,
     generate_capabilities,
@@ -17,7 +16,7 @@ from shiroe.registry.generator import (
 
 __all__ = [
     "RegistryGenerationError",
-    "generate_all", "generate_components", "generate_missions",
+    "generate_all", "generate_components",
     "generate_adapters", "generate_codecs",
     "generate_capabilities",
 ]

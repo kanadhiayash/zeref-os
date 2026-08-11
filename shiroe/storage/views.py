@@ -152,11 +152,11 @@ def _view_capabilities(conn: sqlite3.Connection) -> str:
 def _view_active_team(conn: sqlite3.Connection) -> str:
     rows = _rows(
         conn,
-        "SELECT r.id, r.state, r.policy, r.created_at "
-        "FROM team_runs r WHERE r.state IN ('COMPILED','AUTHORIZED','RUNNING','VERIFYING','PAUSED_PERMISSION','PAUSED_BUDGET','RETRYING') "
-        "ORDER BY r.created_at DESC LIMIT 5",
+        "SELECT id, status, version, updated_at "
+        "FROM work_graphs WHERE status IN ('ready','running','paused') "
+        "ORDER BY updated_at DESC LIMIT 5",
     )
-    return _table(["run_id", "state", "policy", "created_at"], [list(r) for r in rows])
+    return _table(["graph_id", "status", "version", "updated_at"], [list(r) for r in rows])
 
 
 def _view_session_summary(conn: sqlite3.Connection) -> str:

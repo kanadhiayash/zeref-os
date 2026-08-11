@@ -94,38 +94,9 @@ def test_handoff_writes_markdown_and_json(repo_root: Path, tmp_path: Path) -> No
     assert data["active_decisions"][0]["id"] == atom["id"]
 
 
-def test_loop_plan_run_status_and_report_are_memory_safe(repo_root: Path, tmp_path: Path) -> None:
+def test_loop_command_is_removed(repo_root: Path, tmp_path: Path) -> None:
     _init(repo_root, tmp_path)
 
-    planned = _run(
-        repo_root,
-        tmp_path,
-        ["loop", "plan", "Update dashboard buttons", "--team", "small", "--max-iterations", "2", "--json"],
-    )
-    assert planned.returncode == 0, planned.stderr
-    contract = json.loads(planned.stdout)
-    assert contract["memory_permissions"]["direct_memory_write"] is False
-    assert (tmp_path / "memory" / "loops" / contract["loop_id"] / "contract.json").is_file()
-
-    before_atoms = sorted((tmp_path / "memory" / "l1_atoms").glob("*.jsonl"))
-    before_text = {path.name: path.read_text(encoding="utf-8") for path in before_atoms}
-    ran = _run(
-        repo_root,
-        tmp_path,
-        ["loop", "run", "Update dashboard buttons", "--team", "small", "--max-iterations", "2", "--json"],
-    )
-    assert ran.returncode == 0, ran.stderr
-    result = json.loads(ran.stdout)
-    assert result["verification"]["passed"] is True
-    proposal = json.loads(Path(result["memory_update_proposal"]).read_text(encoding="utf-8"))
-    assert proposal["direct_memory_write"] is False
-    after_text = {path.name: path.read_text(encoding="utf-8") for path in before_atoms}
-    assert after_text == before_text
-
-    status = _run(repo_root, tmp_path, ["loop", "status", "--json"])
-    assert status.returncode == 0, status.stderr
-    assert json.loads(status.stdout)["verification"]["passed"] is True
-
-    report = _run(repo_root, tmp_path, ["loop", "report"])
-    assert report.returncode == 0, report.stderr
-    assert "Memory Update Proposal" in report.stdout
+    result = _run(repo_root, tmp_path, ["loop", "status", "--json"])
+    assert result.returncode == 2
+    assert "invalid choice" in result.stderr
