@@ -10,14 +10,12 @@ these helpers instead of duplicating path lists in the CLI.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 from shiroe.compat.legacy_identity import LEGACY_V1_STATE_DB_NAME
-from shiroe.lock import LockError, MemoryLock, atomic_append
 from shiroe.privacy import scrub
 
 
@@ -55,13 +53,6 @@ PROJECT_DIRS: tuple[str, ...] = (
 )
 
 MEMORY_FILES: tuple[str, ...] = (
-    "memory/hot.md",
-    "memory/index.md",
-    "memory/DECISIONS.md",
-    "memory/OPEN_QUESTIONS.md",
-    "memory/RISKS.md",
-    "memory/CONFLICTS.md",
-    "memory/MEMORY.md",
     "memory/patterns/PATTERNS.jsonl",
     "memory/state/events.jsonl",
     "memory/state/schema.json",
@@ -213,7 +204,7 @@ class WriteResult:
 
 
 class MemoryWriter:
-    """Single writer for wiki files and their matching event-log entries."""
+    """Compatibility writer that records decisions through canonical memory."""
 
     def __init__(self, memory_root: MemoryRoot):
         self.memory_root = memory_root
@@ -235,8 +226,11 @@ class MemoryWriter:
         evidence: str,
         grade: str,
     ) -> WriteResult:
-        """Append a scrubbed decision and emit a schema-valid wiki-write event."""
-        target = self.layout.path("memory/DECISIONS.md")
+        """Write a decision to canonical SQLite and regenerate Markdown views."""
+        from shiroe.memory.models import MemoryWrite
+        from shiroe.memory.service import MemoryService
+        from shiroe.memory.views import render_views
+
         redact = self.memory_root.root / "REDACT.md"
 
         title_s, title_r = scrub(title, redact, provenance="write-decision/title")
@@ -245,59 +239,33 @@ class MemoryWriter:
         total_redacted = title_r.redacted + why_r.redacted + evidence_r.redacted
         today = date.today().isoformat()
 
-        entry = (
-            f"\n---\n"
-            f"**Decision:** {title_s}\n"
-            f"**Date:** {today}\n"
-            f"**Rationale:** {why_s}\n"
-            f"**Evidence:** {evidence_s or '(none provided)'}\n"
-            f"**Evidence grade:** {grade}\n"
-            f"**Provenance:** shiroe-cli write-decision (pii_scrubbed={total_redacted})\n"
-            f"---\n"
+        service = MemoryService(self.memory_root.root)
+        record = service.write(
+            MemoryWrite(
+                kind="decision",
+                title=title_s,
+                claim=title_s,
+                summary=(
+                    f"Rationale: {why_s}; Evidence: "
+                    f"{evidence_s or '(none provided)'}; pii_scrubbed={total_redacted}"
+                ),
+                source_refs=(evidence_s or "user-input",),
+                evidence_grade=grade,
+                privacy_class="internal",
+                confidence="medium",
+            )
         )
-
-        event, event_hash = self._wiki_write_event(
-            target="memory/DECISIONS.md",
-            summary=f"Decision: {title_s}",
-            evidence_grade=grade,
-        )
-
-        try:
-            with MemoryLock(self.layout.memory_dir):
-                atomic_append(target, entry)
-                atomic_append(self.layout.patterns_log, json.dumps(event, sort_keys=True) + "\n")
-        except LockError:
-            raise
+        render_views(self.memory_root.root)
+        history = service.history(record.id)
+        event_hash = history[-1].hash if history else ""
 
         return WriteResult(
-            target=target,
+            target=self.layout.path("memory/views/decisions.md"),
             title=title_s,
             date=today,
             redacted=total_redacted,
             event_hash=event_hash,
         )
-
-    def _wiki_write_event(
-        self,
-        *,
-        target: str,
-        summary: str,
-        evidence_grade: str,
-    ) -> tuple[dict, str]:
-        payload = {"summary": summary}
-        payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        event_hash = "sha256:" + hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
-        event = {
-            "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "agent": "memory-keeper",
-            "event": "wiki-write",
-            "target": target,
-            "payload": payload,
-            "hash": event_hash,
-            "evidence_grade": evidence_grade,
-        }
-        return event, event_hash
-
 
 def discover_project_root(start: Path | None = None, max_depth: int = 10) -> Path:
     """Walk up from start looking for a Shiroe project marker.
@@ -456,27 +424,11 @@ def scaffold_project(
             encoding="utf-8",
         )
 
-    _write_memory_files(memory_root.layout)
+    _write_runtime_files(memory_root.layout)
     return memory_root
 
 
-def _write_memory_files(layout: MemoryLayout) -> None:
-    hot = layout.path("memory/hot.md")
-    if not hot.exists():
-        hot.write_text("# memory/hot.md\n\n*(empty - populated on first /done)*\n", encoding="utf-8")
-
-    for relative in (
-        "memory/index.md",
-        "memory/DECISIONS.md",
-        "memory/OPEN_QUESTIONS.md",
-        "memory/RISKS.md",
-        "memory/CONFLICTS.md",
-        "memory/MEMORY.md",
-    ):
-        path = layout.path(relative)
-        if not path.exists():
-            path.write_text(f"# {Path(relative).name}\n", encoding="utf-8")
-
+def _write_runtime_files(layout: MemoryLayout) -> None:
     if not layout.patterns_log.exists():
         layout.patterns_log.write_text("", encoding="utf-8")
 

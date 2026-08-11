@@ -5,7 +5,7 @@ shiroe.cli — Reference CLI for Shiroe (Sprint 2).
 
 Commands:
     shiroe status          Print hot.md summary + active tier
-    shiroe write-decision  Append a decision to memory/DECISIONS.md
+    shiroe write-decision  Write a decision to canonical memory
     shiroe memory ...      Add/search/get/update/history/explain structured memory
     shiroe grade <claim>   Grade a claim (evidence-grader heuristics + optional LLM)
     shiroe audit-privacy   Run deterministic PII audit on memory/
@@ -71,8 +71,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_write_decision(args: argparse.Namespace) -> int:
-    """Write a decision: hold single-writer lock, atomic append, scrub PII first."""
-    from shiroe.lock import LockError
+    """Write a decision through canonical memory and regenerate views."""
     from shiroe.memory import MemoryWriter
 
     root = _project_root()
@@ -89,11 +88,11 @@ def cmd_write_decision(args: argparse.Namespace) -> int:
             evidence=evidence,
             grade=grade,
         )
-    except LockError as e:
+    except ValueError as e:
         print(f"✘ {e}")
         return 2
 
-    print(f"✔ Decision appended to {result.target}")
+    print(f"✔ Decision written to canonical memory; regenerated {result.target}")
     print(f"  Title: {result.title} | Date: {result.date} | Grade: {grade}")
     print(f"  Event: {result.event_hash}")
     if result.redacted:
@@ -1201,7 +1200,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="Print hot.md + tier")
 
-    wd = sub.add_parser("write-decision", help="Append decision to memory/DECISIONS.md")
+    wd = sub.add_parser("write-decision", help="Write decision to canonical memory")
     wd.add_argument("--title");  wd.add_argument("--why")
     wd.add_argument("--evidence"); wd.add_argument("--grade", choices=["high","medium","low"], default="medium")
 
@@ -1310,7 +1309,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mem_refine.add_argument("--json", action="store_true")
     mem_refine.add_argument("--strict", action="store_true")
 
-    mem_render = memory_sub.add_parser("render", help="Render Markdown views from atoms")
+    mem_render = memory_sub.add_parser("render", help="Render Markdown views from canonical memory")
     mem_render.add_argument("view", choices=[
         "hot.md", "index.md", "decisions", "risks", "contradictions", "all",
     ])
