@@ -44,6 +44,11 @@ def registered_command_names() -> tuple[str, ...]:
     return tuple(module.COMMAND_NAME for module in _COMMANDS)
 
 
+def iter_registered_commands():
+    for module in _COMMANDS:
+        yield module.COMMAND_NAME, module.run
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="shiroe", description=f"Shiroe CLI v{__version__}")
     parser.add_argument("--version", action="version", version=f"shiroe {__version__}")

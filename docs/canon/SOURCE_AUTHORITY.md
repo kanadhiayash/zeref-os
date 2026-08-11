@@ -27,7 +27,7 @@ a conflicting claim from any higher-numbered rank.
 | 2 | `accepted-adrs` | `docs/adr/ADR-*.md` | A deliberate, dated, reviewed decision that code is obliged to follow. |
 | 3 | `agents-spec` | `AGENTS.md`, `SOUL.md`, `_shared/*.md` | The contract every harness reads. Binding, but written ahead of the code. |
 | 4 | `glossary` | `docs/GLOSSARY.md`, `docs/wiki/Glossary.md` | Fixes vocabulary so the tiers above can be compared at all. |
-| 5 | `generated-docs` | runtime `registry/*.json`, `docs/wiki/**` | Derived from a rank-1 source. Authoritative about itself, never about intent. |
+| 5 | `generated-docs` | `docs/wiki/**` | Derived from a rank-1 source. Authoritative about itself, never about intent. |
 | 6 | `narrative-docs` | `README.md`, `docs/*.md`, `docs/architecture/*.md`, root manifests | Explanation and onboarding. Loudest, least binding. |
 
 ## The three evaluation rules
@@ -111,12 +111,7 @@ a graph is *not* in order to say what it is.
     {
       "rank": 5,
       "id": "generated-docs",
-      "paths": [
-        "registry/adapters.json",
-        "registry/capabilities.json",
-        "registry/components.json",
-        "docs/wiki/**"
-      ],
+      "paths": ["docs/wiki/**"],
       "exclude": ["docs/wiki/Glossary.md"]
     },
     {
