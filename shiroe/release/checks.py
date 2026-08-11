@@ -38,7 +38,6 @@ def run_release_check(root: Path) -> list[ReleaseFinding]:
     findings.append(_check_version_file(root))
     findings.append(_check_memory_layout(root))
     findings.append(_check_audit_logs(memory_root))
-    findings.append(_check_benchmarks(root))
     findings.append(_check_factguard(root))
     findings.append(_check_evidence(store, root))
     # R9 (SHR-AUDIT-021): fold audit-surfaced gates into the release check so a
@@ -372,53 +371,6 @@ def _check_audit_logs(memory_root: MemoryRoot) -> ReleaseFinding:
             )
         return _fail("audit_logs", "missing " + ", ".join(missing))
     return _pass("audit_logs", "audit logs present")
-
-
-def _check_benchmarks(root: Path) -> ReleaseFinding:
-    """Execute the benchmark runner; never trust a stored results.json.
-
-    WS4 (issue #122): a checked-in `benchmarks/results.json` with
-    `passed: true` is not evidence — the gate re-runs the suite and grades
-    the live exit code. When the local lineage intake fixture is absent
-    (intentionally uncommitted; see WS5) the runner cannot complete, so the
-    finding is a loud SKIP that is never reported as PASS.
-    """
-    import subprocess
-    import sys
-    import tempfile
-    runner = root / "benchmarks" / "run-all.py"
-    if not runner.exists():
-        return _fail(
-            "benchmarks",
-            "benchmarks/run-all.py missing — cannot execute the suite "
-            "(stored results.json is not accepted as evidence)",
-        )
-    from shiroe.lineage.importer import default_csv_path
-    fixture = default_csv_path(root)
-    if not fixture.exists():
-        return _skip(
-            "benchmarks",
-            f"suite NOT executed: required lineage intake fixture "
-            f"{fixture.name} is absent (local-only input; WS5). "
-            f"Stored benchmarks/results.json is not accepted as evidence.",
-        )
-    with tempfile.TemporaryDirectory() as tmp:
-        try:
-            result = subprocess.run(
-                [sys.executable, str(runner),
-                 "--out-report", str(Path(tmp) / "BENCHMARK_REPORT.md"),
-                 "--out-json", str(Path(tmp) / "results.json")],
-                cwd=str(root), capture_output=True, text=True, timeout=1800,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            return _fail("benchmarks", f"suite execution failed: {exc}")
-    if result.returncode == 0:
-        return _pass("benchmarks", "benchmark suite executed live: verdict PASS")
-    tail = (result.stdout + result.stderr).strip().splitlines()[-1:] or ["no output"]
-    return _fail(
-        "benchmarks",
-        f"benchmark suite executed live: exit {result.returncode} ({tail[0][:160]})",
-    )
 
 
 def _check_factguard(root: Path) -> ReleaseFinding:

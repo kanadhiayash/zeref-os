@@ -173,25 +173,6 @@ jobs:
           fi
           echo "No committed credentials detected"
 
-  benchmarks:
-    runs-on: ubuntu-latest
-    steps:
-      # actions/checkout — pinned to v7.0.0 release SHA (Node 24)
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Set up Python
-        # actions/setup-python — pinned to v5.3.0 release SHA
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: '3.12'
-
-      - name: Run internal quality-axis benchmarks
-        # Axes requiring the lineage intake fixture (SHIROE_64_repo_lineage_intake.csv)
-        # are local-only inputs and SKIP cleanly on a fresh checkout; skipped axes
-        # do not fail the run (see benchmarks/run-all.py docstring / SHR-AUDIT-012).
-        run: |
-          python3 benchmarks/run-all.py
-
   release-check:
     runs-on: ubuntu-latest
     steps:

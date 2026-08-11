@@ -24,7 +24,6 @@ python3 scripts/shiroe-validate.py
 python3 -m shiroe audit
 python3 -m shiroe audit-privacy --strict
 python3 scripts/check-version-consistency.py
-python3 benchmarks/run-all.py
 git diff --check
 ```
 
