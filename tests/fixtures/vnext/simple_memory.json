@@ -1,0 +1,8 @@
+{
+  "kind": "decision",
+  "title": "Smoke decision",
+  "claim": "Use a single node smoke graph",
+  "source_refs": ["user-input"],
+  "privacy_class": "internal",
+  "evidence_grade": "C"
+}
