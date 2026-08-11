@@ -1,4 +1,4 @@
-"""Compile privacy-scrubbed handoff artifacts from atoms.
+"""Compile privacy-scrubbed handoff artifacts from canonical memory records.
 
 privacy-audit: allow-file "Handoff compiler references example ISO timestamps + provenance fields; no real user data."
 """
@@ -11,23 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from shiroe.lock import MemoryLock, atomic_write
-from shiroe.memory.atom_store import AtomStore
-from shiroe.memory.refine import build_health_report
+from shiroe.memory.models import MemoryRecord
+from shiroe.memory.service import MemoryService
 from shiroe.privacy import scrub
 
 
 TARGETS = {"codex", "claude", "cursor", "github", "human"}
-
-# Privacy classes exported by default. Everything else fails closed:
-#   * "private"    — excluded by default; exported only with include_private=True.
-#   * "unknown"    — treated exactly like "private" (fail closed): an atom
-#                    whose privacy class was never asserted must not leak
-#                    just because nobody classified it.
-#   * "local-only" — NEVER exported, even with include_private=True; its
-#                    contract is that it never leaves this machine.
-_EXPORT_DEFAULT = {"public-safe"}
-_EXPORT_WITH_PRIVATE = {"public-safe", "private", "unknown"}
-
 
 def compile_handoff(
     root: Path | str = Path("."),
@@ -38,20 +27,20 @@ def compile_handoff(
 ) -> dict[str, Any]:
     """Compile a scrubbed handoff artifact for `target`.
 
-    Atoms are filtered by their `privacy` class before anything is rendered:
-    only "public-safe" atoms are exported by default. Passing
-    include_private=True additionally exports "private" and "unknown" atoms
-    and emits an audit event recording the override; "local-only" atoms are
-    never exported under any flag.
+    Records are filtered by `privacy_class` before anything is rendered: only
+    public records are exported by default. Passing include_private=True also
+    exports internal and confidential records; restricted records are never
+    exported under any flag.
     """
     if target not in TARGETS:
         raise ValueError(f"unsupported handoff target: {target}")
     root_path = Path(root)
-    all_atoms = AtomStore(root_path).load(status="active")
-    atoms, excluded_atoms = _filter_exportable_atoms(all_atoms, include_private=include_private)
+    service = MemoryService(root_path)
+    all_records = list(service.list(statuses=("active",)))
+    records, excluded_atoms = _filter_exportable_records(all_records, include_private=include_private)
     if include_private:
-        _log_private_export(root_path, target=target, atoms=atoms)
-    health = build_health_report(root_path)
+        _log_private_export(root_path, target=target, records=records)
+    health = _build_memory_summary(all_records)
     ts = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y%m%dT%H%M%SZ")
     basename = f"{target}-{ts}"
     redact_path = root_path / "REDACT.md"
@@ -60,7 +49,7 @@ def compile_handoff(
         redact_path,
         provenance=f"handoff/{target}/objective",
     )
-    handoff = _handoff_payload(target, objective_clean, atoms, health, redact_path)
+    handoff = _handoff_payload(target, objective_clean, records, health, redact_path)
     field_redactions = objective_report.redacted + handoff.pop("_redactions", 0)
     markdown = _render_markdown(handoff)
     json_text = json.dumps(handoff, indent=2, sort_keys=True) + "\n"
@@ -85,42 +74,40 @@ def compile_handoff(
     }
 
 
-def _filter_exportable_atoms(
-    atoms: list[dict[str, Any]],
+def _filter_exportable_records(
+    records: list[MemoryRecord],
     *,
     include_private: bool,
-) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Split atoms into (exportable, excluded-count-by-privacy-class).
+) -> tuple[list[MemoryRecord], dict[str, int]]:
+    """Split records into (exportable, excluded-count-by-privacy-class).
 
-    Fails closed: an atom with a missing or unrecognized privacy value is
-    treated as "unknown" and follows the "private" rules.
+    Fails closed: a record with a missing or unrecognized privacy value is
+    treated as internal and excluded from default external handoffs.
     """
-    allowed = _EXPORT_WITH_PRIVATE if include_private else _EXPORT_DEFAULT
-    exportable: list[dict[str, Any]] = []
+    allowed = {"public"} if not include_private else {"public", "internal", "confidential"}
+    exportable: list[MemoryRecord] = []
     excluded: dict[str, int] = {}
-    for atom in atoms:
-        privacy = atom.get("privacy", "unknown")
-        if privacy not in ("public-safe", "private", "local-only", "unknown"):
-            privacy = "unknown"
+    for record in records:
+        privacy = record.privacy_class if record.privacy_class in {"public", "internal", "confidential", "restricted"} else "internal"
         if privacy in allowed:
-            exportable.append(atom)
+            exportable.append(record)
         else:
             excluded[privacy] = excluded.get(privacy, 0) + 1
     return exportable, excluded
 
 
-def _log_private_export(root_path: Path, *, target: str, atoms: list[dict[str, Any]]) -> None:
+def _log_private_export(root_path: Path, *, target: str, records: list[MemoryRecord]) -> None:
     """Record an include_private override in the redaction audit log.
 
     The event is emitted whenever the override flag is used, so the audit
-    trail shows the operator's intent even when no private atom happened to
+    trail shows the operator's intent even when no private record happened to
     exist at the time.
     """
     from shiroe.audit.logger import AuditLogger
 
     private_ids = [
-        atom["id"] for atom in atoms
-        if atom.get("privacy", "unknown") in ("private", "unknown")
+        record.id for record in records
+        if record.privacy_class in ("internal", "confidential")
     ]
     AuditLogger.from_root(root_path).append(
         event_type="redaction",
@@ -138,24 +125,24 @@ def _log_private_export(root_path: Path, *, target: str, atoms: list[dict[str, A
 def _handoff_payload(
     target: str,
     objective: str,
-    atoms: list[dict[str, Any]],
+    records: list[MemoryRecord],
     health: dict[str, Any],
     redact_path: Path,
 ) -> dict[str, Any]:
     by_type: dict[str, list[dict[str, Any]]] = {}
     relevant_files = []
     redactions = 0
-    for atom in atoms:
-        brief, count = _brief(atom, redact_path)
+    for record in records:
+        brief, count = _brief(record, redact_path)
         redactions += count
-        by_type.setdefault(atom["type"], []).append(brief)
-        if atom["source_type"] == "file":
+        by_type.setdefault(record.kind, []).append(brief)
+        if brief["source_type"] == "file":
             relevant_files.append(brief["source"])
     return {
         "target": target,
         "objective": objective,
         "current_state": {
-            "active_atoms": len(atoms),
+            "active_records": len(records),
             "health_passed": health["passed"],
             "open_contradictions": len(health["open_contradictions"]),
         },
@@ -176,19 +163,32 @@ def _handoff_payload(
     }
 
 
-def _brief(atom: dict[str, Any], redact_path: Path) -> tuple[dict[str, Any], int]:
-    claim, claim_report = scrub(atom["claim"], redact_path, provenance=f"handoff/atom/{atom['id']}/claim")
-    summary, summary_report = scrub(atom["summary"], redact_path, provenance=f"handoff/atom/{atom['id']}/summary")
-    source, source_report = scrub(atom["source"], redact_path, provenance=f"handoff/atom/{atom['id']}/source")
+def _brief(record: MemoryRecord, redact_path: Path) -> tuple[dict[str, Any], int]:
+    source_value = record.source_refs[0] if record.source_refs else ""
+    claim, claim_report = scrub(record.claim, redact_path, provenance=f"handoff/memory/{record.id}/claim")
+    summary, summary_report = scrub(record.summary, redact_path, provenance=f"handoff/memory/{record.id}/summary")
+    source, source_report = scrub(source_value, redact_path, provenance=f"handoff/memory/{record.id}/source")
     return {
-        "id": atom["id"],
+        "id": record.id,
         "claim": claim,
         "summary": summary,
         "source": source,
-        "source_type": atom["source_type"],
-        "evidence": atom["evidence"],
-        "status": atom["status"],
+        "source_type": "file" if source and not source.startswith(("http://", "https://")) else "user",
+        "evidence": record.evidence_grade,
+        "status": record.status,
     }, claim_report.redacted + summary_report.redacted + source_report.redacted
+
+
+def _build_memory_summary(records: list[MemoryRecord]) -> dict[str, Any]:
+    open_contradictions = [record for record in records if record.kind == "contradiction"]
+    return {
+        "passed": not open_contradictions,
+        "open_contradictions": [record.id for record in open_contradictions],
+        "summary": {
+            "active_records": len(records),
+            "open_contradictions": len(open_contradictions),
+        },
+    }
 
 
 def _render_markdown(handoff: dict[str, Any]) -> str:
