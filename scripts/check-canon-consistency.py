@@ -27,9 +27,9 @@ SHR-004 — canon conflicts
     cite an archived directory as if it were live.
 
 SHR-005 — component status labels
-    The status enum is read at runtime from registry/shiroe-registry.schema.json.
-    It is never hardcoded here. Each registry collection reports how many entries
-    carry no status label and how many carry an out-of-enum one.
+    Active only while the contract registry exists. Phase 01 intentionally
+    removes shiroe-registry.json and its schema, so absence of both surfaces
+    is a clean no-op rather than an input error.
 
 SHR-006 — public claim ledger
     Numeric and count claims only. Machine-verified claims are recomputed with
@@ -721,11 +721,13 @@ STATUS_COLLECTIONS = ["skills", "agents", "commands", "team_packs", "gates"]
 
 def status_enum(root: Path) -> tuple[list[str], list[Finding]]:
     """
-    Read the label set from the schema at runtime. Never hardcoded here — the
-    schema is rank 1 and this script is rank 0 in the unscoped tooling layer.
+    Read the label set from the schema at runtime when the contract registry
+    still exists. vNext Phase 01 deliberately removes it.
     """
     path = root / SCHEMA_REL
     if not path.exists():
+        if not (root / REGISTRY_REL).exists():
+            return [], []
         raise InputError(f"registry schema missing: {SCHEMA_REL}")
     try:
         schema = json.loads(path.read_text(encoding="utf-8"))
@@ -754,7 +756,7 @@ def status_enum(root: Path) -> tuple[list[str], list[Finding]]:
 def check_status_labels(root: Path, enum: list[str]) -> tuple[list[Finding], list[str]]:
     path = root / REGISTRY_REL
     if not path.exists():
-        raise InputError(f"registry missing: {REGISTRY_REL}")
+        return [], ["contract registry removed"]
     try:
         registry = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:

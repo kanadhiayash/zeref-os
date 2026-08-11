@@ -210,10 +210,12 @@ def test_public_claim_ledger_entries_are_well_formed(repo_root: Path) -> None:
 
 
 def test_status_enum_is_single_sourced_from_the_schema(repo_root: Path) -> None:
-    """SHR-005 labels live in the schema; nothing may hardcode them."""
-    schema = json.loads(
-        (repo_root / "registry" / "shiroe-registry.schema.json").read_text(encoding="utf-8")
-    )
+    """Phase 01 removes the contract registry; if it returns, labels stay schema-owned."""
+    schema_path = repo_root / "registry" / "shiroe-registry.schema.json"
+    registry_path = repo_root / "shiroe-registry.json"
+    if not schema_path.exists() and not registry_path.exists():
+        return
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
     skills_enum = schema["properties"]["skills"]["items"]["properties"]["status"]["enum"]
     agents_enum = schema["properties"]["agents"]["items"]["properties"]["status"]["enum"]
     assert skills_enum == agents_enum, (

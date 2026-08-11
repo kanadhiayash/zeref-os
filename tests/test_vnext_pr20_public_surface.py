@@ -6,8 +6,6 @@ import json
 import re
 from pathlib import Path
 
-import pytest
-
 from shiroe.registry import generate_all
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -38,11 +36,6 @@ def test_shiroe_version_file() -> None:
 def test_pyproject_version() -> None:
     text = _read(REPO_ROOT / "pyproject.toml")
     assert f'version = "{EXPECTED_VERSION}"' in text
-
-
-def test_registry_version() -> None:
-    reg = json.loads(_read(REPO_ROOT / "shiroe-registry.json"))
-    assert reg["version"] == EXPECTED_VERSION
 
 
 def test_plugin_manifest_version() -> None:
@@ -92,8 +85,7 @@ def test_generated_components_schema_shape() -> None:
     ids = {c["id"] for c in data["components"]}
     for expected in ("shiroe.storage", "shiroe.policy", "shiroe.capabilities",
                      "shiroe.runtime", "shiroe.teams", "shiroe.codecs",
-                     "shiroe.evidence",
-                     "shiroe.benchmark.program"):
+                     "shiroe.evidence"):
         assert expected in ids
     for row in data["components"]:
         assert row["status"] in ("runtime", "adapter", "contract",

@@ -43,9 +43,7 @@ def test_capability_matrix_blocks_all_external_benchmarks(repo_root: Path) -> No
 def test_capability_matrix_covers_registered_gates(repo_root: Path) -> None:
     entries = build_capability_matrix(repo_root)
     gate_caps = [e for e in entries if e.capability.startswith("gate:")]
-    assert len(gate_caps) == 5  # shiroe-registry.json currently declares 5 gates
-    # every gate in this repo has a matching pytest module, so all are claimable
-    assert all(e.public_claim_allowed for e in gate_caps), gate_caps
+    assert gate_caps == []
 
 
 def test_blocks_critical_recall_claim(tmp_path: Path) -> None:

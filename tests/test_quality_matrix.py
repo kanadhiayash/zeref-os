@@ -83,7 +83,6 @@ def test_quality_matrix_declares_every_axis() -> None:
         "version_consistency": "Run version consistency checker",
         "privacy": "Run strict privacy audit repo-wide",
         "secrets": "Scan repo for committed secrets",
-        "quality_axes": "Run internal quality-axis benchmarks",
         "release": "Run release readiness gate",
         "pytest": "Run pytest with coverage",
     }

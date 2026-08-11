@@ -46,12 +46,6 @@ def test_pyproject_matches_file(repo_root: Path) -> None:
     assert m and m.group(1) == expected
 
 
-def test_registry_matches_file(repo_root: Path) -> None:
-    expected = (repo_root / "shiroe" / "VERSION").read_text(encoding="utf-8").strip()
-    data = json.loads((repo_root / "shiroe-registry.json").read_text(encoding="utf-8"))
-    assert data["version"] == expected
-
-
 def test_plugin_manifest_matches_file(repo_root: Path) -> None:
     expected = (repo_root / "shiroe" / "VERSION").read_text(encoding="utf-8").strip()
     data = json.loads((repo_root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))

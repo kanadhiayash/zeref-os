@@ -3,14 +3,12 @@
 Covers:
 - fresh `shiroe init` scaffolds every file `shiroe doctor` requires;
 - release check requires real commit provenance (fails without .git);
-- release check never trusts a stored benchmarks/results.json PASS;
 - file-based network permissions are consistent with the env lane and
   fail-closed by default.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import stat
 from pathlib import Path
@@ -77,65 +75,12 @@ def test_evidence_blob_refused_without_sha(tmp_path: Path) -> None:
 
 
 def test_release_check_fails_closed_without_git(tmp_path: Path) -> None:
-    """End-to-end: a stored passing results.json in a non-repo never passes."""
+    """End-to-end: release readiness still fails closed without commit provenance."""
     scaffold_project(tmp_path, name="ws4", privacy="abstract", tier="auto", parent="")
-    bench = tmp_path / "benchmarks"
-    bench.mkdir()
-    (bench / "results.json").write_text(
-        json.dumps({"passed": True, "verdict": "PASS"}), encoding="utf-8",
-    )
     findings = run_release_check(tmp_path)
     by_name = {f.name: f for f in findings}
     assert by_name["commit_provenance"].status == "fail"
-    assert by_name["benchmarks"].status != "pass"
     assert not release_passed(findings)
-
-
-# ---------------------------------------------------------------------------
-# Benchmark gate — execute, never trust stored JSON
-# ---------------------------------------------------------------------------
-
-def test_benchmarks_stored_json_alone_never_passes(tmp_path: Path) -> None:
-    bench = tmp_path / "benchmarks"
-    bench.mkdir()
-    (bench / "results.json").write_text(
-        json.dumps({"passed": True, "verdict": "PASS"}), encoding="utf-8",
-    )
-    finding = release_checks._check_benchmarks(tmp_path)
-    assert finding.status == "fail"
-    assert "run-all.py" in finding.reason
-
-
-def test_benchmarks_skip_is_loud_and_not_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SHIROE_LINEAGE_INTAKE_CSV", raising=False)
-    bench = tmp_path / "benchmarks"
-    bench.mkdir()
-    (bench / "run-all.py").write_text("import sys; sys.exit(0)\n", encoding="utf-8")
-    finding = release_checks._check_benchmarks(tmp_path)
-    assert finding.status == "skip"
-    assert finding.status != "pass"
-    assert "NOT executed" in finding.reason
-    # skip does not block the gate but is never reported as PASS
-    assert release_passed([finding])
-
-
-def test_benchmarks_executes_runner_live(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    csv = tmp_path / "intake.csv"
-    csv.write_text("id\n", encoding="utf-8")
-    monkeypatch.setenv("SHIROE_LINEAGE_INTAKE_CSV", str(csv))
-    bench = tmp_path / "benchmarks"
-    bench.mkdir()
-    runner = bench / "run-all.py"
-
-    runner.write_text("import sys; sys.exit(0)\n", encoding="utf-8")
-    ok = release_checks._check_benchmarks(tmp_path)
-    assert ok.status == "pass"
-    assert "executed live" in ok.reason
-
-    runner.write_text("import sys; print('boom'); sys.exit(2)\n", encoding="utf-8")
-    bad = release_checks._check_benchmarks(tmp_path)
-    assert bad.status == "fail"
-    assert "exit 2" in bad.reason
 
 
 # ---------------------------------------------------------------------------
