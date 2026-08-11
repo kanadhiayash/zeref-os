@@ -49,7 +49,7 @@ def test_plugin_manifest_version() -> None:
 
 REGISTRY_FILES = (
     "components.json", "adapters.json",
-    "codecs.json", "capabilities.json",
+    "capabilities.json",
 )
 
 
@@ -80,12 +80,13 @@ def test_generated_components_schema_shape() -> None:
     data = json.loads(_read(REPO_ROOT / "registry" / "components.json"))
     ids = {c["id"] for c in data["components"]}
     for expected in ("shiroe.storage", "shiroe.policy", "shiroe.capabilities",
-                     "shiroe.work", "shiroe.execution", "shiroe.codecs",
+                     "shiroe.work", "shiroe.execution",
                      "shiroe.evidence"):
         assert expected in ids
+    assert "shiroe.codecs" not in ids
+    assert "shiroe.context" not in ids
     for row in data["components"]:
-        assert row["status"] in ("runtime", "adapter", "contract",
-                                 "experimental")
+        assert row["status"] in ("runtime", "adapter")
 
 
 def test_generated_adapters_reports_all_harnesses() -> None:

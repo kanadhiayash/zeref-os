@@ -114,7 +114,6 @@ a graph is *not* in order to say what it is.
       "paths": [
         "registry/adapters.json",
         "registry/capabilities.json",
-        "registry/codecs.json",
         "registry/components.json",
         "docs/wiki/**"
       ],
