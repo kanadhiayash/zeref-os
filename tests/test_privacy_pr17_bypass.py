@@ -7,9 +7,7 @@ bypass path is left open. Fixtures are generated at runtime and every
 credential-shaped string is assembled from split fragments — this file never
 carries a full credential-shaped literal on disk.
 
-Scanner surface under test: `shiroe.privacy.audit(strict=True)` — the
-canonical entry point invoked by `shiroe audit-privacy --strict --fail-classes
-credentials` and by the release gate.
+Scanner surface under test: `shiroe.privacy.audit(strict=True)`.
 """
 
 from __future__ import annotations
