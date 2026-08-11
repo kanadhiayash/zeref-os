@@ -6,7 +6,9 @@ Contract:
 - ``schema_version`` table records applied numbers with a UTC timestamp.
 - ``migrate()`` applies pending migrations in numeric order, transactionally,
   idempotently (double-apply is a no-op).
-- Migrations are additive: they must NOT drop or rewrite prior tables.
+- Migrations that drop or rewrite prior tables declare ``DESTRUCTIVE = True``;
+  the runner creates and verifies one SQLite backup before applying the first
+  pending destructive migration.
 
 Used by :class:`shiroe.storage.state.StateDB`.
 """
@@ -53,14 +55,20 @@ def _applied(conn: sqlite3.Connection) -> set[int]:
     return {row[0] for row in conn.execute("SELECT number FROM schema_version")}
 
 
-def migrate(conn: sqlite3.Connection) -> list[str]:
+def migrate(conn: sqlite3.Connection, *, target_version: int | None = None) -> list[str]:
     """Apply all pending migrations on ``conn``. Returns names applied."""
     applied = _applied(conn)
     ran: list[str] = []
+    backed_up = False
     for number, name in _discover():
+        if target_version is not None and number > target_version:
+            continue
         if number in applied:
             continue
         module = importlib.import_module(f"{__name__}.{name}")
+        if getattr(module, "DESTRUCTIVE", False) and not backed_up:
+            _backup_database(conn)
+            backed_up = True
         with conn:  # implicit transaction
             module.up(conn)
             conn.execute(
@@ -69,6 +77,27 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
             )
         ran.append(name)
     return ran
+
+
+def _backup_database(conn: sqlite3.Connection) -> Path:
+    row = conn.execute("PRAGMA database_list").fetchone()
+    if row is None or not row[2]:
+        raise RuntimeError("cannot back up destructive migration for in-memory database")
+    source = Path(row[2])
+    backup_dir = source.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    target = backup_dir / f"{source.name}.{stamp}.bak"
+    backup = sqlite3.connect(target)
+    try:
+        conn.backup(backup)
+        integrity = backup.execute("PRAGMA integrity_check").fetchone()[0]
+    finally:
+        backup.close()
+    if integrity != "ok":
+        target.unlink(missing_ok=True)
+        raise RuntimeError(f"destructive migration backup failed integrity check: {integrity}")
+    return target
 
 
 def current_version(conn: sqlite3.Connection) -> int:

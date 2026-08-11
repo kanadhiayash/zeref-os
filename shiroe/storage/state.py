@@ -65,9 +65,9 @@ class StateDB:
             self._conn.close()
             self._conn = None
 
-    def migrate(self) -> list[str]:
+    def migrate(self, *, target_version: int | None = None) -> list[str]:
         conn = self.connect()
-        return migrate(conn)
+        return migrate(conn, target_version=target_version)
 
     def schema_version(self) -> int:
         return current_version(self.connect())
