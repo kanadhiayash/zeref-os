@@ -7,7 +7,6 @@ Surfaces verified:
     - shiroe/VERSION                       (the canonical file)
     - shiroe/__init__.py:__version__       (loaded at import time)
     - pyproject.toml:[project].version
-    - shiroe-registry.json:.version
     - .claude-plugin/plugin.json:.version
     - docs/wiki/Installation.md:grep example
 
@@ -23,7 +22,6 @@ Surfaces verified:
     - .claude-plugin/plugin.json:.description     == .description
     - .claude-plugin/marketplace.json:.description == .description
     - .claude-plugin/marketplace.json:.plugins[0].description == .description
-    - .registry_manifest file exists on disk
     - .github/CODEOWNERS (the file GitHub actually reads) exists on disk
 
 Exit code:
@@ -78,11 +76,6 @@ def _check_init(root: Path, expected: str) -> tuple[str, str | None]:
     return ("shiroe/__init__.py loader", expected)
 
 
-def _check_registry(root: Path, expected: str) -> tuple[str, str | None]:
-    data = json.loads(_read(root, "shiroe-registry.json"))
-    return ("shiroe-registry.json:.version", data.get("version"))
-
-
 def _check_plugin(root: Path, expected: str) -> tuple[str, str | None]:
     data = json.loads(_read(root, ".claude-plugin/plugin.json"))
     return (".claude-plugin/plugin.json:.version", data.get("version"))
@@ -97,7 +90,6 @@ def _check_wiki_install(root: Path, expected: str) -> tuple[str, str | None]:
 CHECKS = [
     _check_pyproject,
     _check_init,
-    _check_registry,
     _check_plugin,
     _check_wiki_install,
 ]
@@ -178,12 +170,6 @@ def _check_identity_marketplace_plugin0_description(root: Path, identity: dict) 
             plugins[0].get("description") if plugins else None)
 
 
-def _check_identity_registry_manifest(root: Path, identity: dict) -> tuple[str, str, str | None]:
-    name = identity["registry_manifest"]
-    exists = (root / name).exists()
-    return (f"{name} exists", "True", str(exists) if exists else None)
-
-
 def _check_identity_codeowners(root: Path, identity: dict) -> tuple[str, str, str | None]:
     # SHR-020: GitHub reads one CODEOWNERS per repo and prefers .github/ over
     # the root. Checking the root file passed while the rules that actually
@@ -203,7 +189,6 @@ IDENTITY_CHECKS = [
     _check_identity_plugin_description,
     _check_identity_marketplace_description,
     _check_identity_marketplace_plugin0_description,
-    _check_identity_registry_manifest,
     _check_identity_codeowners,
 ]
 

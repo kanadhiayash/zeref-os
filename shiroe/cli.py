@@ -67,12 +67,6 @@ def cmd_status(args: argparse.Namespace) -> int:
             break
     _print_section("Active tier", tier)
 
-    reg_path = root / "shiroe-registry.json"
-    if reg_path.exists():
-        reg = json.loads(reg_path.read_text())
-        names = [s["skill"] for s in reg.get("skills", [])]
-        _print_section("shiroe-registry.json", f"{len(names)} skills: {', '.join(names)}")
-
     return 0
 
 
@@ -132,7 +126,6 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"\n✔ Scaffolded:")
     print(f"  config/PROJECT.md (name={values['name']}, privacy={values['privacy']}, tier={values['tier']})")
     print(f"  memory/ flat + layered layout")
-    print(f"  skills/drafts/ (review queue)")
     if values["parent"]:
         print(f"  parent: {values['parent']}")
     print(f"\nNext: edit config/PROJECT.md as needed, then `shiroe status`.")

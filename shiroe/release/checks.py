@@ -46,7 +46,6 @@ def run_release_check(root: Path) -> list[ReleaseFinding]:
     findings.append(_check_version_consistency(root))
     findings.append(_check_workflow_yaml(root))
     findings.append(_check_privacy_scan(root))
-    findings.append(_check_registry_completeness(root))
     findings.append(_check_pyproject_backend(root))
     findings.append(_check_soul_present(root))
     findings.append(_check_target_profiles(root))
@@ -185,30 +184,6 @@ def _check_privacy_scan(root: Path) -> ReleaseFinding:
         f"0 credentials-class hits; {hits} informational hit(s) in non-blocking "
         f"classes across {len(results['by_file'])} file(s) (allowlisted: {allowlisted})",
     )
-
-
-def _check_registry_completeness(root: Path) -> ReleaseFinding:
-    reg_path = root / "shiroe-registry.json"
-    if not reg_path.exists():
-        return _fail("registry_completeness", "shiroe-registry.json missing")
-    reg = json.loads(reg_path.read_text(encoding="utf-8"))
-    required = ("skills", "agents", "commands", "team_packs", "gates")
-    missing = [k for k in required if k not in reg]
-    if missing:
-        return _fail("registry_completeness", "missing arrays: " + ", ".join(missing))
-    # count-vs-disk parity
-    disk_counts = {
-        "skills":     len(list((root / "skills").glob("*/SKILL.md"))),
-        "agents":     len(list((root / "agents").glob("*.md"))),
-        "commands":   len(list((root / "commands").glob("*.md"))),
-        "team_packs": len(list((root / "team-packs").glob("*.md"))),
-        "gates":      len(list((root / "shiroe" / "guards").glob("*_guard.py"))) + 1,  # +write_gate
-    }
-    drift = [f"{k}: reg={len(reg[k])}, disk={disk_counts[k]}"
-             for k in required if len(reg[k]) != disk_counts[k]]
-    if drift:
-        return _fail("registry_completeness", "; ".join(drift))
-    return _pass("registry_completeness", "registry counts match disk for all 5 surfaces")
 
 
 def _check_pyproject_backend(root: Path) -> ReleaseFinding:
