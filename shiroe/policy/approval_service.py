@@ -141,7 +141,7 @@ class ApprovalService:
         reason: str,
         actor_kind: str | None = None,
     ) -> ApprovalRequest:
-        if actor != "human" and actor_kind != "human":
+        if actor != "human" or (actor_kind is not None and actor_kind != "human"):
             raise AuthorizationError("approval decisions require a human actor")
         status = ApprovalStatus(decision)
         if status in {ApprovalStatus.pending, ApprovalStatus.stale}:
