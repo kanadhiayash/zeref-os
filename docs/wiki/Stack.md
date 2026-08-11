@@ -6,10 +6,9 @@ This is a credits and context list, not an integration matrix. Shiroe does not b
 
 If your project belongs here and is missing, open an issue.
 
-## Memory and knowledge graphs
+## Memory context tools
 
 - **[AgriciDaniel / claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian)** — Obsidian vault integration. Complements flat-Markdown memory for long-running domain knowledge.
-- **[safishamsi / graphify](https://github.com/safishamsi/graphify)** — turns code, docs, papers, and videos into a persistent knowledge graph. Useful where cross-file reasoning exceeds what flat Markdown supports.
 
 ## Operating skills and harnesses
 
