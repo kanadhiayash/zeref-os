@@ -17,7 +17,14 @@ class EnforcementLevel(str, Enum):
 
 @dataclass(frozen=True)
 class AdapterResult:
-    """Return value from ``CapabilityAdapter.invoke``."""
+    """Return value from ``CapabilityAdapter.invoke``.
+
+    ``usage`` carries the adapter's own accounting of what the call cost
+    (SHR-055/063). Shape: ``{"tokens_in": int, "tokens_out": int,
+    "cost_usd": float}``. Adapters that don't report usage leave this
+    ``None`` and the supervisor charges zero — better a truthful zero
+    than a hardcoded fiction.
+    """
 
     ok: bool
     output: Any = None
@@ -25,6 +32,7 @@ class AdapterResult:
     exit_code: int | None = None
     stderr_tail: str | None = None
     metadata: dict = field(default_factory=dict)
+    usage: dict | None = None
 
 
 @dataclass(frozen=True)
