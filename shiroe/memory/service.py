@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Iterable
 
 from shiroe.memory.models import MemoryEvent, MemoryRecord, MemoryRelation, MemoryWrite
-from shiroe.storage.events import EventLog
+from shiroe.storage.events import EventEnvelope, EventLog
 from shiroe.storage.records import archive_record, supersede_record, write_record
 from shiroe.storage.state import StateDB
 
@@ -45,6 +45,22 @@ class MemoryService:
         self.close()
 
     def write(self, proposal: MemoryWrite) -> MemoryRecord:
+        rejection_reason = _validate_write(proposal)
+        if rejection_reason:
+            self._log.append(
+                EventEnvelope(
+                    event_type="memory.rejected",
+                    actor=proposal.owner,
+                    target=None,
+                    payload={
+                        "kind": proposal.kind,
+                        "title": proposal.title,
+                        "reason": rejection_reason,
+                    },
+                    privacy_class=_event_privacy_class(proposal.privacy_class),
+                )
+            )
+            raise ValueError(rejection_reason)
         record_id = f"mem_{uuid.uuid4().hex[:16]}"
         sources = [
             {
@@ -211,3 +227,15 @@ def _event_privacy_class(value: str) -> str:
         "local-only": "restricted",
         "unknown": "internal",
     }.get(value, value)
+
+
+def _validate_write(proposal: MemoryWrite) -> str | None:
+    if not proposal.source_refs:
+        return "source_refs required"
+    if not proposal.kind.strip():
+        return "kind required"
+    if not proposal.title.strip():
+        return "title required"
+    if not proposal.claim.strip():
+        return "claim required"
+    return None

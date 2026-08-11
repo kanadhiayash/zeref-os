@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from shiroe.memory.models import MemoryWrite
+import pytest
+
 from shiroe.memory.service import MemoryService
 
 
@@ -55,3 +57,22 @@ def test_history_returns_canonical_event_envelopes(tmp_path):
 
     assert [event.event_type for event in history] == ["memory.written"]
     assert history[0].target == record.id
+
+
+def test_rejected_write_leaves_records_unchanged_and_records_rejection(tmp_path):
+    svc = MemoryService(tmp_path)
+
+    with pytest.raises(ValueError, match="source_refs required"):
+        svc.write(
+            MemoryWrite(
+                kind="decision",
+                title="Missing source",
+                claim="Use canonical memory",
+                source_refs=(),
+            )
+        )
+
+    assert svc.list(statuses=()) == ()
+    events = svc.history()
+    assert [event.event_type for event in events] == ["memory.rejected"]
+    assert events[0].payload["reason"] == "source_refs required"

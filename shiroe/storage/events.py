@@ -48,7 +48,7 @@ _ALLOWED_PRIVACY_CLASSES = {"public", "internal", "confidential", "restricted"}
 # was one of the ways v1 events drifted.
 _KNOWN_EVENT_TYPES: set[str] = {
     # memory
-    "memory.written", "memory.superseded", "memory.archived",
+    "memory.written", "memory.superseded", "memory.archived", "memory.rejected",
     "contradiction.detected", "contradiction.resolved",
     # capability lifecycle
     "capability.discovered", "capability.quarantined", "capability.inspected",
