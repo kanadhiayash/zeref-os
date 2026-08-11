@@ -10,7 +10,7 @@ Design goals:
     SHIROE_ALLOW_NETWORK=1                    # blanket per-session allow
     SHIROE_ALLOW_CONNECTOR=github,litellm     # per-connector allow
 
-- Every call site (LLM egress, lineage GitHub API, sync outbound)
+- Every call site (LLM egress, sync outbound)
   routes through `require_connector` / `require_network` before running.
 """
 from __future__ import annotations

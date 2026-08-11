@@ -50,15 +50,7 @@ def test_release_check(repo_root: Path) -> None:
     assert release_passed(findings)
     cli = _run(repo_root, repo_root, ["release", "check"])
     assert cli.returncode == 0, cli.stdout
-    # WS4: the benchmark gate executes the suite live. Without the local-only
-    # lineage intake fixture it must surface a loud SKIP, never a stored PASS.
-    from shiroe.lineage.importer import default_csv_path
-
-    if default_csv_path(repo_root).exists():
-        assert "PASS benchmarks" in cli.stdout
-    else:
-        assert "SKIP benchmarks" in cli.stdout
-        assert "PASS benchmarks" not in cli.stdout
+    assert "benchmarks" not in cli.stdout.lower()
 
 
 def test_doctor(repo_root: Path) -> None:

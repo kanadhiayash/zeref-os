@@ -51,12 +51,6 @@ def test_workflow_display_names_are_shiroe_named() -> None:
         assert "ZRF" not in first and "Zeref" not in first, first
 
 
-def test_lineage_rows_carry_shiroe_field_names() -> None:
-    from shiroe.lineage.intake import REQUIRED_COLUMNS
-
-    assert not [c for c in REQUIRED_COLUMNS if "zrf" in c.lower()]
-
-
 # --------------------------------------------------------------------------- #
 # Synthetic injection — the guard must actually bite
 # --------------------------------------------------------------------------- #

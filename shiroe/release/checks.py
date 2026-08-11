@@ -119,7 +119,7 @@ def _check_version_consistency(root: Path) -> ReleaseFinding:
     except (OSError, subprocess.TimeoutExpired) as exc:
         return _fail("version_consistency", f"script exec failed: {exc}")
     if result.returncode == 0:
-        return _pass("version_consistency", "all surfaces + tag lineage aligned")
+        return _pass("version_consistency", "all version surfaces aligned")
     return _fail("version_consistency", f"drift detected (exit {result.returncode})")
 
 
