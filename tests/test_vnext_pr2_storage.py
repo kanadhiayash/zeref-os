@@ -43,15 +43,15 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
         "team_runs", "team_assignments", "execution_steps", "evidence_reviews",
         "evaluator_runs", "adapter_status", "codec_profiles",
         "work_graphs", "work_nodes", "work_edges", "work_attempts",
-        "approval_requests",
+        "approval_requests", "approval_advice",
     }
     missing = expected - tables
     assert not missing, f"missing tables: {sorted(missing)}"
     assert "schema_version" in tables
     columns = {row[1] for row in db.connect().execute("PRAGMA table_info(memory_records)")}
     assert "tags_json" in columns
-    # m0005 adds canonical memory tags.
-    assert db.schema_version() == 5
+    # m0006 adds non-authorizing approval advice.
+    assert db.schema_version() == 6
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:

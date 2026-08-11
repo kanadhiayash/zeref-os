@@ -1,4 +1,4 @@
-"""Non-authorizing approval advisor."""
+"""Non-authorizing approval advice service."""
 
 from __future__ import annotations
 
@@ -9,15 +9,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from shiroe.adapters.capabilities import resolve_adapter
-from shiroe.capabilities.gate import assert_executable
+from shiroe.adapters.capabilities.registry import resolve_adapter
+from shiroe.capabilities.gate import CapabilityGateError, assert_executable
 from shiroe.capabilities.store import CapabilityStore
 from shiroe.memory.service import MemoryService
 from shiroe.policy.approval_service import ApprovalService
+from shiroe.policy.approvals import ApprovalRequest
 from shiroe.storage.state import StateDB
 
 
-_RECOMMENDATIONS = {"approve", "reject", "revise", "defer"}
+RECOMMENDATIONS = {"approve", "reject", "revise", "defer"}
 
 
 @dataclass(frozen=True)
@@ -34,38 +35,32 @@ class ApprovalAdvice:
 
 
 class ApprovalAdvisor:
+    """Invoke an approved reasoning capability and persist advice only.
+
+    This class intentionally never calls ``ApprovalService.decide_human``. The
+    approval request remains pending until a human decision writes authority.
+    """
+
     def __init__(self, root: Path | str):
         self.root = Path(root)
         self.db = StateDB(self.root)
         self.conn = self.db.connect()
         self.db.migrate()
 
-    def advise(self, request_id: str, capability_id: str) -> ApprovalAdvice:
+    def advise(self, approval_id: str, capability_id: str) -> ApprovalAdvice:
         assert_executable(self.root, capability_id)
-        approval = ApprovalService(self.root).get(request_id)
-        adapter_name = self._adapter_name(capability_id)
-        adapter = resolve_adapter(adapter_name)
+        approval = ApprovalService(self.root).get(approval_id)
+        adapter = resolve_adapter(_adapter_name(self.root, capability_id))
         result = adapter.invoke(
             capability_id=capability_id,
             action="approval_advice",
-            inputs=self._request_payload(approval),
-            permissions={"external_write": False, "approval_decision": False},
+            inputs=_advisor_payload(self.root, approval),
+            permissions={"authorize": False, "write_approval_decision": False},
             timeout_s=30,
         )
         if not result.ok:
             raise RuntimeError(result.error or "approval advisor capability failed")
-        payload = _parse_payload(result.output)
-        advice = ApprovalAdvice(
-            id=f"adv_{uuid.uuid4().hex}",
-            approval_id=request_id,
-            capability_id=capability_id,
-            recommendation=_recommendation(payload),
-            rationale=str(payload.get("rationale") or ""),
-            risks=tuple(str(item) for item in payload.get("risks") or ()),
-            evidence_gaps=tuple(str(item) for item in payload.get("evidence_gaps") or ()),
-            conditions=tuple(str(item) for item in payload.get("conditions") or ()),
-            created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        )
+        advice = _parse_advice(approval_id, capability_id, result.output)
         with self.conn:
             self.conn.execute(
                 """
@@ -88,53 +83,105 @@ class ApprovalAdvisor:
             )
         return advice
 
-    def _adapter_name(self, capability_id: str) -> str:
-        row = CapabilityStore(self.root).conn.execute(
-            "SELECT manifest FROM capability_versions WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _adapter_name(root: Path, capability_id: str) -> str:
+    store = CapabilityStore(root)
+    try:
+        row = store.conn.execute(
+            "SELECT manifest FROM capability_versions "
+            "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
             (capability_id,),
         ).fetchone()
         if row is None:
-            raise KeyError(capability_id)
-        manifest = json.loads(row[0])
-        return str(manifest["entrypoint"]["adapter"])
+            raise CapabilityGateError(f"no manifest for capability {capability_id!r}")
+        manifest = json.loads(row[0] or "{}")
+        adapter_name = manifest.get("entrypoint", {}).get("adapter")
+        if not adapter_name:
+            raise CapabilityGateError(f"capability {capability_id!r} has no executable adapter")
+        return str(adapter_name)
+    finally:
+        store.close()
 
-    def _request_payload(self, approval) -> dict[str, Any]:
-        decisions = [
-            {
-                "id": record.id,
-                "title": record.title,
-                "claim": record.claim,
-                "evidence_grade": record.evidence_grade,
-            }
-            for record in MemoryService(self.root).list(kinds=("decision",), statuses=("active",), limit=10)
-        ]
-        return {
-            "approval": {
-                "id": approval.id,
-                "type": approval.approval_type.value,
-                "requested_action": approval.requested_action,
-                "scope": dict(approval.scope),
-                "reason": approval.reason,
-                "risk": approval.risk,
-                "status": approval.status.value,
-            },
-            "graph_context": {"graph_id": approval.graph_id, "node_id": approval.node_id},
-            "verification": {"latest": None},
-            "memory_decisions": decisions,
-            "instruction": "Return JSON with recommendation, rationale, risks, evidence_gaps, conditions",
+
+def _advisor_payload(root: Path, approval: ApprovalRequest) -> dict[str, Any]:
+    graph_context = _graph_context(root, approval.graph_id)
+    decisions = [
+        {
+            "id": record.id,
+            "title": record.title,
+            "claim": record.claim,
+            "source_refs": list(record.source_refs),
         }
+        for record in MemoryService(root).list(kinds=("decision",), statuses=("active",), limit=10)
+    ]
+    return {
+        "approval": _approval_to_dict(approval),
+        "graph_context": graph_context,
+        "verification": {"latest": None, "status": "not_run"},
+        "memory_decisions": decisions,
+        "instruction": "Return JSON with recommendation, rationale, risks, evidence_gaps, conditions",
+    }
 
 
-def _parse_payload(output: Any) -> dict[str, Any]:
-    if isinstance(output, dict):
-        return output
-    if isinstance(output, str):
-        return json.loads(output)
-    raise ValueError("advisor output must be a JSON object")
+def _graph_context(root: Path, graph_id: str | None) -> dict[str, Any]:
+    if not graph_id:
+        return {"graph_id": None, "nodes": []}
+    try:
+        from shiroe.work.store import WorkStore
+
+        graph = WorkStore(root).get(graph_id)
+        return {
+            "graph_id": graph.id,
+            "objective": graph.objective,
+            "nodes": [
+                {
+                    "id": node.id,
+                    "kind": node.kind.value,
+                    "objective": node.objective,
+                    "requires": list(node.requires),
+                }
+                for node in graph.nodes
+            ],
+        }
+    except Exception:
+        return {"graph_id": graph_id, "nodes": []}
 
 
-def _recommendation(payload: dict[str, Any]) -> str:
-    value = str(payload.get("recommendation") or "")
-    if value not in _RECOMMENDATIONS:
-        raise ValueError(f"unknown advisor recommendation: {value!r}")
-    return value
+def _approval_to_dict(approval: ApprovalRequest) -> dict[str, Any]:
+    return {
+        "id": approval.id,
+        "approval_type": approval.approval_type.value,
+        "requested_action": approval.requested_action,
+        "scope": dict(approval.scope),
+        "scope_digest": approval.digest,
+        "reason": approval.reason,
+        "risk": approval.risk,
+        "graph_id": approval.graph_id,
+        "node_id": approval.node_id,
+        "status": approval.status.value,
+    }
+
+
+def _parse_advice(approval_id: str, capability_id: str, output: Any) -> ApprovalAdvice:
+    payload = json.loads(output) if isinstance(output, str) else dict(output)
+    recommendation = str(payload.get("recommendation") or "")
+    if recommendation not in RECOMMENDATIONS:
+        raise ValueError(f"unknown approval recommendation: {recommendation!r}")
+    rationale = str(payload.get("rationale") or "").strip()
+    if not rationale:
+        raise ValueError("approval advice requires rationale")
+    return ApprovalAdvice(
+        id=f"adv_{uuid.uuid4().hex}",
+        approval_id=approval_id,
+        capability_id=capability_id,
+        recommendation=recommendation,
+        rationale=rationale,
+        risks=tuple(str(item) for item in payload.get("risks") or ()),
+        evidence_gaps=tuple(str(item) for item in payload.get("evidence_gaps") or ()),
+        conditions=tuple(str(item) for item in payload.get("conditions") or ()),
+        created_at=_now(),
+    )
