@@ -88,68 +88,6 @@ def search_memory(
     )
 
 
-def search_atoms(
-    root: Path | str,
-    query: str,
-    *,
-    limit: int = 10,
-    atom_type: str | None = None,
-    status: str | None = "active",
-    as_of: str | None = None,
-    expand: bool = False,
-) -> dict:
-    """Temporary compatibility shim for pre-Phase-05 CLI callers.
-
-    Returns the old dict shape from canonical memory rows only. The shim exists
-    while recall/CLI/handoff are migrated, not as a second backend.
-    """
-    statuses = (status,) if status else ("active", "superseded", "archived", "disputed", "stale")
-    kinds = (atom_type,) if atom_type else None
-    result = search_memory(root, query, limit=limit, kinds=kinds, statuses=statuses, as_of=as_of)
-    return {
-        "query": query,
-        "tokens": list(result.tokens),
-        "source": result.source,
-        "abstained": result.abstained,
-        "matches": [
-            {
-                "atom": _record_to_legacy_atom(hit.record),
-                "score": hit.score,
-                "matched_via": "canonical",
-                "why": hit.why,
-            }
-            for hit in result.hits
-        ],
-        "expansion": {"tokens": [], "added": []},
-    }
-
-
-def _record_to_legacy_atom(record) -> dict:
-    return {
-        "id": record.id,
-        "type": record.kind,
-        "claim": record.claim,
-        "summary": record.summary or record.claim,
-        "source": ",".join(record.source_refs),
-        "source_type": "user",
-        "evidence": record.evidence_grade,
-        "confidence": record.confidence,
-        "status": record.status,
-        "created_at": record.created_at,
-        "observed_at": None,
-        "last_confirmed_at": None,
-        "valid_from": record.valid_from,
-        "valid_until": record.valid_until,
-        "recorded_at": record.created_at,
-        "superseded_at": None,
-        "entities": [],
-        "tags": list(record.tags),
-        "links": [],
-        "privacy": record.privacy_class,
-        "provenance": record.owner,
-    }
-
-
 def _reverse_timestamp(value: str) -> str:
     # ISO-8601 strings sort chronologically ascending. Invert digits to make
     # newer timestamps sort first without depending on datetime parsing.

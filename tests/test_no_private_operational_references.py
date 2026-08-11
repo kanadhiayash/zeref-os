@@ -223,7 +223,6 @@ def test_injected_leak_fails_the_tree_scan(repo_root: Path, tmp_path: Path) -> N
 
 SPEC_SURFACES = [
     "REDACT.md",
-    "tests/test_privacy_guard.py",
 ]
 
 

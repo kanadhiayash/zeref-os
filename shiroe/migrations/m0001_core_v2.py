@@ -3,7 +3,7 @@
 Creates the 17 tables that hold canonical current state for memory,
 capabilities, missions, execution, evidence, evaluators, adapters, and
 codec profiles. Additive; may not drop or rewrite existing v1 tables
-(shiroe.db, shiroe.memory_state, shiroe.memory.indexer own theirs).
+(shiroe.db and shiroe.memory_state own theirs).
 """
 
 from __future__ import annotations

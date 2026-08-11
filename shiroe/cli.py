@@ -182,42 +182,13 @@ def cmd_explain_search(args: argparse.Namespace) -> int:
 
 
 def cmd_cost(args: argparse.Namespace) -> int:
-    from shiroe.memory.cost_router import audit_budgets, estimate_tokens, report, route_operation
-
-    root = _project_root()
-    if args.cost_command == "estimate":
-        result = estimate_tokens(args.text or "")
-    elif args.cost_command == "route":
-        result = route_operation(
-            args.operation,
-            text=args.text or "",
-            approval=args.approval,
-            render_mode=args.render_mode,
-            duplicate=args.duplicate,
-            status_change=args.status_change,
-            public_claim=args.public_claim,
-            contradiction=args.contradiction,
-        )
-    elif args.cost_command == "report":
-        result = report(root)
-    elif args.cost_command == "audit":
-        result = audit_budgets(root, strict=args.strict)
-        if args.strict and not result["passed"]:
-            print(json.dumps(result, indent=2, sort_keys=True))
-            return 1
-    else:
-        print("✘ cost subcommand required")
-        return 2
-    print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+    print("✘ cost command was removed in vNext; use execution budget primitives")
+    return 2
 
 
 def cmd_facts(args: argparse.Namespace) -> int:
-    from shiroe.memory.fact_guard import audit_facts
-
-    result = audit_facts(_project_root())
-    print(json.dumps(result, indent=2, sort_keys=True))
-    return 0 if result["passed"] else 1
+    print("✘ facts command was removed in vNext; use verify")
+    return 2
 
 
 
@@ -474,339 +445,187 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_memory(args: argparse.Namespace) -> int:
-    from shiroe.core.errors import GuardRejection
-    from shiroe.guards.write_gate import propose_memory, write_from_proposal
-    from shiroe.memory.atom_store import AtomStore
-    from shiroe.memory.schemas import ATOM_TYPES, create_atom, utc_now_iso
-    from shiroe.memory_state import card_to_dict, event_to_dict, item_to_dict, MemoryStore
-    from shiroe.privacy import scrub
+    from dataclasses import asdict
+
+    from shiroe.audit.logger import AuditLogger
+    from shiroe.memory.models import MemoryWrite
+    from shiroe.memory.search import search_memory
+    from shiroe.memory.service import MemoryNotFoundError, MemoryService
+    from shiroe.memory.views import render_views
+    from shiroe.verification import VerificationEngine
 
     root = _project_root()
-    store = MemoryStore.from_root(root)
-    atom_store = AtomStore(root)
+    service = MemoryService(root)
+
+    def _record_payload(record) -> dict:
+        data = asdict(record)
+        data["type"] = record.kind
+        data["evidence"] = record.evidence_grade
+        data["privacy"] = record.privacy_class
+        data["tags"] = list(record.tags)
+        return data
 
     try:
-        if args.memory_command == "propose":
-            proposal = propose_memory(args.claim, output=Path(args.out))
-            if args.json:
-                print(json.dumps(proposal, indent=2, sort_keys=True))
-            else:
-                print(f"✔ proposal written to {args.out}")
-            return 0
-
         if args.memory_command == "write":
-            card = write_from_proposal(Path(args.from_path), store)
-            print(json.dumps(card, indent=2, sort_keys=True) if args.json else f"✔ memory card written: {card['id']}")
+            payload = json.loads(Path(args.from_path).read_text(encoding="utf-8"))
+            proposal = _memory_write_from_payload(payload)
+            report = VerificationEngine(root).verify_memory_write(proposal)
+            audit = AuditLogger.from_root(root)
+            if report.status.value == "block":
+                reason = "; ".join(
+                    finding.message
+                    for check in report.checks
+                    for finding in check.findings
+                ) or "verification blocked"
+                audit.append(
+                    event_type="guard_failure",
+                    status="blocked",
+                    reason=reason,
+                    file=str(args.from_path),
+                    guards_run=[check.name for check in report.checks],
+                )
+                audit.append(
+                    event_type="memory_write",
+                    status="blocked",
+                    reason=reason,
+                    file=str(args.from_path),
+                    guards_run=[check.name for check in report.checks],
+                )
+                print(json.dumps(_verification_report_to_dict(report), indent=2, sort_keys=True))
+                return 1
+            record = service.write(proposal)
+            audit.append(
+                event_type="memory_write",
+                status="accepted",
+                reason="accepted guarded write",
+                file=str(args.from_path),
+                memory_id=record.id,
+                guards_run=[check.name for check in report.checks],
+            )
+            if args.json:
+                print(json.dumps(_record_payload(record), indent=2, sort_keys=True))
+            else:
+                print(f"✔ memory written: {record.id}")
             return 0
 
         if args.memory_command == "list":
-            atom_type = args.type if args.type in ATOM_TYPES else None
-            atoms = atom_store.load(atom_type=atom_type, status=args.status) if (args.atoms or atom_type) else []
-            if args.atoms or atoms:
-                if args.json:
-                    print(json.dumps(atoms[:args.limit], indent=2, sort_keys=True))
-                else:
-                    for atom in atoms[:args.limit]:
-                        print(f"{atom['id']}\t{atom['type']}\t{atom['status']}\t{atom['claim']}")
-                    if not atoms:
-                        print("(no atoms)")
-                return 0
-
-            cards = store.list_cards(type=args.type or "", status=args.status or "", limit=args.limit)
+            records = service.list(
+                kinds=(args.type,) if args.type else None,
+                statuses=(args.status,) if args.status else ("active",),
+                limit=args.limit,
+            )
             if args.json:
-                print(json.dumps([card_to_dict(card) for card in cards], indent=2, sort_keys=True))
+                print(json.dumps([_record_payload(record) for record in records], indent=2, sort_keys=True))
             else:
-                for card in cards:
-                    print(f"{card.id} {card.type} {card.status} {card.title}")
-                if not cards:
-                    print("No memory cards found.")
+                for record in records:
+                    print(f"{record.id} {record.kind} {record.status} {record.title}")
+                if not records:
+                    print("No memory records found.")
             return 0
 
-        # show/archive/supersede resolve against the canonical atom store
-        # first and fall back to memory_cards, so ids written before the
-        # convergence stay reachable instead of silently 404-ing.
         if args.memory_command == "show":
-            atom = atom_store.get(args.id)
-            if atom is not None:
-                print(json.dumps(atom, indent=2, sort_keys=True))
-                return 0
-            card = store.get_card(args.id)
-            if card is None:
-                print(f"✘ memory {args.id} not found")
-                return 1
-            print(json.dumps(card_to_dict(card), indent=2, sort_keys=True))
+            record = service.get(args.id)
+            print(json.dumps(_record_payload(record), indent=2, sort_keys=True))
             return 0
 
         if args.memory_command == "archive":
-            if atom_store.get(args.id) is not None:
-                atom = atom_store.patch(args.id, {"status": "archived"})
-                print(json.dumps(atom, indent=2, sort_keys=True) if args.json else f"✔ archived {atom['id']}")
-                return 0
-            card = store.archive_card(args.id)
-            print(json.dumps(card_to_dict(card), indent=2, sort_keys=True) if args.json else f"✔ archived {card.id}")
+            record = service.archive(args.id)
+            print(json.dumps(_record_payload(record), indent=2, sort_keys=True) if args.json else f"✔ archived {record.id}")
             return 0
 
         if args.memory_command == "supersede":
-            replacement = atom_store.get(args.with_id)
-            if atom_store.get(args.id) is not None and replacement is not None:
-                # Both already exist as atoms: close the old row's transaction
-                # interval in place rather than appending a duplicate.
-                old_atom = atom_store.patch(
-                    args.id,
-                    {
-                        "status": "superseded",
-                        "superseded_at": utc_now_iso(),
-                        "superseded_by": replacement["id"],
-                    },
-                )
-                replacement = atom_store.patch(
-                    replacement["id"],
-                    {"supersedes": sorted({*replacement.get("supersedes", []), args.id})},
-                )
-                result = {"superseded": old_atom, "replacement": replacement}
-                print(json.dumps(result, indent=2, sort_keys=True) if args.json
-                      else f"✔ {old_atom['id']} superseded by {replacement['id']}")
-                return 0
-            old_card, new_card = store.supersede_card(args.id, args.with_id)
-            result = {"superseded": card_to_dict(old_card), "replacement": card_to_dict(new_card)}
-            print(json.dumps(result, indent=2, sort_keys=True) if args.json else f"✔ {old_card.id} superseded by {new_card.id}")
+            old = service.supersede(args.id)
+            replacement = service.get(args.with_id)
+            result = {"superseded": _record_payload(old), "replacement": _record_payload(replacement)}
+            print(json.dumps(result, indent=2, sort_keys=True) if args.json else f"✔ {old.id} superseded by {replacement.id}")
             return 0
 
         if args.memory_command == "add":
-            if args.claim is not None or args.source is not None or args.type is not None:
-                if not args.type or not args.claim or not args.source:
-                    print("✘ atom add requires --type, --claim, and --source")
-                    return 2
-                redact = root / "REDACT.md"
-                claim, claim_report = scrub(args.claim, redact, provenance="memory/add/claim")
-                summary_raw = args.summary or args.claim
-                summary, summary_report = scrub(summary_raw, redact, provenance="memory/add/summary")
-                source, source_report = scrub(args.source, redact, provenance="memory/add/source")
-                provenance_raw = args.provenance or "shiroe-cli memory add"
-                provenance, provenance_report = scrub(
-                    provenance_raw,
-                    redact,
-                    provenance="memory/add/provenance",
-                )
-                redacted = (
-                    claim_report.redacted
-                    + summary_report.redacted
-                    + source_report.redacted
-                    + provenance_report.redacted
-                )
-                if redacted:
-                    provenance = f"{provenance} (pii_scrubbed={redacted})"
-
-                atom = create_atom(
-                    atom_type=args.type,
-                    claim=claim,
-                    summary=summary,
-                    source=source,
-                    source_type=args.source_type,
-                    evidence=args.evidence,
+            record = service.write(
+                MemoryWrite(
+                    kind=args.type or args.kind,
+                    title=args.title or (args.claim or input("Title: ").strip()),
+                    claim=args.claim or args.body or input("Body: ").strip(),
+                    summary=args.summary or "",
+                    source_refs=(args.source or args.source_ref or "user-input",),
+                    evidence_grade=args.evidence,
+                    privacy_class=_canonical_privacy(args.privacy),
                     confidence=args.confidence,
-                    status=args.status,
-                    entities=[args.entity] if args.entity else [],
-                    tags=args.tag or [],
-                    links=args.link or [],
-                    privacy=args.privacy,
-                    provenance=provenance,
+                    tags=tuple(args.tag or ()),
                 )
-                written = atom_store.append(atom)
-                if args.json:
-                    print(json.dumps(written, indent=2, sort_keys=True))
-                else:
-                    print(f"✔ Atom appended: {written['id']} ({written['type']})")
-                    if redacted:
-                        print(f"  PII scrubbed from inputs: {redacted} token(s)")
-                return 0
-
-            item = store.add(
-                kind=args.kind,
-                title=args.title or input("Title: ").strip(),
-                body=args.body or input("Body: ").strip(),
-                entity=args.entity or "",
-                tags=args.tag or [],
-                layer=args.layer,
-                source_ref=args.source_ref or "",
-                confidence=args.confidence,
-                authority=args.authority,
             )
-            return _print_item_result(item, json_output=args.json, verb="added")
-
-        if args.memory_command == "patch":
-            updates = {}
-            if args.status is not None:
-                updates["status"] = args.status
-            if args.summary is not None:
-                summary, report = scrub(
-                    args.summary,
-                    root / "REDACT.md",
-                    provenance="memory/patch/summary",
-                )
-                updates["summary"] = summary
-                if report.redacted:
-                    updates["provenance"] = f"shiroe-cli memory patch (pii_scrubbed={report.redacted})"
-            if not updates:
-                print("✘ No patch fields provided.")
-                return 2
-            patched = atom_store.patch(args.id, updates)
             if args.json:
-                print(json.dumps(patched, indent=2, sort_keys=True))
+                print(json.dumps(_record_payload(record), indent=2, sort_keys=True))
             else:
-                print(f"✔ Atom patched: {patched['id']}")
+                print(f"✔ memory written: {record.id}")
             return 0
 
-        if args.memory_command == "health":
-            from shiroe.memory.refine import build_health_report, write_health_report
-
-            result = build_health_report(root)
-            if not args.no_write:
-                result = {**result, "written": write_health_report(root, result)}
+        if args.memory_command == "search":
+            result = search_memory(root, args.query or "", limit=args.limit, kinds=(args.kind,) if args.kind else None)
             if args.json:
-                print(json.dumps(result, indent=2, sort_keys=True))
+                print(json.dumps({
+                    "query": result.query,
+                    "tokens": list(result.tokens),
+                    "abstained": result.abstained,
+                    "hits": [
+                        {"record": _record_payload(hit.record), "score": hit.score, "why": hit.why}
+                        for hit in result.hits
+                    ],
+                }, indent=2, sort_keys=True))
             else:
-                print(f"Memory health: {'pass' if result['passed'] else 'needs attention'}")
-                print(f"Active atoms: {result['summary']['active_atoms']}")
-                print(f"Duplicate groups: {result['summary']['duplicate_groups']}")
-                if "written" in result:
-                    print(f"Report: {result['written']['markdown']}")
-            return 0 if result["passed"] or not args.strict else 1
+                for hit in result.hits:
+                    print(f"{hit.record.id} score={hit.score} {hit.record.claim}")
+                if not result.hits:
+                    print("No matching memory records found.")
+            return 0
 
-        if args.memory_command == "refine":
-            from shiroe.memory.refine import refine_memory
+        if args.memory_command == "views":
+            paths = render_views(root)
+            payload = {"rendered": [str(path) for path in paths]}
+            print(json.dumps(payload, indent=2, sort_keys=True) if args.json else "\n".join(payload["rendered"]))
+            return 0
 
-            result = refine_memory(root, dry_run=args.dry_run, strict=args.strict)
+        if args.memory_command == "history":
+            events = service.history(args.id)
+            events = events[:args.limit]
             if args.json:
-                print(json.dumps(result, indent=2, sort_keys=True))
+                print(json.dumps([asdict(event) for event in events], indent=2, sort_keys=True))
             else:
-                mode = "dry run" if result["dry_run"] else "report written"
-                print(f"Memory refine: {mode}")
-                print(f"Proposals: {len(result['proposals'])}")
-                for proposal in result["proposals"]:
-                    target = proposal.get("atom_id") or ", ".join(proposal.get("atom_ids", []))
-                    print(f"- {proposal['action']}: {target}")
-            return 0 if result["passed"] or not args.strict else 1
+                for event in events:
+                    print(f"{event.timestamp} {event.event_type} {event.target or ''}")
+                if not events:
+                    print("No memory events found.")
+            return 0
+
+        if args.memory_command == "get":
+            record = service.get(args.id)
+            print(json.dumps(_record_payload(record), indent=2, sort_keys=True) if args.json else record.claim)
+            return 0
+
+        if args.memory_command == "patch":
+            if args.status == "archived":
+                record = service.archive(args.id)
+            elif args.status == "superseded":
+                record = service.supersede(args.id)
+            else:
+                print("✘ canonical patch currently supports --status archived|superseded")
+                return 2
+            print(json.dumps(_record_payload(record), indent=2, sort_keys=True) if args.json else f"✔ patched {record.id}")
+            return 0
 
         if args.memory_command == "render":
             from shiroe.memory.render import render_memory_view
 
             result = render_memory_view(root, args.view)
-            if args.json:
-                print(json.dumps(result, indent=2, sort_keys=True))
-            else:
-                if args.view == "all":
-                    for item in result["rendered"]:
-                        print(f"✔ Rendered {item['view']} -> {item['path']}")
-                else:
-                    print(f"✔ Rendered {result['view']} -> {result['path']}")
+            print(json.dumps(result, indent=2, sort_keys=True) if args.json else f"✔ Rendered {args.view}")
             return 0
 
-        if args.memory_command == "search":
-            # Canonical path: search the append-only atom store (same store
-            # `memory add --claim` writes), so add -> search always round-trips.
-            from shiroe.memory.search import search_atoms
+        if args.memory_command in {"propose", "health", "refine", "update", "explain"}:
+            print(f"✘ memory {args.memory_command} was removed in vNext; use memory write/list/show/search/views")
+            return 2
 
-            atom_kind = args.kind if args.kind in ATOM_TYPES else None
-            atom_result = search_atoms(
-                root,
-                args.query or "",
-                limit=args.limit,
-                atom_type=atom_kind,
-            )
-            atom_matches = atom_result["matches"]
-            if args.entity:
-                wanted = args.entity.strip().lower()
-                atom_matches = [
-                    match for match in atom_matches
-                    if any(
-                        wanted in str(e.get("name", "") if isinstance(e, dict) else e).lower()
-                        for e in match["atom"].get("entities", [])
-                    )
-                ]
-            atom_rows = [
-                {**match["atom"], "score": match["score"], "why_returned": match["why"]}
-                for match in atom_matches
-            ]
-
-            # Legacy item store (memory/state) — deprecated, kept for
-            # compatibility until callers migrate to atoms.
-            items = store.search(
-                args.query or "",
-                entity=args.entity or "",
-                kind=args.kind or "",
-                layer=args.layer or "",
-                limit=args.limit,
-            )
-            if items:
-                print(
-                    "⚠ deprecated: results include legacy memory items (memory/state). "
-                    "The canonical store is the atom store — use `memory add --type/--claim/--source`.",
-                    file=sys.stderr,
-                )
-
-            if args.json:
-                rows = [item_to_dict(item) for item in items] + atom_rows
-                print(json.dumps(rows, indent=2, sort_keys=True))
-            else:
-                for item in items:
-                    _print_memory_item(item)
-                for row in atom_rows:
-                    print(f"{row['id']} [{row['type']}/{row['status']}] {row['claim']}")
-                    print(f"  why: {row['why_returned']}")
-                if not items and not atom_rows:
-                    print("No memory items found.")
-            return 0
-
-        if args.memory_command == "get":
-            item = store.get(args.id)
-            if item is None:
-                print(f"✘ memory item {args.id} not found")
-                return 1
-            return _print_item_result(item, json_output=args.json, verb="found")
-
-        if args.memory_command == "update":
-            item = store.update(
-                args.id,
-                kind=args.kind,
-                title=args.title,
-                body=args.body,
-                entity=args.entity,
-                tags=args.tag,
-                layer=args.layer,
-                source_ref=args.source_ref,
-                confidence=args.confidence,
-                authority=args.authority,
-            )
-            return _print_item_result(item, json_output=args.json, verb="updated")
-
-        if args.memory_command == "history":
-            events = store.history(args.id, limit=args.limit)
-            if args.json:
-                print(json.dumps([event_to_dict(event) for event in events], indent=2, sort_keys=True))
-            else:
-                for event in events:
-                    item = f" item={event.item_id}" if event.item_id is not None else ""
-                    print(f"{event.ts} {event.event}{item} {event.hash}")
-                if not events:
-                    print("No memory events found.")
-            return 0
-
-        if args.memory_command == "explain":
-            item = store.explain(args.id, query=args.query or "")
-            return _print_item_result(item, json_output=args.json, verb="explained")
-
-        if args.memory_command == "views":
-            written = store.generate_views()
-            if args.json:
-                print(json.dumps(written, indent=2, sort_keys=True))
-            else:
-                print("✔ generated markdown views")
-                for name, path in sorted(written.items()):
-                    print(f"  {name}: {path}")
-            return 0
-    except GuardRejection as exc:
-        print(str(exc))
+    except MemoryNotFoundError as exc:
+        print(f"✘ memory {exc.args[0]} not found")
         return 1
     except (KeyError, ValueError, RuntimeError) as exc:
         print(f"✘ {exc}")
@@ -816,181 +635,55 @@ def cmd_memory(args: argparse.Namespace) -> int:
     return 1
 
 
+def _memory_write_from_payload(payload: dict) -> "MemoryWrite":
+    from shiroe.memory.models import MemoryWrite
+
+    return MemoryWrite(
+        kind=str(payload.get("kind") or payload.get("type") or "note"),
+        title=str(payload.get("title") or payload.get("claim") or "Memory"),
+        claim=str(payload.get("claim") or payload.get("body") or ""),
+        summary=str(payload.get("summary") or ""),
+        source_refs=tuple(str(ref) for ref in (payload.get("source_refs") or payload.get("sources") or ["user-input"])),
+        confidence=str(payload.get("confidence") or "unknown"),
+        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or "C"),
+        privacy_class=_canonical_privacy(str(payload.get("privacy_class") or payload.get("privacy") or "internal")),
+        tags=tuple(str(tag) for tag in (payload.get("tags") or ())),
+    )
+
+
+def _canonical_privacy(value: str) -> str:
+    return {
+        "public-safe": "public",
+        "private": "internal",
+        "local-only": "restricted",
+        "unknown": "internal",
+    }.get(value, value or "internal")
+
+
+def _verification_report_to_dict(report) -> dict:
+    from dataclasses import asdict
+
+    return asdict(report)
+
 def cmd_factguard(args: argparse.Namespace) -> int:
-    from shiroe.guards.fact_guard import check_claim, report, scan_path
-
-    if args.factguard_command == "check":
-        findings = check_claim(args.claim, source_refs=args.source_ref or [])
-    elif args.factguard_command == "scan":
-        findings = scan_path(Path(args.path))
-    elif args.factguard_command == "report":
-        findings = scan_path(_project_root() / "docs")
-    else:
-        print("✘ unknown factguard command")
-        return 1
-
-    print(report(findings, format=args.format))
-    return 1 if any(f.severity == "high" for f in findings) else 0
+    print("✘ factguard command was removed in vNext; use verify")
+    return 2
 
 
 def cmd_evidence(args: argparse.Namespace) -> int:
-    from shiroe.guards.evidence_guard import (
-        check_public_docs,
-        check_store,
-        grade_text,
-        list_by_grade,
-        report_findings,
-        upgrade_evidence,
-    )
-    from shiroe.memory_state import card_to_dict, MemoryStore
-
-    store = MemoryStore.from_root(_project_root())
-    if args.evidence_command == "grade":
-        if getattr(args, "source", None) is not None:
-            from shiroe.memory.evidence import grade_claim
-
-            result = grade_claim(
-                args.path,
-                source=args.source or "",
-                source_type=args.source_type,
-            )
-            print(json.dumps(result, indent=2, sort_keys=True))
-            return 0
-        text = Path(args.path).read_text(errors="ignore") if Path(args.path).exists() else args.path
-        print(grade_text(text))
-        return 0
-    if args.evidence_command == "audit":
-        from shiroe.memory.evidence import audit_evidence
-
-        result = audit_evidence(_project_root())
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result.get("passed", True) else 1
-    if args.evidence_command == "check":
-        path = Path(args.path)
-        if path.exists() and path.name != "memory":
-            issues = check_public_docs(path)
-            print("\n".join(issues) if issues else "No EvidenceGuard findings.")
-            return 1 if issues else 0
-        findings = check_store(store)
-        print(report_findings(findings), end="")
-        return 1 if any(f.severity == "high" for f in findings) else 0
-    if args.evidence_command == "list":
-        cards = list_by_grade(store, args.grade)
-        print(json.dumps([card_to_dict(card) for card in cards], indent=2, sort_keys=True))
-        return 0
-    if args.evidence_command == "upgrade":
-        card = upgrade_evidence(store, args.id, args.source)
-        print(json.dumps(card_to_dict(card), indent=2, sort_keys=True))
-        return 0
-    if args.evidence_command == "report":
-        findings = check_store(store)
-        print(report_findings(findings), end="")
-        return 1 if any(f.severity == "high" for f in findings) else 0
-    print("✘ unknown evidence command")
-    return 1
+    print("✘ evidence command was removed in vNext; use verify")
+    return 2
 
 
 def cmd_contradictions(args: argparse.Namespace) -> int:
-    from shiroe.guards.contradiction_guard import (
-        archive_conflict,
-        format_conflicts,
-        list_conflicts,
-        resolve_conflict,
-        show_conflict,
-        write_conflicts,
-    )
-    from shiroe.memory_state import MemoryStore
-
-    store = MemoryStore.from_root(_project_root())
-    if args.contradictions_command == "scan":
-        if getattr(args, "path", None) is None:
-            from shiroe.memory.contradictions import scan_contradictions
-
-            result = scan_contradictions(_project_root())
-            print(json.dumps(result, indent=2, sort_keys=True))
-            return 0
-        conflicts = list_conflicts(store)
-        write_conflicts(store, conflicts)
-        print(format_conflicts(conflicts, format=args.format), end="")
-        return 1 if any(c.severity in {"high", "critical"} for c in conflicts) else 0
-    if args.contradictions_command == "list":
-        conflicts = list_conflicts(store)
-        print(format_conflicts(conflicts, format=args.format), end="")
-        return 0
-    if args.contradictions_command == "show":
-        try:
-            from shiroe.memory.contradictions import show_contradiction
-
-            print(json.dumps(show_contradiction(_project_root(), args.id), indent=2, sort_keys=True))
-            return 0
-        except KeyError:
-            pass
-        conflict = show_conflict(store, args.id)
-        if conflict is None:
-            print(f"✘ conflict {args.id} not found")
-            return 1
-        print(json.dumps(conflict.to_dict(), indent=2, sort_keys=True))
-        return 0
-    if args.contradictions_command == "propose":
-        from shiroe.memory.contradictions import propose_resolution
-
-        try:
-            result = propose_resolution(_project_root(), args.id)
-        except KeyError:
-            print(f"✘ contradiction {args.id} not found")
-            return 1
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0
-    if args.contradictions_command == "resolve":
-        try:
-            from shiroe.memory.contradictions import resolve_contradiction, show_contradiction
-
-            show_contradiction(_project_root(), args.id)
-            result = resolve_contradiction(
-                _project_root(),
-                args.id,
-                winner=args.winner,
-                reason=args.reason,
-            )
-        except KeyError:
-            result = resolve_conflict(store, args.id, winner=args.winner, reason=args.reason)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0
-    if args.contradictions_command == "archive":
-        result = archive_conflict(store, args.id)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0
-    print("✘ unknown contradictions command")
-    return 1
+    print("✘ contradictions command was removed in vNext; use verify")
+    return 2
 
 
 def cmd_privacy(args: argparse.Namespace) -> int:
-    from shiroe.guards.privacy_guard import classify_text, format_findings, redact_file, scan_path
+    print("✘ privacy command was removed in vNext; use verify")
+    return 2
 
-    root = _project_root()
-    redact_md = root / "REDACT.md"
-    if args.privacy_command == "scan":
-        findings = scan_path(Path(args.path), redact_md_path=redact_md)
-        print(format_findings(findings, format=args.format), end="")
-        return 1 if findings and args.strict else 0
-    if args.privacy_command == "classify":
-        print(json.dumps(classify_text(args.text, redact_md_path=redact_md), indent=2, sort_keys=True))
-        return 0
-    if args.privacy_command == "redact":
-        cleaned, finding = redact_file(Path(args.path), redact_md_path=redact_md)
-        if args.suggest:
-            print(cleaned)
-        elif finding:
-            print(format_findings([finding]), end="")
-        else:
-            print("No PrivacyGuard findings.")
-        return 1 if finding else 0
-    if args.privacy_command == "report":
-        findings = scan_path(root / "docs", redact_md_path=redact_md)
-        print(format_findings(findings, format=args.format), end="")
-        return 1 if findings and args.strict else 0
-    print("✘ unknown privacy command")
-    return 1
 
 
 def cmd_route(args: argparse.Namespace) -> int:
@@ -1335,130 +1028,6 @@ def _build_parser() -> argparse.ArgumentParser:
     ])
     exp.add_argument("--status", choices=["active", "stale", "superseded", "disputed", "archived"])
 
-    cost = sub.add_parser("cost", help="Estimate and route memory operation cost")
-    cost_sub = cost.add_subparsers(dest="cost_command", required=True)
-    cost_est = cost_sub.add_parser("estimate", help="Estimate text token cost")
-    cost_est.add_argument("--text", default="")
-
-    cost_route = cost_sub.add_parser("route", help="Route an operation to the cheapest safe executor")
-    cost_route.add_argument("--operation", required=True)
-    cost_route.add_argument("--text", default="")
-    cost_route.add_argument("--approval", action="store_true")
-    cost_route.add_argument("--render-mode", action="store_true")
-    cost_route.add_argument("--duplicate", action="store_true")
-    cost_route.add_argument("--status-change", action="store_true")
-    cost_route.add_argument("--public-claim", action="store_true")
-    cost_route.add_argument("--contradiction", action="store_true")
-
-    cost_sub.add_parser("report", help="Print cost policy summary")
-    cost_audit = cost_sub.add_parser("audit", help="Audit artifact token budgets")
-    cost_audit.add_argument("--strict", action="store_true")
-
-    mem_search = memory_sub.add_parser("search", help="Search structured memory state")
-    mem_search.add_argument("query", nargs="?", default="")
-    mem_search.add_argument("--entity")
-    mem_search.add_argument("--kind")
-    mem_search.add_argument("--layer", choices=["L0", "L1", "L2", "L3"])
-    mem_search.add_argument("--limit", type=int, default=10)
-    mem_search.add_argument("--json", action="store_true")
-
-    mem_get = memory_sub.add_parser("get", help="Get a memory item by id")
-    mem_get.add_argument("id", type=int)
-    mem_get.add_argument("--json", action="store_true")
-
-    mem_update = memory_sub.add_parser("update", help="Update a memory item by id")
-    mem_update.add_argument("id", type=int)
-    mem_update.add_argument("--kind")
-    mem_update.add_argument("--title")
-    mem_update.add_argument("--body")
-    mem_update.add_argument("--entity")
-    mem_update.add_argument("--tag", action="append")
-    mem_update.add_argument("--layer", choices=["L0", "L1", "L2", "L3"])
-    mem_update.add_argument("--source-ref")
-    mem_update.add_argument("--confidence", choices=["high", "medium", "low"])
-    mem_update.add_argument("--authority", choices=["canonical", "confirmed", "inferred", "unknown"])
-    mem_update.add_argument("--json", action="store_true")
-
-    mem_history = memory_sub.add_parser("history", help="Show memory state event history")
-    mem_history.add_argument("id", type=int, nargs="?")
-    mem_history.add_argument("--limit", type=int, default=20)
-    mem_history.add_argument("--json", action="store_true")
-
-    mem_explain = memory_sub.add_parser("explain", help="Explain why a memory item is relevant")
-    mem_explain.add_argument("id", type=int)
-    mem_explain.add_argument("--query", default="")
-    mem_explain.add_argument("--json", action="store_true")
-
-    mem_views = memory_sub.add_parser("views", help="Generate Markdown views from structured state")
-    mem_views.add_argument("--json", action="store_true")
-
-    factguard = sub.add_parser("factguard", help="Scan or check unsupported claims")
-    fact_sub = factguard.add_subparsers(dest="factguard_command", required=True)
-    fact_scan = fact_sub.add_parser("scan", help="Scan Markdown path")
-    fact_scan.add_argument("path")
-    fact_scan.add_argument("--format", choices=["text", "md"], default="text")
-    fact_check = fact_sub.add_parser("check", help="Check one claim")
-    fact_check.add_argument("--claim", required=True)
-    fact_check.add_argument("--source-ref", action="append")
-    fact_check.add_argument("--format", choices=["text", "md"], default="text")
-    fact_report = fact_sub.add_parser("report", help="Report on docs/")
-    fact_report.add_argument("--format", choices=["text", "md"], default="text")
-
-    evidence = sub.add_parser("evidence", help="Check and manage evidence grades")
-    evidence_sub = evidence.add_subparsers(dest="evidence_command", required=True)
-    ev_grade = evidence_sub.add_parser("grade", help="Grade a claim, file, or text")
-    ev_grade.add_argument("path")
-    ev_grade.add_argument("--source")
-    ev_grade.add_argument("--source-type", default="unknown", choices=[
-        "user", "file", "tool", "session", "git", "manual", "unknown",
-    ])
-    evidence_sub.add_parser("audit", help="Audit atom evidence")
-    ev_check = evidence_sub.add_parser("check", help="Check memory or docs path")
-    ev_check.add_argument("path")
-    ev_list = evidence_sub.add_parser("list", help="List memory cards by evidence grade")
-    ev_list.add_argument("--grade", required=True, choices=["A", "B", "C", "D", "F"])
-    ev_upgrade = evidence_sub.add_parser("upgrade", help="Upgrade card evidence with a source")
-    ev_upgrade.add_argument("id")
-    ev_upgrade.add_argument("--source", required=True)
-    evidence_sub.add_parser("report", help="Report low-evidence memory cards")
-
-    facts = sub.add_parser("facts", help="Audit unsupported atom fact claims")
-    facts_sub = facts.add_subparsers(dest="facts_command", required=True)
-    facts_sub.add_parser("audit", help="Audit atoms for unsupported claims")
-
-    contradictions = sub.add_parser("contradictions", help="Scan and resolve memory conflicts")
-    contradictions_sub = contradictions.add_subparsers(dest="contradictions_command", required=True)
-    con_scan = contradictions_sub.add_parser("scan", help="Scan memory cards for contradictions")
-    con_scan.add_argument("path", nargs="?", default=None)
-    con_scan.add_argument("--format", choices=["text", "json"], default="text")
-    con_list = contradictions_sub.add_parser("list", help="List current contradictions")
-    con_list.add_argument("--format", choices=["text", "json"], default="text")
-    con_show = contradictions_sub.add_parser("show", help="Show one contradiction")
-    con_show.add_argument("id")
-    con_prop = contradictions_sub.add_parser("propose", help="Propose an atom contradiction resolution")
-    con_prop.add_argument("id")
-    con_resolve = contradictions_sub.add_parser("resolve", help="Resolve a contradiction")
-    con_resolve.add_argument("id")
-    con_resolve.add_argument("--winner", required=True)
-    con_resolve.add_argument("--reason", required=True)
-    con_archive = contradictions_sub.add_parser("archive", help="Archive a contradiction")
-    con_archive.add_argument("id")
-
-    privacy = sub.add_parser("privacy", help="Scan, classify, and redact sensitive text")
-    privacy_sub = privacy.add_subparsers(dest="privacy_command", required=True)
-    privacy_scan = privacy_sub.add_parser("scan", help="Scan a path for sensitive material")
-    privacy_scan.add_argument("path")
-    privacy_scan.add_argument("--format", choices=["text", "json"], default="text")
-    privacy_scan.add_argument("--strict", action="store_true")
-    privacy_redact = privacy_sub.add_parser("redact", help="Print redacted file content or findings")
-    privacy_redact.add_argument("path")
-    privacy_redact.add_argument("--suggest", action="store_true")
-    privacy_classify = privacy_sub.add_parser("classify", help="Classify a text snippet")
-    privacy_classify.add_argument("text")
-    privacy_report = privacy_sub.add_parser("report", help="Scan docs/ for sensitive material")
-    privacy_report.add_argument("--format", choices=["text", "json"], default="text")
-    privacy_report.add_argument("--strict", action="store_true")
-
     route = sub.add_parser("route", help="Classify tasks against the local routing policy")
     route_sub = route.add_subparsers(dest="route_command", required=True)
     route_classify = route_sub.add_parser("classify", help="Classify a task")
@@ -1556,12 +1125,6 @@ def main() -> None:
         "memory": cmd_memory,
         "recall": cmd_recall,
         "explain-search": cmd_explain_search,
-        "cost": cmd_cost,
-        "factguard": cmd_factguard,
-        "evidence": cmd_evidence,
-        "facts": cmd_facts,
-        "contradictions": cmd_contradictions,
-        "privacy": cmd_privacy,
         "route": cmd_route,
         "capability": lambda a: __import__("shiroe.cli_capability", fromlist=["handle"]).handle(a),
         "providers": lambda a: __import__("shiroe.cli_providers", fromlist=["handle"]).handle(a),
