@@ -64,8 +64,21 @@ class ImportManifest:
         return json.dumps(self.__dict__, indent=2, sort_keys=True)
 
 
+@dataclass(frozen=True)
+class MigrationReport:
+    imported: int
+    skipped_duplicates: int
+    source_digests: dict[str, str]
+    archived_sources: tuple[str, ...] = ()
+    manifest_path: str | None = None
+
+
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _now() -> str:
@@ -292,6 +305,66 @@ def run_import(root: Path | str, *, dry_run: bool = True) -> ImportManifest:
     manifest.hashes["schema_version"] = str(db.schema_version())
     db.close()
     return manifest
+
+
+def migrate_legacy_memory(root: Path | str, *, archive_legacy: bool = False) -> MigrationReport:
+    """Import legacy user memory into canonical records, optionally archiving sources.
+
+    Legacy sources are never removed before the canonical import finishes. When
+    ``archive_legacy`` is true, source files move under ``memory/archive/legacy``
+    after import verification; running the migration again stays idempotent.
+    """
+
+    root_path = Path(root)
+    sources = _legacy_source_files(root_path)
+    source_digests = {
+        str(path.relative_to(root_path)): _sha256_file(path)
+        for path in sources
+        if path.exists()
+    }
+    manifest = run_import(root_path, dry_run=False)
+    archived: list[str] = []
+    if archive_legacy and manifest.records_written >= 0:
+        archive_root = root_path / "memory" / "archive" / "legacy" / manifest.timestamp.replace(":", "")
+        for path in sources:
+            if not path.exists():
+                continue
+            rel = path.relative_to(root_path)
+            target = archive_root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(target))
+            archived.append(str(target.relative_to(root_path)))
+    manifest_path = _latest_import_manifest(root_path)
+    return MigrationReport(
+        imported=manifest.records_written,
+        skipped_duplicates=manifest.records_skipped_duplicate,
+        source_digests=source_digests,
+        archived_sources=tuple(archived),
+        manifest_path=str(manifest_path.relative_to(root_path)) if manifest_path else None,
+    )
+
+
+def _legacy_source_files(root: Path) -> list[Path]:
+    paths: list[Path] = []
+    atom_dir = root / "memory" / "l1_atoms"
+    if atom_dir.exists():
+        paths.extend(sorted(path for path in atom_dir.glob("*.jsonl") if path.is_file()))
+    legacy_sqlite = root / "memory" / "state" / LEGACY_V1_STATE_DB_NAME
+    if legacy_sqlite.exists():
+        paths.append(legacy_sqlite)
+    for rel in ("memory/DECISIONS.md", "memory/RISKS.md", "memory/CONFLICTS.md", "memory/MEMORY.md"):
+        path = root / rel
+        if path.exists():
+            paths.append(path)
+    return paths
+
+
+def _latest_import_manifest(root: Path) -> Path | None:
+    manifest_dir = root / "memory" / "state" / "imports"
+    if not manifest_dir.exists():
+        return None
+    manifests = sorted(manifest_dir.glob("import-*.json"))
+    return manifests[-1] if manifests else None
 
 
 def rollback(root: Path | str) -> Path:
