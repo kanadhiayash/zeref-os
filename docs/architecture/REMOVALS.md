@@ -42,3 +42,9 @@ transitional until Phase 04 replaces it with Work Graph supervision.
   compiles canonical JSON/Markdown directly from Work Graph, approval, memory,
   and verification state. Obsolete schema tables remain until the Phase 08
   backup-backed destructive migration.
+
+## Phase 07
+
+- Generated runtime registry files and `shiroe.registry` generation code.
+  Active CLI commands and adapters are discovered from executable Python
+  registrations and CapabilityStore state instead of tracked inventories.
