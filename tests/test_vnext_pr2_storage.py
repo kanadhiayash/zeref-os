@@ -46,7 +46,8 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
     missing = expected - tables
     assert not missing, f"missing tables: {sorted(missing)}"
     assert "schema_version" in tables
-    assert db.schema_version() == 1
+    # m0002 adds run-ownership columns to team_runs (SHR-060/061).
+    assert db.schema_version() == 2
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:

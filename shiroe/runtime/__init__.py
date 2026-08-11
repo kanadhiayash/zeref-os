@@ -28,6 +28,7 @@ from shiroe.runtime.state_machine import (
 )
 from shiroe.runtime.budget import BudgetError, BudgetTracker
 from shiroe.runtime.supervisor import (
+    ConcurrentSupervisorError,
     Supervisor,
     SupervisorError,
     resume,
@@ -38,5 +39,5 @@ __all__ = [
     "RUN_STATES", "STEP_STATES",
     "can_run_transition", "can_step_transition",
     "BudgetError", "BudgetTracker",
-    "Supervisor", "SupervisorError", "resume",
+    "Supervisor", "SupervisorError", "ConcurrentSupervisorError", "resume",
 ]

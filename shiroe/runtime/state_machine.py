@@ -8,6 +8,9 @@ RUN_STATES = (
     "COMPLETED",
     "PAUSED_PERMISSION", "PAUSED_BUDGET", "RETRYING", "DEGRADED",
     "FAILED", "CANCELLED",
+    # SHR-059: distinct terminal state for self-verification refusal so
+    # log readers don't confuse it with a generic FAILED.
+    "SELF_VERIFICATION_REJECTED",
 )
 
 STEP_STATES = (
@@ -15,6 +18,9 @@ STEP_STATES = (
     "PASSED",
     "TIMED_OUT", "RETRYABLE_FAILURE", "PERMISSION_DENIED",
     "INVALID_OUTPUT", "FAILED", "SKIPPED",
+    # SHR-059: the verifier step refuses to execute because its
+    # capability matches an ``independent_from`` peer. Terminal.
+    "SELF_VERIFICATION_REJECTED",
 )
 
 
@@ -25,7 +31,8 @@ _RUN_TRANSITIONS: dict[str, frozenset[str]] = {
                                      "PAUSED_BUDGET", "CANCELLED"}),
     "RUNNING":            frozenset({"VERIFYING", "PAUSED_PERMISSION",
                                      "PAUSED_BUDGET", "RETRYING",
-                                     "DEGRADED", "FAILED", "CANCELLED"}),
+                                     "DEGRADED", "FAILED", "CANCELLED",
+                                     "SELF_VERIFICATION_REJECTED"}),
     "VERIFYING":          frozenset({"COMPLETED", "RUNNING", "FAILED",
                                      "DEGRADED", "CANCELLED"}),
     "PAUSED_PERMISSION":  frozenset({"RUNNING", "CANCELLED"}),
@@ -35,12 +42,15 @@ _RUN_TRANSITIONS: dict[str, frozenset[str]] = {
     "COMPLETED":          frozenset(),
     "FAILED":             frozenset(),
     "CANCELLED":          frozenset(),
+    "SELF_VERIFICATION_REJECTED": frozenset(),
 }
 
 
 _STEP_TRANSITIONS: dict[str, frozenset[str]] = {
-    "PENDING":            frozenset({"READY", "SKIPPED"}),
-    "READY":              frozenset({"RUNNING", "SKIPPED"}),
+    "PENDING":            frozenset({"READY", "SKIPPED",
+                                     "SELF_VERIFICATION_REJECTED"}),
+    "READY":              frozenset({"RUNNING", "SKIPPED",
+                                     "SELF_VERIFICATION_REJECTED"}),
     "RUNNING":            frozenset({"OUTPUT_RECEIVED", "TIMED_OUT",
                                      "RETRYABLE_FAILURE",
                                      "PERMISSION_DENIED", "FAILED"}),
@@ -53,6 +63,7 @@ _STEP_TRANSITIONS: dict[str, frozenset[str]] = {
     "PASSED":             frozenset(),
     "FAILED":             frozenset(),
     "SKIPPED":            frozenset(),
+    "SELF_VERIFICATION_REJECTED": frozenset(),
 }
 
 
