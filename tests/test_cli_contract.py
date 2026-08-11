@@ -31,8 +31,10 @@ def test_help_lists_commands(repo_root: Path) -> None:
                 "audit", "init", "db-status", "memory", "recall",
                 "explain-search", "cost", "factguard", "evidence", "facts",
                 "contradictions", "privacy", "route", "release", "doctor",
-                "prompt", "handoff", "loop"):
+                "prompt", "handoff"):
         assert cmd in r.stdout, f"--help missing command {cmd!r}: {r.stdout}"
+    assert "loop" not in r.stdout
+    assert "team" not in r.stdout
 
 
 def test_status_runs(repo_root: Path) -> None:

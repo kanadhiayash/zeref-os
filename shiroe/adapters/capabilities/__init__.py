@@ -12,9 +12,8 @@ executor. Every adapter reports:
 - ``health()`` / ``probe(...)`` — a fast reachability check that writes an
   ``adapter_status`` row (SQLite v2 table, landed in PR 2).
 
-Silent substitution is prohibited. When an adapter fails, the caller sees
-the failure — the supervisor (PR 8) decides whether to substitute, and any
-substitution is recorded in ``team_assignments`` (PR 7).
+Silent substitution is prohibited. When an adapter fails, the Work Graph
+supervisor records the failed attempt and returns the failure.
 """
 
 from shiroe.adapters.capabilities.base import (

@@ -21,3 +21,9 @@ transitional until Phase 04 replaces it with Work Graph supervision.
 - Generic Knowledge Graph runtime and projection exports. Work Graph is the
   single operational graph model. Memory relationships remain canonical rows in
   `memory_relations`, not a separate graph abstraction.
+
+## Phase 04
+
+- Legacy Missions, Team Pack compilation, loop runtime, old runtime supervisor,
+  execution policies, and task graph runtime. Operational execution now flows
+  through executable capability adapters and the bounded Work Graph supervisor.

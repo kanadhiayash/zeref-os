@@ -24,9 +24,9 @@ Canonical term definitions. Where a term names a code construct, the module is c
 | — `stale` | Approved/benchmarked but not refreshed within policy freshness window; excluded from selection until refreshed. |
 | — `revoked` | Trust withdrawn; execution blocked until re-approved. |
 | — `compromised` | Failed a trust or security check; blocked and flagged for review. |
-| **Mission blueprint** | A schema (`shiroe.mission/v1`) declaring the functional seats, required outputs, execution sequence, and completion criteria for a task type (e.g. `build`, `research`, `red`, `audit`, `ship`, `solo`). Defines *what* is needed, never *who* by fixed name. |
-| **Execution policy** | A named envelope controlling cost, parallelism, assurance, and autonomy for a compiled team. Envelopes ship as size team packs in `team-packs/`: `small` (tightest budget, lowest default tier, memory writer only), `medium` (typical project work, top tier reserved for critical-weight tasks), `enterprise` (widest budget, all background agents, adversarial verification panels enabled). An envelope raises the cost ceiling; it does not grant capability, and reasoning-class entitlement still applies. |
-| **Compiled team** | The concrete, persisted plan produced by matching a mission blueprint against approved capabilities under an execution policy: seat assignments, versions/digests, permissions, execution sequence, retry/timeout/stop rules, verification requirements, cost envelope, and codec selection. |
+| **Work Graph** | The single operational execution model: persisted task, decision, approval, and review nodes with predecessor edges, bounded retry policy, capability requirements, and readiness state. |
+| **Execution budget** | The per-run ceiling for cost and token usage enforced before capability invocation. A budget raises or lowers execution capacity; it never grants policy permission or approval. |
+| **Execution Supervisor** | The bounded runtime that reads Work Graph readiness, rechecks capabilities/policy/budget before each invocation, records attempts, and persists node outputs/state. |
 | **Enforcement level** | The honesty label on how strongly Shiroe can actually govern a given integration — never claimed beyond what the active execution path supports. |
 | — `A` — Embedded | Shiroe intercepts or authorizes operations through native hooks, plugins, lifecycle callbacks, or controlled subprocesses. |
 | — `B` — Sidecar/Proxy | Shiroe can enforce only work explicitly routed through its own CLI, MCP server, API, or proxy. |

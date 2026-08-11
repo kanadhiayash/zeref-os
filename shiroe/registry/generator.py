@@ -48,11 +48,9 @@ def generate_components(root: Path) -> Path:
         {"id": "shiroe.storage",      "status": "runtime",     "purpose": "canonical SQLite v2 + hash-chained JSONL"},
         {"id": "shiroe.policy",       "status": "runtime",     "purpose": "policy precedence + autonomy modes"},
         {"id": "shiroe.capabilities", "status": "runtime",     "purpose": "manifest + lifecycle + gate"},
-        {"id": "shiroe.adapters.capabilities", "status": "runtime", "purpose": "capability adapters (skill/agent/cli/mcp/repo)"},
-        {"id": "shiroe.missions",     "status": "runtime",     "purpose": "mission blueprint loader"},
-        {"id": "shiroe.execution_policies", "status": "runtime", "purpose": "execution policy loader"},
-        {"id": "shiroe.teams",        "status": "runtime",     "purpose": "team compiler + resolver"},
-        {"id": "shiroe.runtime",      "status": "runtime",     "purpose": "supervisor + state machines"},
+        {"id": "shiroe.adapters.capabilities", "status": "runtime", "purpose": "executable capability adapters"},
+        {"id": "shiroe.work",         "status": "runtime",     "purpose": "canonical Work Graph model and persistence"},
+        {"id": "shiroe.execution",    "status": "runtime",     "purpose": "bounded Work Graph supervisor"},
         {"id": "shiroe.codecs",       "status": "runtime",     "purpose": "codec registry + selector"},
         {"id": "shiroe.context",      "status": "runtime",     "purpose": "6-section context packet"},
         {"id": "shiroe.evidence",     "status": "runtime",     "purpose": "quality vs robustness"},
@@ -62,21 +60,6 @@ def generate_components(root: Path) -> Path:
     return _write(root / "registry" / "components.json",
                   {"schema": "shiroe.registry-components/v1",
                    "components": components})
-
-
-def generate_missions(root: Path) -> Path:
-    from shiroe.missions import load_all
-    missions = load_all(root)
-    payload = {
-        "schema": "shiroe.registry-missions/v1",
-        "missions": [
-            {"id": m.id, "version": m.version,
-             "seats": [s["id"] for s in m.required_seats],
-             "outputs": m.required_outputs}
-            for m in missions
-        ],
-    }
-    return _write(root / "registry" / "missions.json", payload)
 
 
 def generate_adapters(root: Path) -> Path:
@@ -123,7 +106,6 @@ def generate_all(root: Path | str) -> list[Path]:
     root = Path(root)
     return [
         generate_components(root),
-        generate_missions(root),
         generate_adapters(root),
         generate_codecs(root),
         generate_capabilities(root),

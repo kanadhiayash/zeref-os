@@ -273,45 +273,6 @@ def cmd_handoff(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_loop(args: argparse.Namespace) -> int:
-    root = _project_root()
-    if args.loop_command == "plan":
-        from shiroe.loops.contract import create_loop_contract
-
-        result = create_loop_contract(
-            root,
-            args.goal,
-            team_pack=args.team,
-            max_iterations=args.max_iterations,
-        )
-    elif args.loop_command == "run":
-        from shiroe.loops.runtime import run_loop
-
-        result = run_loop(
-            root,
-            args.goal,
-            team_pack=args.team,
-            max_iterations=args.max_iterations,
-        )
-    elif args.loop_command == "status":
-        from shiroe.loops.runtime import loop_status
-
-        result = loop_status(root)
-    elif args.loop_command == "report":
-        from shiroe.loops.runtime import loop_report
-
-        result = loop_report(root, loop_id=args.loop_id)
-    else:
-        return 2
-    if args.json:
-        print(json.dumps(result, indent=2, sort_keys=True))
-    elif args.loop_command == "report":
-        print(result["report"] if result["found"] else "No loop report found.")
-    else:
-        print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
-
-
 def cmd_db_status(args: argparse.Namespace) -> int:
     """v2.5 L4: report backend (sqlite/duckdb) + extras availability."""
     backends = {"sqlite3": False, "duckdb": False, "yaml": False, "litellm": False}
@@ -1098,68 +1059,6 @@ def cmd_claims(args: argparse.Namespace) -> int:
     return 1
 
 
-def cmd_team(args: argparse.Namespace) -> int:
-    """vNext team compiler: compile | plan-show (PR 7)."""
-    root = _project_root()
-    sub = getattr(args, "team_command", None)
-
-    if sub == "compile":
-        from shiroe.teams import (
-            NoEligibleCapabilityError, SelfReviewError, compile_team,
-        )
-        task_id = args.task_id or ("task_" + args.mission)
-        try:
-            plan = compile_team(
-                root, task_id=task_id, mission_id=args.mission,
-                policy_id=args.policy, active_harness=args.harness,
-            )
-        except (NoEligibleCapabilityError, SelfReviewError) as e:
-            print(f"compile failed: {e}", file=sys.stderr)
-            return 2
-        print(json.dumps(plan.to_dict(), indent=2))
-        return 0
-
-    if sub == "plan-show":
-        from shiroe.storage import StateDB
-        db = StateDB(root); db.migrate()
-        conn = db.connect()
-        row = conn.execute(
-            "SELECT task_id, mission_id, policy, state, created_at "
-            "FROM team_runs WHERE id=?",
-            (args.run_id,),
-        ).fetchone()
-        if row is None:
-            print(f"unknown run_id {args.run_id!r}", file=sys.stderr)
-            db.close()
-            return 1
-        task_id, mission, policy, state, created = row
-        assignments = conn.execute(
-            "SELECT seat_id, capability_id, score FROM team_assignments "
-            "WHERE run_id=? ORDER BY seat_id",
-            (args.run_id,),
-        ).fetchall()
-        steps = conn.execute(
-            "SELECT step_name, state FROM execution_steps "
-            "WHERE run_id=? ORDER BY id",
-            (args.run_id,),
-        ).fetchall()
-        db.close()
-        print(json.dumps({
-            "run_id": args.run_id, "task_id": task_id,
-            "mission": mission, "policy": policy, "state": state,
-            "created_at": created,
-            "assignments": [
-                {"seat_id": s, "capability_id": c, "score": sc}
-                for s, c, sc in assignments
-            ],
-            "steps": [{"step": s, "state": st} for s, st in steps],
-        }, indent=2))
-        return 0
-
-    print("usage: shiroe team {compile|plan-show}", file=sys.stderr)
-    return 1
-
-
 def cmd_policy(args: argparse.Namespace) -> int:
     """vNext policy engine: show | check (ADR-0005)."""
     from shiroe.policy import (
@@ -1600,16 +1499,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p_check.add_argument("--mode", default="auto-safe",
                          choices=["suggest", "auto-safe", "policy-bound"])
 
-    team = sub.add_parser("team", help="vNext team compiler (PR 7)")
-    team_sub = team.add_subparsers(dest="team_command", required=True)
-    t_compile = team_sub.add_parser("compile", help="Compile a team plan for a mission")
-    t_compile.add_argument("mission")
-    t_compile.add_argument("--task-id", default=None)
-    t_compile.add_argument("--policy", default="balanced")
-    t_compile.add_argument("--harness", default="claude-code")
-    t_show = team_sub.add_parser("plan-show", help="Print a persisted team plan")
-    t_show.add_argument("run_id")
-
     state = sub.add_parser("state", help="vNext canonical state (SQLite v2)")
     state_sub = state.add_subparsers(dest="state_command", required=True)
     state_sub.add_parser("migrate", help="Apply pending SQLite v2 migrations")
@@ -1663,24 +1552,6 @@ def _build_parser() -> argparse.ArgumentParser:
                                          "'local-only' atoms are never exported")
         handoff_target.add_argument("--json", action="store_true")
 
-    loop = sub.add_parser("loop", help="Plan and run bounded observe-only loops")
-    loop_sub = loop.add_subparsers(dest="loop_command", required=True)
-    loop_plan = loop_sub.add_parser("plan", help="Create a loop contract")
-    loop_plan.add_argument("goal")
-    loop_plan.add_argument("--team", default="lean")
-    loop_plan.add_argument("--max-iterations", type=int, default=3)
-    loop_plan.add_argument("--json", action="store_true")
-    loop_run = loop_sub.add_parser("run", help="Run a bounded deterministic loop")
-    loop_run.add_argument("goal")
-    loop_run.add_argument("--team", default="lean")
-    loop_run.add_argument("--max-iterations", type=int, default=3)
-    loop_run.add_argument("--json", action="store_true")
-    loop_status = loop_sub.add_parser("status", help="Show latest loop status")
-    loop_status.add_argument("--json", action="store_true")
-    loop_report = loop_sub.add_parser("report", help="Show latest or selected loop report")
-    loop_report.add_argument("--loop-id")
-    loop_report.add_argument("--json", action="store_true")
-
     return p
 
 
@@ -1708,7 +1579,6 @@ def main() -> None:
         "capability": lambda a: __import__("shiroe.cli_capability", fromlist=["handle"]).handle(a),
         "providers": lambda a: __import__("shiroe.cli_providers", fromlist=["handle"]).handle(a),
         "policy": cmd_policy,
-        "team": cmd_team,
         "state": cmd_state,
         "release": cmd_release,
         "claims": cmd_claims,
@@ -1716,7 +1586,6 @@ def main() -> None:
         "version": cmd_version,
         "prompt": cmd_prompt,
         "handoff": cmd_handoff,
-        "loop": cmd_loop,
     }
     handler = handlers.get(args.command)
     if not handler:
