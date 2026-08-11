@@ -106,11 +106,11 @@ def _view_hot(conn: sqlite3.Connection) -> str:
 def _view_decisions(conn: sqlite3.Connection) -> str:
     rows = _rows(
         conn,
-        "SELECT id, title, summary, evidence_grade, updated_at "
+        "SELECT id, title, claim, evidence_grade, updated_at "
         "FROM memory_records WHERE kind='decision' AND archived=0 "
         "ORDER BY updated_at DESC",
     )
-    return _table(["id", "title", "summary", "grade", "updated_at"], [list(r) for r in rows])
+    return _table(["id", "title", "claim", "grade", "updated_at"], [list(r) for r in rows])
 
 
 def _view_risks(conn: sqlite3.Connection) -> str:
