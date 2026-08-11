@@ -15,3 +15,9 @@ overhaul. Git history remains the archive for deleted implementation details.
 Runtime retrieval remains transitional until Phase 05 replaces it with the
 approved deterministic token-overlap search. Mission and Team execution remains
 transitional until Phase 04 replaces it with Work Graph supervision.
+
+## Phase 02
+
+- Generic Knowledge Graph runtime and projection exports. Work Graph is the
+  single operational graph model. Memory relationships remain canonical rows in
+  `memory_relations`, not a separate graph abstraction.
