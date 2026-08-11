@@ -145,26 +145,27 @@ def test_labelled_secret_with_digits_still_caught() -> None:
 # ---------------------------------------------------------------------------
 def _handoff_root(tmp_path: Path) -> tuple[Path, dict[str, dict]]:
     from shiroe.memory import scaffold_project
-    from shiroe.memory.atom_store import AtomStore
-    from shiroe.memory.schemas import create_atom
+    from shiroe.memory.models import MemoryWrite
+    from shiroe.memory.service import MemoryService
 
     (tmp_path / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
     scaffold_project(tmp_path, name="adversarial", privacy="abstract", tier="auto", parent="")
-    store = AtomStore(tmp_path)
+    service = MemoryService(tmp_path)
     atoms: dict[str, dict] = {}
-    for privacy in ("public-safe", "private", "local-only", "unknown"):
-        atom = create_atom(
-            atom_type="fact",
-            claim=f"the {privacy} pipeline stage is deterministic",
-            summary=f"{privacy} fixture atom",
-            source="tests/test_privacy_adversarial.py",
-            source_type="file",
-            evidence="A",
-            confidence="high",
-            privacy=privacy,
+    for privacy in ("public", "internal", "restricted", "unknown"):
+        record = service.write(
+            MemoryWrite(
+                kind="fact",
+                claim=f"the {privacy} pipeline stage is deterministic",
+                title=f"{privacy} fixture record",
+                summary=f"{privacy} fixture record",
+                source_refs=("tests/test_privacy_adversarial.py",),
+                evidence_grade="A",
+                confidence="high",
+                privacy_class=privacy,
+            )
         )
-        store.append(atom)
-        atoms[privacy] = atom
+        atoms[privacy] = {"id": record.id}
     return tmp_path, atoms
 
 
@@ -180,19 +181,19 @@ def test_handoff_excludes_private_atoms_by_default(tmp_path: Path) -> None:
     payload = _handoff_payload_json(result)
     exported_ids = {fact["id"] for fact in payload["known_facts"]}
 
-    assert atoms["public-safe"]["id"] in exported_ids
-    assert atoms["private"]["id"] not in exported_ids
-    assert atoms["local-only"]["id"] not in exported_ids
+    assert atoms["public"]["id"] in exported_ids
+    assert atoms["internal"]["id"] not in exported_ids
+    assert atoms["restricted"]["id"] not in exported_ids
     assert atoms["unknown"]["id"] not in exported_ids, "unknown must fail closed"
 
     markdown = Path(result["markdown"]).read_text(encoding="utf-8")
-    assert atoms["private"]["id"] not in markdown
-    assert atoms["local-only"]["id"] not in markdown
+    assert atoms["internal"]["id"] not in markdown
+    assert atoms["restricted"]["id"] not in markdown
     assert atoms["unknown"]["id"] not in markdown
 
     assert result["privacy"]["include_private"] is False
     assert result["privacy"]["excluded_atoms"] == {
-        "private": 1, "local-only": 1, "unknown": 1,
+        "internal": 2, "restricted": 1,
     }
 
 
@@ -204,14 +205,14 @@ def test_handoff_include_private_flag_exports_private_not_local_only(tmp_path: P
     payload = _handoff_payload_json(result)
     exported_ids = {fact["id"] for fact in payload["known_facts"]}
 
-    assert atoms["public-safe"]["id"] in exported_ids
-    assert atoms["private"]["id"] in exported_ids
+    assert atoms["public"]["id"] in exported_ids
+    assert atoms["internal"]["id"] in exported_ids
     assert atoms["unknown"]["id"] in exported_ids
-    assert atoms["local-only"]["id"] not in exported_ids, (
-        "local-only must never be exported, even with include_private=True"
+    assert atoms["restricted"]["id"] not in exported_ids, (
+        "restricted memory must never be exported, even with include_private=True"
     )
     assert result["privacy"]["include_private"] is True
-    assert result["privacy"]["excluded_atoms"] == {"local-only": 1}
+    assert result["privacy"]["excluded_atoms"] == {"restricted": 1}
 
 
 def test_handoff_include_private_emits_audit_event(tmp_path: Path) -> None:
@@ -244,9 +245,9 @@ def test_handoff_include_private_emits_audit_event(tmp_path: Path) -> None:
     assert event["event_type"] == "redaction"
     assert event["status"] == "override"
     assert event["payload"]["target"] == "human"
-    assert event["payload"]["private_atoms_included"] == 2  # private + unknown
-    assert atoms["private"]["id"] in event["payload"]["private_atom_ids"]
-    assert atoms["local-only"]["id"] not in event["payload"]["private_atom_ids"]
+    assert event["payload"]["private_atoms_included"] == 2  # internal + unknown
+    assert atoms["internal"]["id"] in event["payload"]["private_atom_ids"]
+    assert atoms["restricted"]["id"] not in event["payload"]["private_atom_ids"]
 
 
 def test_handoff_wrappers_thread_include_private(tmp_path: Path) -> None:

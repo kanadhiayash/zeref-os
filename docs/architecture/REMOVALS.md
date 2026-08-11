@@ -27,3 +27,11 @@ transitional until Phase 04 replaces it with Work Graph supervision.
 - Legacy Missions, Team Pack compilation, loop runtime, old runtime supervisor,
   execution policies, and task graph runtime. Operational execution now flows
   through executable capability adapters and the bounded Work Graph supervisor.
+
+## Phase 05
+
+- BM25, index rebuilds, query expansion, agent retrieval sessions, atom-store
+  persistence, memory triples/graph projections, memory-specific cost routing,
+  refinement reports, and the public guard package. Canonical memory now flows
+  through SQLite records, deterministic token-overlap recall, generated views,
+  and the unified Verification Engine.

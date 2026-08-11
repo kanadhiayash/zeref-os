@@ -33,7 +33,6 @@ from shiroe.adapters.providers import DEFAULT_PROVIDER, get_provider
 from shiroe.adapters.providers.base import ModelCapability
 from shiroe.codecs.base import default_token_estimate
 from shiroe.context.packet import ContextPacket, build_packet
-from shiroe.memory.cost_router import estimate_tokens
 
 # ponytail: fixed constants rather than a config surface. Upgrade path: move
 # to config/COST_POLICY.json if a second caller needs to tune these
@@ -238,7 +237,7 @@ def allocate_packet(
         conn=conn,
     )
     mandatory_tokens = sum(
-        estimate_tokens(mandatory_packet.sections[name])["estimated_tokens"]
+        default_token_estimate(mandatory_packet.sections[name])
         for name in MANDATORY_SECTIONS
         if name in mandatory_packet.sections
     )
