@@ -42,12 +42,13 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
         "capability_permissions", "capability_benchmarks", "missions",
         "team_runs", "team_assignments", "execution_steps", "evidence_reviews",
         "evaluator_runs", "adapter_status", "codec_profiles",
+        "work_graphs", "work_nodes", "work_edges", "work_attempts",
     }
     missing = expected - tables
     assert not missing, f"missing tables: {sorted(missing)}"
     assert "schema_version" in tables
-    # m0002 adds run-ownership columns to team_runs (SHR-060/061).
-    assert db.schema_version() == 2
+    # m0003 adds canonical Work Graph persistence.
+    assert db.schema_version() == 3
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:
