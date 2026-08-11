@@ -6,10 +6,7 @@ Adapters are stateless singletons. Lookup is deterministic and offline.
 from __future__ import annotations
 
 from shiroe.adapters.capabilities.base import CapabilityAdapter
-from shiroe.adapters.capabilities.agent import AgentAdapter
 from shiroe.adapters.capabilities.cli import CLIAdapter
-from shiroe.adapters.capabilities.generic_skill import GenericSkillAdapter
-from shiroe.adapters.capabilities.mcp_server import MCPServerAdapter
 from shiroe.adapters.capabilities.repository_tool import RepositoryToolAdapter
 
 
@@ -18,23 +15,14 @@ class AdapterNotFoundError(KeyError):
 
 
 _ADAPTERS: dict[str, CapabilityAdapter] = {
-    "generic": GenericSkillAdapter(),
-    "generic-skill": GenericSkillAdapter(),
-    "skill": GenericSkillAdapter(),
-    "agent": AgentAdapter(),
     "cli": CLIAdapter(),
-    "mcp-server": MCPServerAdapter(),
-    "mcp_server": MCPServerAdapter(),
     "repository-tool": RepositoryToolAdapter(),
     "repository_tool": RepositoryToolAdapter(),
-    # Harness-level aliases for the ``entrypoint.adapter`` values that show
-    # up in inferred manifests. All resolve to context-only for now; a
-    # future harness adapter package overrides these with real bridges.
-    "claude-agent": AgentAdapter(),
-    "claude-code": AgentAdapter(),
-    "codex": AgentAdapter(),
-    "gemini": AgentAdapter(),
 }
+
+
+def adapter_registry() -> dict[str, CapabilityAdapter]:
+    return dict(_ADAPTERS)
 
 
 def resolve_adapter(name: str) -> CapabilityAdapter:

@@ -1,8 +1,7 @@
 """Capability registry & lifecycle (vNext §8, ADR-0004).
 
-Every external unit of work — a skill, agent, plugin, MCP server, CLI,
-repository tool, script, workflow, evaluator, or API service — enters
-Shiroe through this package. Nothing runs until it is ``approved`` (or a
+Every executable unit of work — CLI, repository tool, script, workflow,
+evaluator, or API service — enters Shiroe through this package. Nothing runs until it is ``approved`` (or a
 lifecycle state past it) AND its stored digest still matches the source
 on disk.
 

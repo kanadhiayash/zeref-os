@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from shiroe.adapters.capabilities.base import EnforcementLevel
 from shiroe.capabilities.inspection import inspect_source
 from shiroe.capabilities.lifecycle import is_executable
 from shiroe.capabilities.store import CapabilityStore
@@ -38,6 +39,7 @@ def assert_executable(root: Path | str, capability_id: str) -> None:
                 f"capability {capability_id!r} was snapped back to {state_now!r} "
                 "by digest drift; re-inspect and re-approve"
             )
+        _assert_manifest_adapter_executable(store, capability_id)
     finally:
         store.close()
 
@@ -64,3 +66,29 @@ def _resolve_source(store: CapabilityStore, capability_id: str,
     if trust.digest != expected_digest:
         store.refresh_digest(capability_id, trust.digest)
     return store.get(capability_id)
+
+
+def _assert_manifest_adapter_executable(store: CapabilityStore, capability_id: str) -> None:
+    from shiroe.adapters.capabilities.registry import AdapterNotFoundError, resolve_adapter
+
+    row = store.conn.execute(
+        "SELECT manifest FROM capability_versions "
+        "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
+        (capability_id,),
+    ).fetchone()
+    if row is None:
+        raise CapabilityGateError(f"no manifest for capability {capability_id!r}")
+    import json
+    manifest = json.loads(row[0] or "{}")
+    adapter_name = manifest.get("entrypoint", {}).get("adapter")
+    if not adapter_name:
+        raise CapabilityGateError(f"capability {capability_id!r} has no executable adapter")
+    try:
+        adapter = resolve_adapter(adapter_name)
+    except AdapterNotFoundError as exc:
+        raise CapabilityGateError(str(exc)) from exc
+    health = adapter.health()
+    if not health.healthy:
+        raise CapabilityGateError(f"adapter {adapter_name!r} is unhealthy: {health.failure_reason}")
+    if health.enforcement_level not in {EnforcementLevel.embedded, EnforcementLevel.sidecar}:
+        raise CapabilityGateError(f"adapter {adapter_name!r} is not executable")

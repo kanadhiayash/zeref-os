@@ -101,7 +101,7 @@ def probe(root: Path | str, capability_id: str) -> HealthReport:
         report = HealthReport(
             adapter="unknown",
             detected_version=None,
-            enforcement_level=_context_only_level(),
+            enforcement_level=_unavailable_level(),
             healthy=False,
             failure_reason=f"no version record for {capability_id!r}",
         )
@@ -109,14 +109,14 @@ def probe(root: Path | str, capability_id: str) -> HealthReport:
         return report
 
     manifest = json.loads(row[0]) if row[0] else {}
-    adapter_name = manifest.get("entrypoint", {}).get("adapter") or "generic"
+    adapter_name = manifest.get("entrypoint", {}).get("adapter") or ""
     try:
         adapter = resolve_adapter(adapter_name)
     except AdapterNotFoundError as e:
         report = HealthReport(
             adapter=adapter_name,
             detected_version=None,
-            enforcement_level=_context_only_level(),
+            enforcement_level=_unavailable_level(),
             healthy=False,
             failure_reason=str(e),
         )
@@ -128,7 +128,7 @@ def probe(root: Path | str, capability_id: str) -> HealthReport:
     return report
 
 
-def _context_only_level():
+def _unavailable_level():
     # Deferred import so the enum doesn't pull adapter modules at module load.
     from shiroe.adapters.capabilities.base import EnforcementLevel
-    return EnforcementLevel.context_only
+    return EnforcementLevel.sidecar

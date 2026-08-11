@@ -16,11 +16,8 @@ from shiroe.adapters.capabilities import (
     record_status,
     resolve_adapter,
 )
-from shiroe.adapters.capabilities.agent import AgentAdapter
 from shiroe.adapters.capabilities.base import HealthReport
 from shiroe.adapters.capabilities.cli import CLIAdapter
-from shiroe.adapters.capabilities.generic_skill import GenericSkillAdapter
-from shiroe.adapters.capabilities.mcp_server import MCPServerAdapter
 from shiroe.adapters.capabilities.repository_tool import RepositoryToolAdapter
 from shiroe.capabilities import (
     approve,
@@ -37,9 +34,7 @@ from shiroe.storage import events as events_mod
 # ---------------------------------------------------------------------------
 
 def test_all_adapters_registered() -> None:
-    for name in ("generic", "generic-skill", "skill", "agent", "cli",
-                 "mcp-server", "mcp_server", "repository-tool",
-                 "repository_tool", "claude-code", "codex", "gemini"):
+    for name in ("cli", "repository-tool", "repository_tool"):
         adapter = resolve_adapter(name)
         assert adapter is not None
 
@@ -52,11 +47,7 @@ def test_unknown_adapter_raises() -> None:
 def test_enforcement_levels_are_honest() -> None:
     # Level A: we own the subprocess
     assert CLIAdapter().enforcement_level is EnforcementLevel.embedded
-    assert MCPServerAdapter().enforcement_level is EnforcementLevel.embedded
     assert RepositoryToolAdapter().enforcement_level is EnforcementLevel.embedded
-    # Level C: markdown / context only
-    assert GenericSkillAdapter().enforcement_level is EnforcementLevel.context_only
-    assert AgentAdapter().enforcement_level is EnforcementLevel.context_only
 
 
 def test_list_adapters_deduplicates() -> None:
@@ -65,11 +56,11 @@ def test_list_adapters_deduplicates() -> None:
     assert len(names) == len(set(names))
     # Every row exposes a valid enforcement level
     for row in rows:
-        assert row["enforcement_level"] in {"A", "B", "C"}
+        assert row["enforcement_level"] in {"A", "B"}
 
 
 # ---------------------------------------------------------------------------
-# Generic skill (Level C)
+# Executable CLI adapter helpers
 # ---------------------------------------------------------------------------
 
 def _register(tmp_path: Path, name: str, *, files: dict[str, str]) -> str:
@@ -77,30 +68,11 @@ def _register(tmp_path: Path, name: str, *, files: dict[str, str]) -> str:
     src.mkdir(parents=True)
     for filename, content in files.items():
         (src / filename).write_text(content, encoding="utf-8")
-    d = DiscoveredCapability(adapter="generic", root="<home>/skills",
-                             path=src, kind="skill")
+    entry = src / next(iter(files))
+    d = DiscoveredCapability(adapter="cli", root="<project>/source",
+                             path=entry, kind="script")
     trust = inspect_source(src)
     return register_discovery(tmp_path, d, trust=trust)
-
-
-def test_generic_skill_returns_markdown(tmp_path: Path) -> None:
-    cid = _register(tmp_path, "greeter", files={"SKILL.md": "# say hi\n"})
-    result = GenericSkillAdapter().invoke(
-        capability_id=cid, action="render",
-        inputs={"root": str(tmp_path)},
-    )
-    assert result.ok
-    assert "# say hi" in result.output
-    assert result.metadata["enforcement_level"] == "C"
-
-
-def test_generic_skill_missing_source_returns_error(tmp_path: Path) -> None:
-    result = GenericSkillAdapter().invoke(
-        capability_id="generic:nope", action="render",
-        inputs={"root": str(tmp_path)},
-    )
-    assert not result.ok
-    assert result.error
 
 
 # ---------------------------------------------------------------------------
@@ -177,10 +149,10 @@ def test_cli_adapter_enforces_command_allowlist(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def test_probe_writes_adapter_status_row(tmp_path: Path) -> None:
-    cid = _register(tmp_path, "skill1", files={"SKILL.md": "# hi\n"})
+    cid = _register(tmp_path, "tool1", files={"run.sh": "#!/bin/sh\necho hi\n"})
     report = probe(tmp_path, cid)
     assert report.healthy
-    assert report.adapter == "generic-skill"
+    assert report.adapter == "cli"
 
     conn = sqlite3.connect(tmp_path / "memory" / "state" / "shiroe.sqlite")
     try:
@@ -193,14 +165,14 @@ def test_probe_writes_adapter_status_row(tmp_path: Path) -> None:
         conn.close()
     assert row is not None
     adapter, level, checked_at, reason = row
-    assert adapter == "generic-skill"
-    assert level == "C"
+    assert adapter == "cli"
+    assert level == "A"
     assert checked_at
     assert reason is None
 
 
 def test_probe_updates_existing_row(tmp_path: Path) -> None:
-    cid = _register(tmp_path, "skill2", files={"SKILL.md": "# hi\n"})
+    cid = _register(tmp_path, "tool2", files={"run.sh": "#!/bin/sh\necho hi\n"})
     r1 = probe(tmp_path, cid)
     r2 = probe(tmp_path, cid)
 
@@ -216,7 +188,7 @@ def test_probe_updates_existing_row(tmp_path: Path) -> None:
 
 
 def test_probe_emits_hash_chained_event(tmp_path: Path) -> None:
-    cid = _register(tmp_path, "skill3", files={"SKILL.md": "# hi\n"})
+    cid = _register(tmp_path, "tool3", files={"run.sh": "#!/bin/sh\necho hi\n"})
     probe(tmp_path, cid)
 
     log = EventLog(tmp_path)
@@ -228,7 +200,7 @@ def test_probe_emits_hash_chained_event(tmp_path: Path) -> None:
 
 def test_probe_of_unknown_capability_records_unhealthy(tmp_path: Path) -> None:
     (tmp_path / "memory").mkdir()
-    report = probe(tmp_path, "generic:nope")
+    report = probe(tmp_path, "cli:nope")
     assert not report.healthy
     assert "no version record" in (report.failure_reason or "")
 
@@ -251,7 +223,7 @@ def test_unhealthy_adapter_never_swaps_silently(tmp_path: Path) -> None:
     """When probing surfaces an unhealthy report, the row records the failure
     truthfully; no other adapter's name is written in its place."""
     (tmp_path / "memory").mkdir()
-    report = probe(tmp_path, "generic:nope")
+    report = probe(tmp_path, "cli:nope")
 
     conn = sqlite3.connect(tmp_path / "memory" / "state" / "shiroe.sqlite")
     try:
