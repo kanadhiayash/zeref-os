@@ -9,8 +9,10 @@ from shiroe.work.schema import (
     WorkGraph,
     WorkNode,
 )
+from shiroe.work.store import ConcurrentWorkUpdate, WorkStore
 
 __all__ = [
+    "ConcurrentWorkUpdate",
     "GraphStatus",
     "NodeKind",
     "NodeStatus",
@@ -18,4 +20,5 @@ __all__ = [
     "WorkEdge",
     "WorkGraph",
     "WorkNode",
+    "WorkStore",
 ]
