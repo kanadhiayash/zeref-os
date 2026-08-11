@@ -109,24 +109,33 @@ def test_memory_render_writes_views_without_touching_legacy(repo_root: Path, tmp
     _init(repo_root, tmp_path)
     legacy_hot = tmp_path / "memory" / "hot.md"
     legacy_hot.write_text("# legacy hot\n\nDo not rewrite me.\n", encoding="utf-8")
-    _add(
-        repo_root,
-        tmp_path,
+    decision = subprocess.run(
         [
-            "--type", "risk",
-            "--claim", "Complete markdown rewrites are blocked by default.",
-            "--source", "manual:test",
-            "--evidence", "A",
-            "--privacy", "public-safe",
-            "--tag", "cost",
+            sys.executable,
+            "-m",
+            "shiroe",
+            "write-decision",
+            "--title",
+            "Complete markdown rewrites are blocked by default.",
+            "--why",
+            "Generated views must be rebuildable from canonical state.",
+            "--evidence",
+            "manual:test",
+            "--grade",
+            "high",
         ],
+        capture_output=True,
+        text=True,
+        cwd=str(tmp_path),
+        env=_env(repo_root),
     )
+    assert decision.returncode == 0, decision.stderr
 
     rendered = _run(repo_root, tmp_path, ["memory", "render", "all", "--json"])
     assert rendered.returncode == 0, rendered.stderr
     payload = json.loads(rendered.stdout)
     assert payload["view"] == "all"
     assert (tmp_path / "memory" / "views" / "hot.md").is_file()
-    assert (tmp_path / "memory" / "views" / "RISKS.md").is_file()
-    assert "Complete markdown rewrites" in (tmp_path / "memory" / "views" / "RISKS.md").read_text(encoding="utf-8")
+    assert (tmp_path / "memory" / "views" / "decisions.md").is_file()
+    assert "Complete markdown rewrites" in (tmp_path / "memory" / "views" / "decisions.md").read_text(encoding="utf-8")
     assert legacy_hot.read_text(encoding="utf-8") == "# legacy hot\n\nDo not rewrite me.\n"

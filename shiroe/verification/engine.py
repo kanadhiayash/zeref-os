@@ -115,7 +115,7 @@ class VerificationEngine:
         return _check("evidence", findings)
 
     def _check_claims(self, proposal: MemoryWrite) -> VerificationCheck:
-        from shiroe.guards.fact_guard import check_claim
+        from shiroe.verification.claims import check_claim
 
         findings = [
             VerificationFinding(
