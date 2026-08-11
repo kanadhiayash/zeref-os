@@ -189,10 +189,20 @@ def build_provenance(
     avg_latency_ms: float | None = None,
     failures: list[dict[str, Any]] | None = None,
     exclusions: list[dict[str, Any]] | None = None,
+    command: list[str] | None = None,
+    raw_artifact: str | None = None,
 ) -> dict[str, Any]:
     return {
         "git_sha": git_sha(),
         "harness_version": HARNESS_VERSION,
+        # SHR-086..089: every published external-run result names its
+        # dataset lock, invoking command, model, commit, metric type,
+        # cost, and raw-artifact pointer. command defaults to sys.argv
+        # so a runner that forgets to pass it still records the
+        # interpreter invocation.
+        "command": command if command is not None else list(sys.argv),
+        "raw_artifact": raw_artifact,
+        "metric_type": getattr(loader, "METRIC", None),
         "dataset": {
             "name": loader.NAME,
             "official_url": loader.OFFICIAL_URL,
