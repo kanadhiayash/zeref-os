@@ -7,9 +7,9 @@ Invariant enforced here:
     Markdown = generated human view (memory/views/*.md)
     TOON / Parquet = optional generated model / analytical exports
 
-Legacy modules (``shiroe.db``, ``shiroe.memory_state``, ``shiroe.memory.indexer``)
-remain as v1 compatibility layers under their own docstrings. New writes flow
-through this package.
+Legacy modules (``shiroe.db``, ``shiroe.memory_state``) remain as v1
+compatibility layers under their own docstrings. New writes flow through this
+package.
 """
 
 from shiroe.storage.state import StateDB

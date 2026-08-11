@@ -87,8 +87,8 @@ LEGACY_MEMORY_INDEX_DB_NAME = "zeref.sqlite"
 
 Same spelling as :data:`LEGACY_V1_STATE_DB_NAME` but a different artifact with
 a different fate: the index is fully derived from the JSONL atoms, so
-:func:`shiroe.memory.indexer.rebuild_index` deletes it rather than migrating
-it. Keeping the two constants separate is what stops a future cleanup from
+:mod:`shiroe.compat` cleanup deletes it rather than migrating it. Keeping the
+two constants separate is what stops a future cleanup from
 deleting the canonical store on the strength of a matching filename.
 """
 

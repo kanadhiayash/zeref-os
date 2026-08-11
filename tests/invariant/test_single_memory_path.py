@@ -7,9 +7,13 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_single_memory_architecture():
-    assert not (ROOT / "shiroe/guards").exists()
-    assert not (ROOT / "shiroe/memory/indexer.py").exists()
-    assert not (ROOT / "shiroe/memory/expand.py").exists()
-    assert not (ROOT / "shiroe/memory/atom_store.py").exists()
-    assert not (ROOT / "shiroe/memory/triples.py").exists()
-    assert not (ROOT / "shiroe/memory/graph.py").exists()
+    removed = (
+        ("shiroe", "guards"),
+        ("shiroe", "memory", "indexer.py"),
+        ("shiroe", "memory", "expand.py"),
+        ("shiroe", "memory", "atom_store.py"),
+        ("shiroe", "memory", "triples.py"),
+        ("shiroe", "memory", "graph.py"),
+    )
+    for parts in removed:
+        assert not ROOT.joinpath(*parts).exists()
