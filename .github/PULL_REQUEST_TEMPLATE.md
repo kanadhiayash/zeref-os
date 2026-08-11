@@ -26,12 +26,6 @@
 - [ ] security behavior changed
 - [ ] no security or privacy impact
 
-## Benchmark impact
-
-- [ ] benchmark logic changed
-- [ ] benchmark report regenerated
-- [ ] no benchmark impact
-
 ## Verification
 
 Paste command outputs:
@@ -41,7 +35,6 @@ Paste command outputs:
     python3 -m shiroe audit
     python3 -m shiroe audit-privacy --strict
     python3 scripts/check-version-consistency.py
-    python3 benchmarks/run-all.py
     git diff --check
 
 ## Risks

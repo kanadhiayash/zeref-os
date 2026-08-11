@@ -66,11 +66,6 @@
       "id": "shiroe.adapters.providers",
       "purpose": "anthropic/openai/xai config",
       "status": "adapter"
-    },
-    {
-      "id": "shiroe.benchmark.program",
-      "purpose": "benchmark registry + \u00a716.10 artifacts",
-      "status": "runtime"
     }
   ],
   "schema": "shiroe.registry-components/v1"

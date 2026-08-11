@@ -17,7 +17,6 @@ Run:
     python3 -m shiroe audit
     python3 -m shiroe audit-privacy --strict
     python3 scripts/check-version-consistency.py
-    python3 benchmarks/run-all.py
     python3 -m shiroe release check
     git diff --check
 
@@ -28,7 +27,6 @@ Release notes must include:
 - Summary.
 - Compatibility notes.
 - Security notes.
-- Benchmark scope.
 - Known risks.
 - Migration notes if needed.
 

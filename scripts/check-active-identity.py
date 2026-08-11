@@ -68,15 +68,11 @@ ARCHIVED: dict[str, str] = {
 ALLOWLIST: dict[str, str] = {
     # --- migration readers that cannot import the compat boundary -----------
     # Everything under shiroe/ moved behind shiroe/compat/legacy_identity.py in
-    # SHR-014 and is gone from this list. What is left cannot import it: a
-    # standalone script with a stdlib-only contract, and a generated artifact.
-    "scripts/fetch-benchmark-data.py": "Standalone stdlib-only downloader — runs with no package on sys.path, so it cannot import shiroe/compat/. Composes the deprecated env prefix inline.",
+    # SHR-014 and is gone from this list.
     "memory/state/schema.json": "Generated at runtime from shiroe/memory/core.py STATE_SCHEMA; records the v1 store filename it was generated for. Gitignored, so it exists only in working trees.",
     "skills/memory-import-export/SKILL.md": "Names the v3/v4.2 Zeref OS layouts its migration scripts convert from.",
 
     # --- records of past runs and of the public surface as it stands --------
-    "docs/BENCHMARK_REPORT.md": "Generated evidence; records the run that produced it, not current intent.",
-    "benchmarks/results.json": "Generated evidence; same as docs/BENCHMARK_REPORT.md.",
     "docs/RELEASE_VERDICT_2.0.0-alpha.3.md": "Dated release verdict. A record, not a live surface.",
     "docs/RELEASE_VERDICT_3.0.0-alpha.1.md": "Dated release verdict. A record, not a live surface.",
     "docs/canon/GITHUB_SURFACE_INVENTORY.md": "Quotes the live GitHub metadata verbatim, including the legacy homepageUrl awaiting owner approval.",

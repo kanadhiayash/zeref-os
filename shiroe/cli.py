@@ -1638,9 +1638,6 @@ def _build_parser() -> argparse.ArgumentParser:
     from shiroe import cli_providers
     cli_providers.register(sub)
 
-    from shiroe import cli_benchmark
-    cli_benchmark.register(sub)
-
     policy = sub.add_parser("policy", help="vNext policy engine (precedence + autonomy)")
     policy_sub = policy.add_subparsers(dest="policy_command", required=True)
     policy_sub.add_parser("show", help="Print the merged policy stack")
@@ -1776,7 +1773,6 @@ def main() -> None:
         "route": cmd_route,
         "capability": lambda a: __import__("shiroe.cli_capability", fromlist=["handle"]).handle(a),
         "providers": lambda a: __import__("shiroe.cli_providers", fromlist=["handle"]).handle(a),
-        "benchmark": lambda a: __import__("shiroe.cli_benchmark", fromlist=["handle"]).handle(a),
         "policy": cmd_policy,
         "team": cmd_team,
         "state": cmd_state,

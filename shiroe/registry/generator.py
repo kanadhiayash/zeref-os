@@ -58,7 +58,6 @@ def generate_components(root: Path) -> Path:
         {"id": "shiroe.evidence",     "status": "runtime",     "purpose": "quality vs robustness"},
         {"id": "shiroe.adapters.harnesses", "status": "adapter", "purpose": "codex/claude/gemini/kimi/hermes/odysseus"},
         {"id": "shiroe.adapters.providers", "status": "adapter", "purpose": "anthropic/openai/xai config"},
-        {"id": "shiroe.benchmark.program", "status": "runtime", "purpose": "benchmark registry + §16.10 artifacts"},
     ]
     return _write(root / "registry" / "components.json",
                   {"schema": "shiroe.registry-components/v1",

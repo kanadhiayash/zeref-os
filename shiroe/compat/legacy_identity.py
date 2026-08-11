@@ -46,9 +46,8 @@ __all__ = [
 LEGACY_ENV_PREFIX = "ZEREF_"
 """Pre-rename environment-variable prefix, replaced by ``SHIROE_``.
 
-Read by :func:`shiroe.env.getenv` after ``SHIROE_<name>`` misses, and composed
-by ``scripts/fetch-benchmark-data.py`` for its dataset-root variable. Using an
-old name still works and emits a ``DeprecationWarning`` naming the new one.
+Read by :func:`shiroe.env.getenv` after ``SHIROE_<name>`` misses. Using an old
+name still works and emits a ``DeprecationWarning`` naming the new one.
 Environment variables live in shell profiles, CI configs and systemd units
 outside this repository, so the fallback outlives the file renames.
 """

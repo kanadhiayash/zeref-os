@@ -31,13 +31,6 @@ llm       = ["litellm>=1.0"]    # shiroe grade (LLM-enhanced)
 duckdb    = ["duckdb>=0.10"]    # shiroe db snapshot --parquet
 yaml      = ["pyyaml>=6.0"]     # richer REDACT.md YAML parsing
 tokenizer = ["tiktoken>=0.5"]   # cost_router token estimate (model-family tokenizer)
-# benchmarks/external: dataset loaders, judge clients, scoring — dev/test
-# only, never a runtime dependency of `pip install shiroe-os`. `benchmarks/`
-# itself isn't packaged (see [tool.setuptools.packages.find] below); this
-# extra exists so any future third-party dep (e.g. a Gemini SDK) lands here,
-# never in core. Empty today — stdlib covers everything built so far (BM25,
-# cost estimator, fake/estimate-only judge clients).
-benchmark = []
 all       = ["litellm>=1.0", "duckdb>=0.10", "pyyaml>=6.0", "tiktoken>=0.5"]
 
 [project.scripts]
