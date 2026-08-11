@@ -7,7 +7,6 @@
   "cli": "shiroe",
   "repo": "kanadhiayash/shiroe",
   "repo_url": "https://github.com/kanadhiayash/shiroe",
-  "registry_manifest": "shiroe-registry.json",
   "workspace_dir": ".shiroe",
   "work_item_prefix": "SHR",
   "description": "Local-first AI work control plane for governed execution, model routing, project memory, evidence, and handoffs. Harness-agnostic, model-agnostic, privacy-first."

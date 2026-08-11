@@ -52,8 +52,6 @@ MEMORY_DIRS: tuple[str, ...] = (
 
 PROJECT_DIRS: tuple[str, ...] = (
     "config",
-    "skills",
-    "skills/drafts",
 )
 
 MEMORY_FILES: tuple[str, ...] = (
@@ -366,8 +364,7 @@ def scaffold_project(
     project_path.write_text(
         f"---\nproject_name: \"{values['name']}\"\nproject_root: \"<discovered-at-runtime>\"\n"
         f"created: \"{date.today().isoformat()}\"\nlast_session: \"\"\n"
-        f"active_agents:\n  - memory-keeper\n"
-        f"active_skills:\n  - wiki-maintenance\n  - budget-governor\n  - evidence-grader\n"
+        f"active_runtime:\n  - state\n  - memory\n  - policy\n"
         f"privacy_mode: {values['privacy']}\nparent_project: {values['parent'] or 'null'}\n"
         f"model_tier: {values['tier']}\nbudget_warn_at: 50000\n---\n\n# {values['name']}\n\n"
         f"Project initialised via `shiroe init` on {date.today().isoformat()}.\n",

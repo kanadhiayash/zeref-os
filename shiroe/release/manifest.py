@@ -45,7 +45,6 @@ class InstalledManifest:
     source_repo: str | None
     git_sha: str | None
     release_tag: str | None
-    registry_digest: str | None
     agents_digest: str | None
     package_file_count: int
     package_digest: str
@@ -61,7 +60,6 @@ class InstalledManifest:
             f"source_repo: {self.source_repo or 'unknown'}",
             f"git_sha: {self.git_sha or 'unknown (not a git checkout)'}",
             f"release_tag: {self.release_tag or 'none'}",
-            f"registry_digest: {self.registry_digest or 'unavailable'}",
             f"agents_digest: {self.agents_digest or 'unavailable'}",
             f"package_files: {self.package_file_count}",
             f"package_digest: {self.package_digest}",
@@ -162,7 +160,6 @@ def build_manifest(root: Path) -> InstalledManifest:
         source_repo=_source_repo(root),
         git_sha=_git(root, "rev-parse", "HEAD"),
         release_tag=_git(root, "describe", "--tags", "--exact-match", "HEAD"),
-        registry_digest=_sha256_file(root / "shiroe-registry.json"),
         agents_digest=_sha256_file(root / "AGENTS.md"),
         package_file_count=len(files),
         package_digest=_digest_files(root, files),
@@ -177,7 +174,7 @@ def is_stale(recorded: dict, root: Path) -> bool:
     the package digest) — cosmetic fields like ``generated_at`` never count.
     """
     current = build_manifest(root).to_dict()
-    identity_fields = ("version", "git_sha", "package_digest", "registry_digest", "agents_digest")
+    identity_fields = ("version", "git_sha", "package_digest", "agents_digest")
     return any(recorded.get(field) != current.get(field) for field in identity_fields)
 
 

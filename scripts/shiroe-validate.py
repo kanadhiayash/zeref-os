@@ -337,39 +337,21 @@ def lint_patterns_log(skill_inventory, agent_files):
 
 def main():
     ap = argparse.ArgumentParser(description="Validate Shiroe plugin structure")
-    ap.add_argument(
-        "--registry",
-        type=Path,
-        default=None,
-        help="Path to shiroe-registry.json (defaults to <ROOT>/shiroe-registry.json). "
-             "Overriding this while leaving the on-disk tree in place is how the "
-             "parity test injects a deliberately mislabeled entry.",
-    )
+    ap.add_argument("--registry", type=Path, default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    # L1: load skill inventory + declared counts from registry
-    skill_inventory, declared_counts, registry_raw = load_registry(args.registry)
-    schema_errors_before = len(errors)
-    check_registry_schema(registry_raw)
-    schema_error_count = len(errors) - schema_errors_before
-    check_registry_parity(registry_raw)
-    skill_count_expected = len(skill_inventory)
-    skill_count_actual = sum((ROOT / "skills" / s).is_dir() for s in skill_inventory)
+    if args.registry is not None:
+        errors.append("--registry is obsolete; vNext derives runtime surface from executable code")
 
-    # Filesystem-derived inventories (no hardcoded lists — drift shows up here)
-    agent_files = discover_md("agents")
-    command_files = discover_md("commands")
-    team_pack_files = discover_md("team-packs")
-
-    # Cross-check filesystem counts against the counts the registry declares.
-    for label, actual in (("agents", len(agent_files)),
-                          ("commands", len(command_files)),
-                          ("team_packs", len(team_pack_files))):
-        if label in declared_counts and declared_counts[label] != actual:
-            errors.append(
-                f"{label}: shiroe-registry.json declares {declared_counts[label]} "
-                f"but {actual} found on disk — update the registry or the tree"
-            )
+    removed_surfaces = ("skills", "agents", "commands", "team-packs")
+    for rel in removed_surfaces:
+        if (ROOT / rel).exists():
+            errors.append(f"removed contract surface still present: {rel}/")
+    for rel in ("shiroe-registry.json", "registry/shiroe-registry.schema.json"):
+        if (ROOT / rel).exists():
+            errors.append(f"removed contract registry still present: {rel}")
+    check_registry_parity(None)
+    agent_files: list[str] = []
 
     # Root manifests
     for f in EXPECTED["root_manifests"]:
@@ -412,54 +394,6 @@ def main():
                 f"run scripts/migrate-v4.2-to-v4.3.py --apply"
             )
 
-    # skills/ — L1: registry-driven count
-    for s in skill_inventory:
-        check_dir(f"skills/{s}", "skill")
-        check_yaml_frontmatter(f"skills/{s}/SKILL.md", ["name", "description"])
-    # Reverse check: skill dirs on disk that the registry doesn't know about (drift)
-    skills_root = ROOT / "skills"
-    if skills_root.is_dir():
-        for d in sorted(skills_root.iterdir()):
-            if d.is_dir() and d.name not in skill_inventory and d.name not in SKILL_DIR_EXEMPT:
-                errors.append(f"skills/{d.name}/ on disk but not in shiroe-registry.json")
-    # drafts/ is intentional — pattern-to-skill writes here; not active skills
-    drafts_dir = ROOT / "skills" / "drafts"
-    if drafts_dir.is_dir():
-        draft_count = sum(1 for d in drafts_dir.iterdir() if d.is_dir())
-        if draft_count > 0:
-            warnings.append(f"skills/drafts/ contains {draft_count} pending draft(s) — run /review-skill")
-    if (ROOT / "skills" / "_drafts").exists():
-        warnings.append("skills/_drafts/ present — v4.3 uses skills/drafts/ (rename or migrate)")
-
-    # agents/ — every agent file found on disk must have valid frontmatter
-    for a in agent_files:
-        check_yaml_frontmatter(f"agents/{a}", ["name", "description"])
-    if not agent_files:
-        errors.append("agents/ has no agent .md files")
-
-    # commands/ — every command file found on disk must have valid frontmatter
-    for c in command_files:
-        check_yaml_frontmatter(f"commands/{c}", ["description"])
-    if not command_files:
-        errors.append("commands/ has no command .md files")
-
-    # team-packs/ (per SHIROE_OS §8) — every pack found on disk needs an identity
-    # key: 'name' (canonical packs) or legacy 'pack' (deprecated tier aliases).
-    for t in team_pack_files:
-        p = ROOT / "team-packs" / t
-        text = p.read_text()
-        if not text.startswith("---"):
-            errors.append(f"team-packs/{t}: no YAML frontmatter")
-            continue
-        end = text.find("\n---", 4)
-        fm = text[4:end] if end != -1 else ""
-        if end == -1:
-            errors.append(f"team-packs/{t}: frontmatter not closed")
-        elif "name:" not in fm and "pack:" not in fm:
-            errors.append(f"team-packs/{t}: missing frontmatter key 'name' (or legacy 'pack')")
-    if not team_pack_files:
-        errors.append("team-packs/ has no pack .md files")
-
     # Harness stubs (per SHIROE_OS §10)
     for s in EXPECTED["harness_stubs"]:
         check_file(s, "harness stub")
@@ -473,7 +407,7 @@ def main():
             errors.append(f"{m}: invalid JSON ({e})")
 
     # PATTERNS.jsonl validation (schema + stack-cap)
-    lint_patterns_log(skill_inventory, agent_files)
+    lint_patterns_log([], agent_files)
 
     # Output — actual counts derived from the filesystem; declared counts from
     # shiroe-registry.json where the registry declares them.
@@ -481,16 +415,12 @@ def main():
         return f"{actual}/{declared_counts[label]}" if label in declared_counts else str(actual)
 
     print(f"Shiroe validator — {ROOT}")
-    print(f"Skills:           {skill_count_actual}/{skill_count_expected} (from shiroe-registry.json)")
-    print(f"Agents:           {_declared('agents', len(agent_files))} (filesystem vs registry)")
-    print(f"Commands:         {_declared('commands', len(command_files))} (filesystem vs registry)")
-    print(f"Team packs:       {_declared('team_packs', len(team_pack_files))} (filesystem vs registry)")
+    print("Contract dirs:    absent")
     print(f"Config:           {sum((ROOT / 'config' / c).is_file() for c in EXPECTED['config'])}/5")
     print(f"Root privacy:     {sum((ROOT / f).is_file() for f in EXPECTED['root_privacy'])}/3 (PRIVACY, REDACT, SHARING_POLICY)")
     print(f"Harness stubs:    {sum((ROOT / s).is_file() for s in EXPECTED['harness_stubs'])}/3")
     print(f"Memory layout:    flat")
     print(f"PATTERNS lint:    {len(gate_lint)} finding(s)")
-    print(f"Registry schema:  {'valid' if schema_error_count == 0 else f'{schema_error_count} violation(s)'} (registry/shiroe-registry.schema.json)")
 
     if warnings:
         print("\nWarnings:")
