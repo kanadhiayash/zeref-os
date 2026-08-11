@@ -18,6 +18,14 @@ widen a higher deny):
 """
 
 from shiroe.policy.schema import Action, ActionKind, Decision, Verdict
+from shiroe.policy.approvals import (
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalType,
+    scope_digest,
+)
+from shiroe.policy.approval_service import ApprovalService, AuthorizationError
 from shiroe.policy.autonomy import (
     ALWAYS_REQUIRE_APPROVAL,
     AutonomyMode,
@@ -28,6 +36,8 @@ from shiroe.policy.loader import load_policy_stack
 
 __all__ = [
     "Action", "ActionKind", "Decision", "Verdict",
+    "ApprovalDecision", "ApprovalRequest", "ApprovalStatus", "ApprovalType",
+    "ApprovalService", "AuthorizationError", "scope_digest",
     "ALWAYS_REQUIRE_APPROVAL", "AutonomyMode", "autonomy_gate",
     "evaluate", "load_policy_stack",
 ]
