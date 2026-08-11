@@ -7,6 +7,7 @@ from shiroe.verification.schema import (
     VerificationFinding,
     VerificationReport,
 )
+from shiroe.verification.review import run_independent_review
 
 __all__ = [
     "CheckStatus",
@@ -14,4 +15,5 @@ __all__ = [
     "VerificationEngine",
     "VerificationFinding",
     "VerificationReport",
+    "run_independent_review",
 ]

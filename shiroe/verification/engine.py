@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from shiroe.core.schema import SOURCE_OPTIONAL_TYPES
 from shiroe.memory.models import MemoryWrite
@@ -23,6 +24,26 @@ class VerificationEngine:
 
     def verify(self, subject: MemoryWrite) -> VerificationReport:
         return self.verify_memory_write(subject)
+
+    def independent_review(
+        self,
+        *,
+        node_id: str,
+        executor_capability_id: str,
+        reviewer_capability_id: str,
+        subject: dict[str, Any] | None = None,
+        required: bool = True,
+    ) -> VerificationCheck:
+        from shiroe.verification.review import run_independent_review
+
+        return run_independent_review(
+            self.root,
+            node_id=node_id,
+            executor_capability_id=executor_capability_id,
+            reviewer_capability_id=reviewer_capability_id,
+            subject=subject,
+            required=required,
+        )
 
     def verify_memory_write(self, proposal: MemoryWrite) -> VerificationReport:
         checks = (
