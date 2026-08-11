@@ -39,9 +39,7 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
     expected = {
         "memory_records", "memory_sources", "memory_relations", "memory_events",
         "contradictions", "capabilities", "capability_versions",
-        "capability_permissions", "capability_benchmarks", "missions",
-        "team_runs", "team_assignments", "execution_steps", "evidence_reviews",
-        "evaluator_runs", "adapter_status", "codec_profiles",
+        "capability_permissions", "evidence_reviews", "adapter_status",
         "work_graphs", "work_nodes", "work_edges", "work_attempts",
         "approval_requests", "approval_advice",
     }
@@ -50,8 +48,8 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
     assert "schema_version" in tables
     columns = {row[1] for row in db.connect().execute("PRAGMA table_info(memory_records)")}
     assert "tags_json" in columns
-    # m0006 adds non-authorizing approval advice.
-    assert db.schema_version() == 6
+    # m0007 removes obsolete pre-vNext runtime tables after backup.
+    assert db.schema_version() == 7
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:
