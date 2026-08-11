@@ -40,7 +40,11 @@ def compile_handoff(
     root_path = Path(root)
     service = MemoryService(root_path)
     all_records = list(service.list(statuses=("active",)))
-    records, excluded_atoms = _filter_exportable_records(all_records, include_private=include_private)
+    records, excluded_atoms = _filter_exportable_records(
+        all_records,
+        target=target,
+        include_private=include_private,
+    )
     if include_private:
         _log_private_export(root_path, target=target, records=records)
 
@@ -153,9 +157,15 @@ def _compile_packet(
 def _filter_exportable_records(
     records: list[MemoryRecord],
     *,
+    target: str,
     include_private: bool,
 ) -> tuple[list[MemoryRecord], dict[str, int]]:
-    allowed = {"public"} if not include_private else {"public", "internal", "confidential"}
+    if include_private:
+        allowed = {"public", "internal", "confidential"}
+    elif target == "human":
+        allowed = {"public", "internal"}
+    else:
+        allowed = {"public"}
     exportable: list[MemoryRecord] = []
     excluded: dict[str, int] = {}
     for record in records:
@@ -197,7 +207,11 @@ def _graph(root: Path, graph_id: str | None) -> dict[str, Any]:
         return {}
     from shiroe.work.store import WorkStore
 
-    graph = WorkStore(root).get(graph_id)
+    store = WorkStore(root)
+    try:
+        graph = store.get(graph_id)
+    finally:
+        store.close()
     return {
         "id": graph.id,
         "objective": graph.objective,
@@ -214,18 +228,20 @@ def _pending_nodes(root: Path, graph_id: str | None) -> list[dict[str, Any]]:
     db = StateDB(root)
     conn = db.connect()
     db.migrate()
-    rows = conn.execute(
-        """
-        SELECT id, kind, objective, requires_json, risk, approval_required,
-               independent_review, evidence_required, metadata_json, status,
-               state_version
-        FROM work_nodes
-        WHERE graph_id=? AND status NOT IN ('completed', 'skipped')
-        ORDER BY id
-        """,
-        (graph_id,),
-    ).fetchall()
-    db.close()
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, kind, objective, requires_json, risk, approval_required,
+                   independent_review, evidence_required, metadata_json, status,
+                   state_version
+            FROM work_nodes
+            WHERE graph_id=? AND status NOT IN ('completed', 'skipped')
+            ORDER BY id
+            """,
+            (graph_id,),
+        ).fetchall()
+    finally:
+        db.close()
     return [
         {
             "id": row[0],
@@ -254,18 +270,20 @@ def _pending_approvals(root: Path, graph_id: str | None) -> list[dict[str, Any]]
     if graph_id:
         where += " AND graph_id=?"
         params = (graph_id,)
-    rows = conn.execute(
-        f"""
-        SELECT id, graph_id, node_id, approval_type, action_kind,
-               requested_action, scope_json, scope_digest, reason,
-               options_json, evidence_refs_json, risk, requested_at
-        FROM approval_requests
-        WHERE {where}
-        ORDER BY requested_at DESC, id ASC
-        """,
-        params,
-    ).fetchall()
-    db.close()
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT id, graph_id, node_id, approval_type, action_kind,
+                   requested_action, scope_json, scope_digest, reason,
+                   options_json, evidence_refs_json, risk, requested_at
+            FROM approval_requests
+            WHERE {where}
+            ORDER BY requested_at DESC, id ASC
+            """,
+            params,
+        ).fetchall()
+    finally:
+        db.close()
     return [
         {
             "id": row[0],
@@ -291,18 +309,20 @@ def _verification(root: Path, graph_id: str | None) -> list[dict[str, Any]]:
     conn = db.connect()
     db.migrate()
     checks: list[dict[str, Any]] = []
-    if graph_id:
-        row = conn.execute(
-            "SELECT COUNT(*) FROM work_nodes WHERE graph_id=? AND status='blocked'",
-            (graph_id,),
-        ).fetchone()
-        blocked = int(row[0]) if row else 0
-        checks.append({
-            "name": "work_graph_blockers",
-            "status": "block" if blocked else "pass",
-            "blocked_nodes": blocked,
-        })
-    db.close()
+    try:
+        if graph_id:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM work_nodes WHERE graph_id=? AND status='blocked'",
+                (graph_id,),
+            ).fetchone()
+            blocked = int(row[0]) if row else 0
+            checks.append({
+                "name": "work_graph_blockers",
+                "status": "block" if blocked else "pass",
+                "blocked_nodes": blocked,
+            })
+    finally:
+        db.close()
     return checks
 
 
