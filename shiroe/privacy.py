@@ -317,8 +317,23 @@ def _parse_yaml_classes(data: dict) -> list[RedactClass]:
 # ---------------------------------------------------------------------------
 # Core pipeline stages
 # ---------------------------------------------------------------------------
+# Invisible / directional chars an attacker can splice into a token body to
+# break regex boundaries — zero-width joiners, LRM/RLM, bidi overrides, BOM.
+# These have no legitimate reason to appear inside API keys or PEM blocks; we
+# strip them before NFKC in the normalized surface (WS4/SHR-069).
+_INVISIBLE_CHARS_RE = re.compile(
+    "["
+    "​‌‍‎‏"   # ZWSP, ZWNJ, ZWJ, LRM, RLM
+    "‪-‮"                     # LRE, RLE, PDF, LRO, RLO
+    "⁠-⁤"                     # word joiner + invisible operators
+    "⁦-⁩"                     # LRI, RLI, FSI, PDI
+    "﻿"                            # zero-width no-break space / BOM
+    "]"
+)
+
+
 def _unicode_normalize(text: str) -> str:
-    return unicodedata.normalize("NFKC", text)
+    return unicodedata.normalize("NFKC", _INVISIBLE_CHARS_RE.sub("", text))
 
 
 def _homoglyph_normalize(text: str) -> str:
@@ -332,6 +347,9 @@ def _homoglyph_normalize(text: str) -> str:
 # numeric token body) mutate a credential before the detectors ran.
 _ENCODED_RUN_RE = re.compile(r"[A-Za-z0-9+/_\-]{16,}={0,2}")
 _HEX_RUN_RE = re.compile(r"(?<![0-9a-fA-F])(?:[0-9a-fA-F]{2}){12,}(?![0-9a-fA-F])")
+# base32: RFC 4648 alphabet [A-Z2-7]. Requires an uppercase-only run so we
+# don't collide with normal English text or hex.
+_BASE32_RUN_RE = re.compile(r"(?<![A-Z2-7])[A-Z2-7]{16,}={0,6}(?![A-Z2-7])")
 _ENCODED_MAX_DEPTH = 3
 _URLSAFE_TO_STANDARD = str.maketrans("-_", "+/")
 
@@ -380,6 +398,17 @@ def _decode_hex_container(blob: str) -> Optional[str]:
     return _validate_decoded_container(raw)
 
 
+def _decode_base32_container(blob: str) -> Optional[str]:
+    """Decode a base32-looking run or return None."""
+    body = blob.rstrip("=")
+    padded = body + "=" * (-len(body) % 8)
+    try:
+        raw = base64.b32decode(padded, casefold=False)
+    except (binascii.Error, ValueError):
+        return None
+    return _validate_decoded_container(raw)
+
+
 def _probe_for_credentials(decoded: str, remaining_decodes: int) -> bool:
     """Return True when decoded text contains a credential on any surface.
 
@@ -407,6 +436,10 @@ def _probe_for_credentials(decoded: str, remaining_decodes: int) -> bool:
             inner = _decode_hex_container(match.group(0))
             if inner is not None and _probe_for_credentials(inner, remaining_decodes - 1):
                 return True
+        for match in _BASE32_RUN_RE.finditer(decoded):
+            inner = _decode_base32_container(match.group(0))
+            if inner is not None and _probe_for_credentials(inner, remaining_decodes - 1):
+                return True
     return False
 
 
@@ -418,7 +451,8 @@ def _scan_encoded_surfaces(text: str, max_depth: int = _ENCODED_MAX_DEPTH) -> li
     """
     spans: list[tuple[int, int]] = []
     for regex, decoder in ((_ENCODED_RUN_RE, _decode_base64_container),
-                           (_HEX_RUN_RE, _decode_hex_container)):
+                           (_HEX_RUN_RE, _decode_hex_container),
+                           (_BASE32_RUN_RE, _decode_base32_container)):
         for match in regex.finditer(text):
             decoded = decoder(match.group(0))
             # One decode level is spent reaching `decoded`; the probe may
@@ -642,6 +676,180 @@ def _filter_noqa_lines(text: str) -> str:
                      if not _ALLOW_LINE_RE.search(line))
 
 
+# Nested-archive scanning (SHR-071). Depth-3 ceiling: outer file at depth 0,
+# each contained archive adds a level. Beyond that we refuse to descend and
+# emit a visible warning — silently accepting depth-4 would let an attacker
+# hide a secret in one extra `tar czf`.
+_ARCHIVE_MAX_DEPTH = 3
+_ARCHIVE_MAX_MEMBER_BYTES = 2 * 1024 * 1024   # ponytail: hard 2MiB ceiling per member; a real secret fits
+_ARCHIVE_MAX_TOTAL_BYTES = 32 * 1024 * 1024   # zip-bomb cap across all members + subtrees
+_ARCHIVE_MAX_MEMBERS = 4096                   # per-archive-subtree member count cap
+_TEXTUAL_EXTS = {".md", ".py", ".json", ".yml", ".yaml", ".toml", ".jsonl",
+                 ".txt", ".cfg", ".ini", ".env"}
+
+
+def _archive_kind(path_or_name: str) -> Optional[str]:
+    name = str(path_or_name).lower()
+    if name.endswith(".zip"):
+        return "zip"
+    if name.endswith((".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2")):
+        return "tar"
+    return None
+
+
+def _scan_archive_bytes(
+    raw: bytes,
+    kind: str,
+    redact_md_path: Path,
+    depth: int,
+    budget: dict | None = None,
+) -> tuple[int, list[str], bool, bool]:
+    """Recursively scrub textual members of a zip/tar archive.
+
+    Returns (credential_hits, credential_classes, depth_exceeded, malformed).
+    Members that are themselves archives descend up to `_ARCHIVE_MAX_DEPTH` —
+    at the ceiling, `depth_exceeded` flips True and the caller surfaces a
+    warning rather than silently swallowing the buried content. Malformed
+    parse errors (BadZipFile, TarError) flip `malformed` True so a caller
+    can block on a wrapper that pretends to be an archive but isn't parseable
+    — otherwise a truncated .zip with a plausible secret in an unreachable
+    member would produce zero findings and zero warnings.
+
+    `budget` is a shared dict {'bytes': int, 'members': int} that caps the
+    total uncompressed bytes and member count across the entire nested-scan
+    subtree; when either ceiling is exceeded, the current subtree stops
+    descending and `malformed` is flipped so the caller surfaces it.
+    """
+    import io
+    if budget is None:
+        budget = {"bytes": 0, "members": 0}
+    hits = 0
+    classes_hit: list[str] = []
+    depth_exceeded = False
+    malformed = False
+
+    def _observe(sub_text: str) -> None:
+        nonlocal hits
+        _, sub_report = scrub(sub_text, redact_md_path)
+        for entry in sub_report.audit_trail:
+            if str(entry["class"]).startswith("credentials"):
+                hits += entry["count"]
+                classes_hit.append(str(entry["class"]))
+
+    def _budget_ok(data_len: int) -> bool:
+        # zip-bomb + member-flood cap enforced across the whole subtree.
+        budget["members"] += 1
+        budget["bytes"] += data_len
+        return (budget["members"] <= _ARCHIVE_MAX_MEMBERS
+                and budget["bytes"] <= _ARCHIVE_MAX_TOTAL_BYTES)
+
+    def _handle_member(member_name: str, data: bytes) -> None:
+        nonlocal depth_exceeded, malformed, hits
+        if len(data) > _ARCHIVE_MAX_MEMBER_BYTES:
+            return
+        if not _budget_ok(len(data)):
+            malformed = True  # surfaces as blocking finding — same treatment as parse errors
+            return
+        inner_kind = _archive_kind(member_name)
+        if inner_kind is not None:
+            if depth + 1 >= _ARCHIVE_MAX_DEPTH:
+                depth_exceeded = True
+                return
+            sub_hits, sub_classes, sub_exceeded, sub_malformed = _scan_archive_bytes(
+                data, inner_kind, redact_md_path, depth + 1, budget,
+            )
+            hits += sub_hits
+            classes_hit.extend(sub_classes)
+            depth_exceeded = depth_exceeded or sub_exceeded
+            malformed = malformed or sub_malformed
+            return
+        # Non-archive member — treat as text if extension suggests text or if
+        # bytes decode cleanly. Anything else (binaries, images) is skipped.
+        suffix = Path(member_name).suffix.lower()
+        if suffix and suffix not in _TEXTUAL_EXTS:
+            return
+        try:
+            text = data.decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            return
+        _observe(text)
+
+    if kind == "zip":
+        import zipfile
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    if info.file_size > _ARCHIVE_MAX_MEMBER_BYTES:
+                        continue
+                    try:
+                        data = zf.read(info.filename)
+                    except (zipfile.BadZipFile, RuntimeError, OSError):
+                        malformed = True
+                        continue
+                    _handle_member(info.filename, data)
+        except (zipfile.BadZipFile, OSError, EOFError):
+            malformed = True
+    elif kind == "tar":
+        import tarfile
+        try:
+            with tarfile.open(fileobj=io.BytesIO(raw), mode="r:*") as tf:
+                for member in tf.getmembers():
+                    if not member.isfile():
+                        continue
+                    if member.size > _ARCHIVE_MAX_MEMBER_BYTES:
+                        continue
+                    fh = tf.extractfile(member)
+                    if fh is None:
+                        continue
+                    data = fh.read()
+                    _handle_member(member.name, data)
+        except (tarfile.TarError, OSError, EOFError):
+            malformed = True
+
+    return hits, classes_hit, depth_exceeded, malformed
+
+
+def _redact_md_dirty(directory: Path, redact_md_path: Path) -> bool:
+    """Return True when REDACT.md has uncommitted changes vs HEAD.
+
+    SHR-073: an allowlist change cannot silently unblock a secret in the same
+    run. If the file the scanner reads for its rules is dirty, that's a hard
+    stop. When the tree isn't the top of its own git checkout, we return
+    False — no reliable HEAD, no signal, and CI runs on clean checkouts.
+    """
+    import subprocess
+    try:
+        rel = redact_md_path.resolve().relative_to(directory.resolve())
+    except ValueError:
+        return False
+    # Only trigger when `directory` IS the top of a git checkout. This avoids
+    # firing on scaffolded tmp dirs or on repos whose parent chain happens to
+    # contain a .git (which would surface "error: Could not access HEAD"
+    # with rc=1 and be misread as dirty).
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(directory), "rev-parse", "--show-toplevel"],
+            capture_output=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if top.returncode != 0:
+        return False
+    top_path = top.stdout.decode("utf-8", "ignore").strip()
+    if not top_path or Path(top_path).resolve() != directory.resolve():
+        return False
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(directory), "diff", "--quiet", "HEAD", "--", str(rel)],
+            capture_output=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 1
+
+
 def _tracked_files(directory: Path) -> set[Path] | None:
     """Resolved paths of git-tracked files under `directory`.
 
@@ -719,6 +927,10 @@ def audit(
         # Packaging metadata directories are named "<project>.egg-info".
         return any(part.endswith(".egg-info") for part in parts)
     exts = {".md"} if not strict else {".md", ".py", ".json", ".yml", ".yaml", ".toml", ".jsonl"}
+    # Archive containers (SHR-071): scanned in strict mode so an attacker
+    # can't smuggle a secret past the regex-driven surfaces by shipping it
+    # inside a zip/tar.
+    archive_exts = {".zip", ".tar", ".gz", ".tgz", ".bz2", ".tbz2"} if strict else set()
     results: dict = {
         "scanned": 0, "total_hits": 0, "by_file": {}, "by_class": {},
         "strict": strict, "allowlisted": [],
@@ -728,12 +940,82 @@ def audit(
         # file containing credentials-class hits to its hit count — release
         # gates treat any entry here as a hard failure.
         "hits_by_class": {}, "credential_files": {},
+        # SHR-071 / SHR-073 signals — surfaced by CLI + release gate.
+        # depth_exceeded and malformed both stamp a synthetic
+        # credentials-class hit against the offending archive path so the
+        # zero-tolerance gate refuses the release; the lists are kept for
+        # human-readable output.
+        "archive_depth_exceeded": [],
+        "archive_malformed": [],
+        "allowlist_changed": False,
     }
 
     directory = Path(directory)
+    # SHR-073: if the allowlist file itself is dirty vs HEAD, an allowlist
+    # widening could silently unblock a secret in the same commit. Mark the
+    # scan as failing and stamp a synthetic credentials-class hit against
+    # REDACT.md so the zero-tolerance gate trips.
+    if strict and _redact_md_dirty(directory, redact_md_path):
+        results["allowlist_changed"] = True
+        marker = str(redact_md_path)
+        results["credential_files"][marker] = results["credential_files"].get(marker, 0) + 1
+        results["hits_by_class"]["credentials"] = results["hits_by_class"].get("credentials", 0) + 1
+        results["total_hits"] += 1
     tracked = _tracked_files(directory)
     for path in sorted(directory.rglob("*")):
         if not path.is_file():
+            continue
+        # Archive branch (SHR-071): recurse into nested containers up to
+        # _ARCHIVE_MAX_DEPTH; a member that's still an archive at that depth
+        # is surfaced as a warning, never silently skipped.
+        archive_kind = _archive_kind(path.name) if path.suffix.lower() in archive_exts else None
+        if archive_kind is not None:
+            rel = path.relative_to(directory) if path.is_absolute() else path
+            if _skipped(Path(rel)):
+                continue
+            if tracked is not None and path.resolve() not in tracked:
+                continue
+            try:
+                raw = path.read_bytes()
+            except OSError:
+                continue
+            hits, classes_hit, depth_exceeded, malformed = _scan_archive_bytes(
+                raw, archive_kind, redact_md_path, depth=0,
+            )
+            results["scanned"] += 1
+            # depth-exceeded and malformed both stamp a synthetic credentials
+            # hit against the offending path so `--fail-classes credentials`
+            # and the release gate refuse — either would be a bypass otherwise.
+            if depth_exceeded:
+                results["archive_depth_exceeded"].append(str(path))
+                results["credential_files"][str(path)] = (
+                    results["credential_files"].get(str(path), 0) + 1
+                )
+                results["hits_by_class"]["credentials"] = (
+                    results["hits_by_class"].get("credentials", 0) + 1
+                )
+                results["total_hits"] += 1
+            if malformed:
+                results["archive_malformed"].append(str(path))
+                results["credential_files"][str(path)] = (
+                    results["credential_files"].get(str(path), 0) + 1
+                )
+                results["hits_by_class"]["credentials"] = (
+                    results["hits_by_class"].get("credentials", 0) + 1
+                )
+                results["total_hits"] += 1
+            if hits:
+                results["total_hits"] += hits
+                results["by_file"][str(path)] = results["by_file"].get(str(path), 0) + hits
+                results["hits_by_class"]["credentials"] = (
+                    results["hits_by_class"].get("credentials", 0) + hits
+                )
+                results["credential_files"][str(path)] = (
+                    results["credential_files"].get(str(path), 0) + hits
+                )
+                if "credentials" not in results["by_class"]:
+                    results["by_class"]["credentials"] = 0
+                results["by_class"]["credentials"] += 1
             continue
         if path.suffix not in exts:
             continue
