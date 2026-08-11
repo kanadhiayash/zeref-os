@@ -12,7 +12,6 @@ class EnforcementLevel(str, Enum):
 
     embedded = "A"        # subprocess or native hook we own
     sidecar = "B"         # routed through Shiroe CLI / MCP / proxy
-    context_only = "C"    # we assemble the prompt; can't guarantee execution
 
 
 @dataclass(frozen=True)

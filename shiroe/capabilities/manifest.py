@@ -8,8 +8,7 @@ from pathlib import Path
 CAPABILITY_SCHEMA = "shiroe.capability/v1"
 
 _ALLOWED_TYPES = {
-    "skill", "agent", "plugin", "mcp_server", "cli", "repository_tool",
-    "script", "workflow", "evaluator", "api_service",
+    "cli", "repository_tool", "script", "workflow", "evaluator", "api_service",
 }
 
 _REQUIRED_TOP = ("schema", "id", "name", "type", "version", "source",
@@ -17,6 +16,7 @@ _REQUIRED_TOP = ("schema", "id", "name", "type", "version", "source",
 
 _REQUIRED_SOURCE = ("kind",)  # location + digest may be inferred at discovery
 _REQUIRED_ENTRYPOINT = ("adapter",)
+_EXECUTABLE_ENTRYPOINT_KEYS = ("command", "callable", "url")
 
 
 class ManifestError(ValueError):
@@ -47,6 +47,8 @@ def validate_manifest(manifest: dict) -> None:
     for f in _REQUIRED_ENTRYPOINT:
         if f not in ep:
             raise ManifestError(f"entrypoint.{f} required")
+    if not any(ep.get(key) for key in _EXECUTABLE_ENTRYPOINT_KEYS):
+        raise ManifestError("entrypoint must declare an executable command, callable, or url")
     reqs = manifest["requires"]
     if not isinstance(reqs, dict):
         raise ManifestError("requires must be an object")
@@ -54,7 +56,7 @@ def validate_manifest(manifest: dict) -> None:
 
 def infer_manifest(path: Path, *, capability_id: str,
                    name: str | None = None,
-                   type_: str = "skill") -> dict:
+                   type_: str = "script") -> dict:
     """Produce a draft ``shiroe.capability/v1`` manifest for a directory that
     ships no manifest of its own. Every discovered capability starts with a
     draft; a human approves before the state machine advances beyond
@@ -72,7 +74,8 @@ def infer_manifest(path: Path, *, capability_id: str,
             "location": str(path),
         },
         "entrypoint": {
-            "adapter": "generic",
+            "adapter": "cli",
+            "command": [str(path)] if path.is_file() else [],
         },
         "provides": [],
         "requires": {

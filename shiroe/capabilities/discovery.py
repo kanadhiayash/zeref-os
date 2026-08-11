@@ -17,11 +17,7 @@ from typing import Iterable
 ROOTS_SCHEMA = "shiroe.capability-roots/v1"
 
 _DEFAULT_ROOTS = [
-    {"adapter": "claude-code", "path": "~/.claude/skills"},
-    {"adapter": "codex", "path": "~/.codex/skills"},
-    {"adapter": "gemini", "path": "~/.gemini/extensions"},
-    {"adapter": "kimi-code", "path": "~/.kimi/plugins"},
-    {"adapter": "generic", "path": "~/.shiroe/capabilities"},
+    {"adapter": "cli", "path": "~/.shiroe/capabilities"},
 ]
 
 DEFAULT_MAX_DEPTH = 3
@@ -35,7 +31,7 @@ class DiscoveredCapability:
     adapter: str
     root: str              # display alias, never full home path
     path: Path             # absolute local path
-    kind: str              # "skill", "cli", ...
+    kind: str              # "script", "cli", ...
     manifest_path: Path | None = None
 
 
@@ -73,9 +69,7 @@ def _expand(path: str) -> Path:
 
 
 def _looks_like_capability(path: Path) -> tuple[bool, str, Path | None]:
-    """Heuristic: a directory holding ``manifest.json`` with our schema is
-    a capability; a directory with ``SKILL.md`` is a skill; a single .sh or
-    .py file with a shebang is a script. Everything else is skipped."""
+    """Heuristic: manifest-backed capabilities and shebang scripts only."""
     if path.is_file():
         if path.suffix in (".sh", ".py") and _has_shebang(path):
             return True, "script", None
@@ -85,12 +79,6 @@ def _looks_like_capability(path: Path) -> tuple[bool, str, Path | None]:
     mf = path / "manifest.json"
     if mf.exists():
         return True, "capability", mf
-    if (path / "SKILL.md").exists():
-        return True, "skill", None
-    if (path / "server.py").exists() or (path / "mcp.json").exists():
-        return True, "mcp_server", None
-    if (path / "AGENT.md").exists():
-        return True, "agent", None
     return False, "", None
 
 
@@ -136,7 +124,7 @@ def discover(project_root: Path | str, *,
     roots = _load_roots(project_root)
     out: list[DiscoveredCapability] = []
     for entry in roots:
-        adapter = entry.get("adapter", "generic")
+        adapter = entry.get("adapter", "cli")
         raw_path = entry.get("path", "")
         expanded = _expand(raw_path)
         display = _alias(str(expanded))

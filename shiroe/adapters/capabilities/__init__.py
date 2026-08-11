@@ -5,8 +5,7 @@ executor. Every adapter reports:
 
 - ``enforcement_level`` — how much control Shiroe actually has:
   ``A`` embedded (native hooks / subprocess we own),
-  ``B`` sidecar/proxy (routed through our CLI or MCP),
-  ``C`` context-only (we can only assemble the prompt).
+  ``B`` sidecar/proxy (routed through our CLI or proxy).
 - ``supported_types`` — which capability manifest ``type`` values it handles.
 - ``invoke(...)`` — the actual call. Never bypasses ``shiroe.policy`` or
   ``shiroe.capabilities.assert_executable``.
@@ -26,6 +25,7 @@ from shiroe.adapters.capabilities.base import (
 )
 from shiroe.adapters.capabilities.registry import (
     AdapterNotFoundError,
+    adapter_registry,
     list_adapters,
     resolve_adapter,
 )
@@ -33,6 +33,6 @@ from shiroe.adapters.capabilities.health import probe, record_status
 
 __all__ = [
     "AdapterResult", "CapabilityAdapter", "EnforcementLevel", "HealthReport",
-    "AdapterNotFoundError", "list_adapters", "resolve_adapter",
+    "AdapterNotFoundError", "adapter_registry", "list_adapters", "resolve_adapter",
     "probe", "record_status",
 ]

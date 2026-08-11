@@ -187,7 +187,7 @@ def register_discovery(root: Path | str, discovered: DiscoveredCapability,
         discovered.path,
         capability_id=capability_id,
         name=discovered.path.name,
-        type_="skill" if discovered.kind == "skill" else _kind_to_type(discovered.kind),
+        type_=_kind_to_type(discovered.kind),
     )
     validate_manifest(manifest)
     existing = store.get(capability_id)
@@ -223,9 +223,13 @@ def register_discovery(root: Path | str, discovered: DiscoveredCapability,
 
 def _kind_to_type(kind: str) -> str:
     return {
-        "skill": "skill", "agent": "agent", "mcp_server": "mcp_server",
-        "script": "script", "capability": "skill",
-    }.get(kind, "skill")
+        "script": "script",
+        "cli": "cli",
+        "repository_tool": "repository_tool",
+        "workflow": "workflow",
+        "evaluator": "evaluator",
+        "api_service": "api_service",
+    }.get(kind, "script")
 
 
 def _capability_id_for(discovered: DiscoveredCapability, adapter: str) -> str:
