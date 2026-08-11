@@ -197,7 +197,7 @@ _COMPARISON_WORDS = (
     "wins over", "surpasses", "ahead of",
 )
 _FULL_CONTEXT_TERMS = ("full-context baseline", "full context baseline")
-_LEXICAL_TERMS = ("lexical baseline", "grep baseline", "bm25 baseline")
+_LEXICAL_TERMS = ("lexical baseline", "grep baseline")
 _SCORE_RE = re.compile(r"\b\d{1,3}(?:\.\d+)?\s*%")
 _UNSCORED_DISCLAIMER_MARKERS = (
     "no scores exist", "no dataset runs", "unscored", "no external benchmark",

@@ -8,7 +8,7 @@ from shiroe.memory.schemas import AtomValidationError, create_atom, make_atom_id
 def test_create_atom_returns_valid_complete_atom() -> None:
     atom = create_atom(
         atom_type="decision",
-        claim="Use SQLite FTS before optional vector search.",
+        claim="Use deterministic token overlap before optional vector search.",
         summary="Prefer stdlib SQLite for local recall.",
         source="manual:test",
         source_type="manual",
@@ -23,7 +23,7 @@ def test_create_atom_returns_valid_complete_atom() -> None:
     assert atom["type"] == "decision"
     assert atom["id"] == make_atom_id(
         "decision",
-        "Use SQLite FTS before optional vector search.",
+        "Use deterministic token overlap before optional vector search.",
         "manual:test",
         "2026-07-09T10:00:00+00:00",
         "unit-test",
