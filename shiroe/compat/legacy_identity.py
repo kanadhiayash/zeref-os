@@ -10,8 +10,6 @@ when dropping the old spelling would **fail silently**:
   would quietly re-arm rather than error;
 - an unread database file yields no rows, which presents as total memory loss
   rather than as a missing file;
-- an unrecognised CSV header drops a column from a hand-maintained sheet the
-  repository has no copy of.
 
 Anything whose removal *does* fail loudly is a plain rename, not a compat
 alias, and does not belong here.
@@ -37,8 +35,6 @@ __all__ = [
     "LEGACY_VNEXT_STATE_DB_NAME",
     "LEGACY_MEMORY_INDEX_DB_NAME",
     "LEGACY_IMPORT_BACKUP_PREFIX",
-    "LEGACY_LINEAGE_INTAKE_CSV_NAME",
-    "LEGACY_LINEAGE_COLUMN_ALIASES",
     "LEGACY_PRODUCT_NAME",
 ]
 
@@ -103,26 +99,6 @@ Read-only now: :func:`shiroe.storage.importer.rollback` still finds backups
 written before the rename, but new backups are written Shiroe-named. Dropping
 this would make a pre-rename backup unrollbackable, which is exactly the moment
 somebody needs it.
-"""
-
-LEGACY_LINEAGE_INTAKE_CSV_NAME = "ZRF_64_repo_lineage_intake.csv"
-"""Pre-rename filename of the 64-source lineage intake CSV (SHR-013).
-
-:func:`shiroe.lineage.importer.default_csv_path` accepts it after the
-Shiroe-named file misses. The CSV is local-only and hand-maintained outside the
-repository, so the repo cannot rename anybody's copy.
-"""
-
-LEGACY_LINEAGE_COLUMN_ALIASES = {
-    "shiroe_adoption": "zrf_adoption",
-    "why_it_matters_to_shiroe": "why_it_matters_to_ZRF",
-}
-"""Pre-rename column headers of the lineage intake CSV, keyed by the new name.
-
-:mod:`shiroe.lineage.intake` accepts either spelling on read and emits only the
-new one, so a hand-maintained sheet keeps loading while nothing this repository
-writes carries an old header. An unrecognised header would silently drop the
-column rather than raise.
 """
 
 LEGACY_PRODUCT_NAME = "zeref"

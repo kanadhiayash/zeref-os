@@ -2,8 +2,7 @@
 
 The project shipped under a different name. Some legacy spellings are an
 *external* contract the repo cannot rewrite: env vars live in shell profiles, on-disk
-database filenames live in other people's working trees, and the lineage intake
-CSV is hand-maintained off-repo. Deleting those readers would not fail loudly —
+database filenames live in other people's working trees. Deleting those readers would not fail loudly —
 an unset variable falls back to a default and an unread file simply yields
 nothing — so they stay.
 
@@ -345,18 +344,6 @@ def test_legacy_memory_index_cache_is_deleted_not_migrated(tmp_path: Path) -> No
 
     assert not legacy.exists(), "the pre-rename index cache survived a rebuild"
     assert (tmp_path / INDEX_PATH).is_file()
-
-
-def test_pre_rename_lineage_csv_filename_is_still_found(tmp_path: Path) -> None:
-    """The intake CSV is hand-maintained off-repo; this repo cannot rename
-    anybody's copy, so the old filename still resolves."""
-    from shiroe.compat.legacy_identity import LEGACY_LINEAGE_INTAKE_CSV_NAME
-    from shiroe.lineage.importer import default_csv_path
-
-    legacy = tmp_path / LEGACY_LINEAGE_INTAKE_CSV_NAME
-    legacy.write_text("id\n", encoding="utf-8")
-
-    assert default_csv_path(tmp_path) == legacy
 
 
 def test_claim_gate_matches_the_pre_rename_product_name(tmp_path: Path) -> None:

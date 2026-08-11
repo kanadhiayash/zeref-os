@@ -13,11 +13,9 @@ machine-readable source. This module never touches those fields. It is not
 allowed to scrape HTML docs and guess; a refresh that always reports green
 is not a gate, so it says plainly which fields it did not check.
 
-Connector-gated (opt-in) via the same ``require_connector`` pattern as
-``shiroe lineage import`` (github) and ``shiroe grade --llm`` (litellm) — see
-``shiroe/security/policy.py``. OFF by default, so it is OFF in CI and never
-runs during the test suite unless a test explicitly monkeypatches around
-the gate.
+Connector-gated (opt-in) via the same ``require_connector`` pattern used by
+LLM grading. OFF by default, so it is OFF in CI and never runs during the test
+suite unless a test explicitly monkeypatches around the gate.
 """
 
 from __future__ import annotations

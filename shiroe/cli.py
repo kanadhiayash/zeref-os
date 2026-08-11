@@ -1277,46 +1277,6 @@ def cmd_version(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_lineage(args: argparse.Namespace) -> int:
-    if args.lineage_command == "audit":
-        from shiroe.lineage.intake import audit_csv
-
-        result = audit_csv(args.csv)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["passed"] else 1
-    if args.lineage_command == "import":
-        from shiroe.lineage.importer import import_lineage
-
-        result = import_lineage(
-            args.csv,
-            sandbox=args.sandbox,
-            latest_default=args.latest_default,
-            dry_run=args.dry_run,
-        )
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["passed"] else 1
-    if args.lineage_command == "critical":
-        from shiroe.lineage.critical import audit_critical
-
-        result = audit_critical(args.csv, strict=args.strict)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["passed"] else 1
-    if args.lineage_command == "high":
-        from shiroe.lineage.high import audit_high
-
-        result = audit_high(args.csv, strict=args.strict)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["passed"] else 1
-    if args.lineage_command == "reference":
-        from shiroe.lineage.reference import audit_reference_only
-
-        result = audit_reference_only(args.csv, strict=args.strict)
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0 if result["passed"] else 1
-    print("✘ unknown lineage command")
-    return 1
-
-
 def _print_item_result(item, *, json_output: bool, verb: str) -> int:
     from shiroe.memory_state import item_to_dict
 
@@ -1721,25 +1681,6 @@ def _build_parser() -> argparse.ArgumentParser:
     loop_report.add_argument("--loop-id")
     loop_report.add_argument("--json", action="store_true")
 
-    lineage = sub.add_parser("lineage", help="Analyze external lineage sources")
-    lineage_sub = lineage.add_subparsers(dest="lineage_command", required=True)
-    lineage_audit = lineage_sub.add_parser("audit", help="Validate lineage intake CSV")
-    lineage_audit.add_argument("--csv", required=True)
-    lineage_import = lineage_sub.add_parser("import", help="Resolve and sandbox lineage sources")
-    lineage_import.add_argument("--csv")
-    lineage_import.add_argument("--sandbox", action="store_true", help="Write imports under .shiroe-sandbox/lineage")
-    lineage_import.add_argument("--latest-default", action="store_true", help="Resolve each GitHub default branch")
-    lineage_import.add_argument("--dry-run", action="store_true", help="Resolve metadata without cloning or writing")
-    lineage_critical = lineage_sub.add_parser("critical", help="Audit critical lineage implementations")
-    lineage_critical.add_argument("--csv")
-    lineage_critical.add_argument("--strict", action="store_true")
-    lineage_high = lineage_sub.add_parser("high", help="Audit high-priority lineage boundaries")
-    lineage_high.add_argument("--csv")
-    lineage_high.add_argument("--strict", action="store_true")
-    lineage_reference = lineage_sub.add_parser("reference", help="Audit reference-only battle tests")
-    lineage_reference.add_argument("--csv")
-    lineage_reference.add_argument("--strict", action="store_true")
-
     return p
 
 
@@ -1776,7 +1717,6 @@ def main() -> None:
         "prompt": cmd_prompt,
         "handoff": cmd_handoff,
         "loop": cmd_loop,
-        "lineage": cmd_lineage,
     }
     handler = handlers.get(args.command)
     if not handler:
