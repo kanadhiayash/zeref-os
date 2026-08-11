@@ -35,3 +35,10 @@ transitional until Phase 04 replaces it with Work Graph supervision.
   refinement reports, and the public guard package. Canonical memory now flows
   through SQLite records, deterministic token-overlap recall, generated views,
   and the unified Verification Engine.
+
+## Phase 06
+
+- Generic context packets and codec registry/runtime packages. Handoff now
+  compiles canonical JSON/Markdown directly from Work Graph, approval, memory,
+  and verification state. Obsolete schema tables remain until the Phase 08
+  backup-backed destructive migration.

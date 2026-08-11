@@ -10,13 +10,12 @@ from shiroe.registry.generator import (
     generate_all,
     generate_components,
     generate_adapters,
-    generate_codecs,
     generate_capabilities,
 )
 
 __all__ = [
     "RegistryGenerationError",
     "generate_all", "generate_components",
-    "generate_adapters", "generate_codecs",
+    "generate_adapters",
     "generate_capabilities",
 ]

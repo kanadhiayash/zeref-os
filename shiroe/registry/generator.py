@@ -51,8 +51,6 @@ def generate_components(root: Path) -> Path:
         {"id": "shiroe.adapters.capabilities", "status": "runtime", "purpose": "executable capability adapters"},
         {"id": "shiroe.work",         "status": "runtime",     "purpose": "canonical Work Graph model and persistence"},
         {"id": "shiroe.execution",    "status": "runtime",     "purpose": "bounded Work Graph supervisor"},
-        {"id": "shiroe.codecs",       "status": "runtime",     "purpose": "codec registry + selector"},
-        {"id": "shiroe.context",      "status": "runtime",     "purpose": "6-section context packet"},
         {"id": "shiroe.evidence",     "status": "runtime",     "purpose": "quality vs robustness"},
         {"id": "shiroe.adapters.harnesses", "status": "adapter", "purpose": "codex/claude/gemini/kimi/hermes/odysseus"},
         {"id": "shiroe.adapters.providers", "status": "adapter", "purpose": "anthropic/openai/xai config"},
@@ -75,13 +73,6 @@ def generate_adapters(root: Path) -> Path:
         "capability_adapters": list_adapters(),
     }
     return _write(root / "registry" / "adapters.json", payload)
-
-
-def generate_codecs(root: Path) -> Path:
-    from shiroe.codecs import list_codecs
-    return _write(root / "registry" / "codecs.json",
-                  {"schema": "shiroe.registry-codecs/v1",
-                   "codecs": list_codecs()})
 
 
 def generate_capabilities(root: Path) -> Path:
@@ -107,6 +98,5 @@ def generate_all(root: Path | str) -> list[Path]:
     return [
         generate_components(root),
         generate_adapters(root),
-        generate_codecs(root),
         generate_capabilities(root),
     ]
