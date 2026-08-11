@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from shiroe.memory.models import RecallResult
-from shiroe.memory.search import search_memory
+from shiroe.memory.service import MemoryService
 
 
 def recall(
@@ -20,7 +20,7 @@ def recall(
 ) -> RecallResult:
     statuses = (status,) if status else ("active", "superseded", "archived", "disputed", "stale")
     kinds = (atom_type,) if atom_type else None
-    result = search_memory(root, query, limit=limit, kinds=kinds, statuses=statuses)
+    result = MemoryService(root).search(query, limit=limit, kinds=kinds, statuses=statuses)
     evidence_refs = tuple(
         ref
         for hit in result.hits
@@ -63,6 +63,10 @@ def recall_to_dict(result: RecallResult) -> dict[str, Any]:
     }
 
 
+def recall_to_legacy_dict(result: RecallResult) -> dict[str, Any]:
+    return recall_to_dict(result)
+
+
 def explain_search(
     root: Path | str,
     query: str,
@@ -73,7 +77,7 @@ def explain_search(
 ) -> dict[str, Any]:
     statuses = (status,) if status else ("active", "superseded", "archived", "disputed", "stale")
     kinds = (atom_type,) if atom_type else None
-    result = search_memory(root, query, limit=limit, kinds=kinds, statuses=statuses)
+    result = MemoryService(root).search(query, limit=limit, kinds=kinds, statuses=statuses)
     return {
         "query": query,
         "tokens": list(result.tokens),

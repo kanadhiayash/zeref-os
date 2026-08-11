@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 from typing import Iterable
 
-from shiroe.memory.models import MemoryEvent, MemoryRecord, MemoryRelation, MemoryWrite
+from shiroe.memory.models import MemoryEvent, MemoryRecord, MemoryRelation, MemoryWrite, SearchResult
 from shiroe.storage.events import EventEnvelope, EventLog
 from shiroe.storage.records import archive_record, supersede_record, write_record
 from shiroe.storage.state import StateDB
@@ -186,6 +186,26 @@ class MemoryService:
                 )
             )
         return tuple(events)
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+        kinds: Iterable[str] | None = None,
+        statuses: Iterable[str] = ("active",),
+        as_of: str | None = None,
+    ) -> SearchResult:
+        from shiroe.memory.search import search_memory
+
+        return search_memory(
+            self.root,
+            query,
+            limit=limit,
+            kinds=tuple(kinds) if kinds is not None else None,
+            statuses=tuple(statuses),
+            as_of=as_of,
+        )
 
     def _record_from_row(self, row: sqlite3.Row | tuple[object, ...]) -> MemoryRecord:
         record_id = str(row[0])
