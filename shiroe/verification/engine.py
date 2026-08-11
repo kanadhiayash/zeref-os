@@ -133,10 +133,41 @@ class VerificationEngine:
         return _check("claims", findings)
 
     def _check_contradictions(self, proposal: MemoryWrite) -> VerificationCheck:
-        # The canonical contradiction store lands in the next consolidation
-        # step. Until then, Verification owns the report shape and returns a
-        # deterministic pass rather than consulting generated Markdown.
-        return VerificationCheck(name="contradictions", status=CheckStatus.passed)
+        findings: list[VerificationFinding] = []
+        try:
+            from shiroe.memory.service import MemoryService
+
+            proposal_key = _opposition_key(proposal.claim)
+            if proposal_key:
+                proposal_subject, proposal_polarity = proposal_key
+                for record in MemoryService(self.root).list(statuses=("active",)):
+                    existing_key = _opposition_key(record.claim)
+                    if not existing_key:
+                        continue
+                    existing_subject, existing_polarity = existing_key
+                    if existing_subject == proposal_subject and existing_polarity != proposal_polarity:
+                        findings.append(
+                            VerificationFinding(
+                                code="contradiction_detected",
+                                message=(
+                                    f"Claim contradicts active memory {record.id}; "
+                                    "human arbitration is required."
+                                ),
+                                severity=CheckStatus.block,
+                                fix="Create an explicit resolution instead of silently storing both claims.",
+                                evidence={"existing_id": record.id},
+                            )
+                        )
+        except Exception as exc:  # noqa: BLE001
+            findings.append(
+                VerificationFinding(
+                    code="contradiction_check_failed",
+                    message=f"Contradiction check could not complete: {exc}",
+                    severity=CheckStatus.block,
+                    fix="Repair canonical state before writing memory.",
+                )
+            )
+        return _check("contradictions", findings)
 
 
 def _check(name: str, findings: list[VerificationFinding]) -> VerificationCheck:
@@ -147,3 +178,20 @@ def _check(name: str, findings: list[VerificationFinding]) -> VerificationCheck:
     else:
         status = CheckStatus.passed
     return VerificationCheck(name=name, status=status, findings=tuple(findings))
+
+
+def _opposition_key(claim: str) -> tuple[str, str] | None:
+    lowered = " ".join(claim.lower().strip().rstrip(".").split())
+    pairs = (
+        ("enabled", "disabled"),
+        ("allowed", "denied"),
+        ("on", "off"),
+        ("true", "false"),
+    )
+    for positive, negative in pairs:
+        for term, polarity in ((positive, "positive"), (negative, "negative")):
+            needle = f" {term}"
+            if lowered.endswith(needle) or f"{needle} " in lowered:
+                subject = lowered.replace(needle, " <state>", 1)
+                return subject, polarity
+    return None

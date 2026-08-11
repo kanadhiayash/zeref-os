@@ -456,6 +456,7 @@ def cmd_memory(args: argparse.Namespace) -> int:
 
     root = _project_root()
     service = MemoryService(root)
+    audit = AuditLogger.from_root(root)
 
     def _record_payload(record) -> dict:
         data = asdict(record)
@@ -468,9 +469,8 @@ def cmd_memory(args: argparse.Namespace) -> int:
     try:
         if args.memory_command == "write":
             payload = json.loads(Path(args.from_path).read_text(encoding="utf-8"))
-            proposal = _memory_write_from_payload(payload)
+            proposal = _memory_write_from_payload(payload, root=root)
             report = VerificationEngine(root).verify_memory_write(proposal)
-            audit = AuditLogger.from_root(root)
             if report.status.value == "block":
                 reason = "; ".join(
                     finding.message
@@ -541,7 +541,7 @@ def cmd_memory(args: argparse.Namespace) -> int:
             return 0
 
         if args.memory_command == "add":
-            record = service.write(
+            proposal = _scrub_memory_write(
                 MemoryWrite(
                     kind=args.type or args.kind,
                     title=args.title or (args.claim or input("Title: ").strip()),
@@ -552,10 +552,42 @@ def cmd_memory(args: argparse.Namespace) -> int:
                     privacy_class=_canonical_privacy(args.privacy),
                     confidence=args.confidence,
                     tags=tuple(args.tag or ()),
+                ),
+                root=root,
+            )
+            report = VerificationEngine(root).verify_memory_write(proposal)
+            if report.status.value == "block":
+                reason = "; ".join(
+                    finding.message
+                    for check in report.checks
+                    for finding in check.findings
+                ) or "verification blocked"
+                audit.append(
+                    event_type="guard_failure",
+                    status="blocked",
+                    reason=reason,
+                    guards_run=[check.name for check in report.checks],
                 )
+                audit.append(
+                    event_type="memory_write",
+                    status="blocked",
+                    reason=reason,
+                    guards_run=[check.name for check in report.checks],
+                )
+                print(json.dumps(_verification_report_to_dict(report), indent=2, sort_keys=True))
+                return 1
+            record = service.write(proposal)
+            audit.append(
+                event_type="memory_write",
+                status="accepted",
+                reason="accepted guarded write",
+                memory_id=record.id,
+                guards_run=[check.name for check in report.checks],
             )
             if args.json:
-                print(json.dumps(_record_payload(record), indent=2, sort_keys=True))
+                payload = _record_payload(record)
+                payload["tags"] = list(proposal.tags)
+                print(json.dumps(payload, indent=2, sort_keys=True))
             else:
                 print(f"✔ memory written: {record.id}")
             return 0
@@ -614,10 +646,9 @@ def cmd_memory(args: argparse.Namespace) -> int:
             return 0
 
         if args.memory_command == "render":
-            from shiroe.memory.render import render_memory_view
-
-            result = render_memory_view(root, args.view)
-            print(json.dumps(result, indent=2, sort_keys=True) if args.json else f"✔ Rendered {args.view}")
+            paths = render_views(root)
+            payload = {"view": "all", "rendered": [str(path) for path in paths]}
+            print(json.dumps(payload, indent=2, sort_keys=True) if args.json else "\n".join(payload["rendered"]))
             return 0
 
         if args.memory_command in {"propose", "health", "refine", "update", "explain"}:
@@ -635,20 +666,39 @@ def cmd_memory(args: argparse.Namespace) -> int:
     return 1
 
 
-def _memory_write_from_payload(payload: dict) -> "MemoryWrite":
+def _memory_write_from_payload(payload: dict, *, root: Path) -> "MemoryWrite":
     from shiroe.memory.models import MemoryWrite
 
-    return MemoryWrite(
-        kind=str(payload.get("kind") or payload.get("type") or "note"),
-        title=str(payload.get("title") or payload.get("claim") or "Memory"),
-        claim=str(payload.get("claim") or payload.get("body") or ""),
-        summary=str(payload.get("summary") or ""),
-        source_refs=tuple(str(ref) for ref in (payload.get("source_refs") or payload.get("sources") or ["user-input"])),
-        confidence=str(payload.get("confidence") or "unknown"),
-        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or "C"),
-        privacy_class=_canonical_privacy(str(payload.get("privacy_class") or payload.get("privacy") or "internal")),
-        tags=tuple(str(tag) for tag in (payload.get("tags") or ())),
+    return _scrub_memory_write(
+        MemoryWrite(
+            kind=str(payload.get("kind") or payload.get("type") or "note"),
+            title=str(payload.get("title") or payload.get("claim") or "Memory"),
+            claim=str(payload.get("claim") or payload.get("body") or ""),
+            summary=str(payload.get("summary") or ""),
+            source_refs=tuple(str(ref) for ref in (payload.get("source_refs") or payload.get("sources") or ["user-input"])),
+            confidence=str(payload.get("confidence") or "unknown"),
+            evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or "C"),
+            privacy_class=_canonical_privacy(str(payload.get("privacy_class") or payload.get("privacy") or "internal")),
+            tags=tuple(str(tag) for tag in (payload.get("tags") or ())),
+        ),
+        root=root,
     )
+
+
+def _scrub_memory_write(proposal: "MemoryWrite", *, root: Path) -> "MemoryWrite":
+    from dataclasses import replace
+
+    from shiroe.privacy import scrub
+
+    redact = root / "REDACT.md"
+    claim = scrub(proposal.claim, redact, provenance="memory/write/claim")[0]
+    title = scrub(proposal.title, redact, provenance="memory/write/title")[0]
+    summary = scrub(proposal.summary, redact, provenance="memory/write/summary")[0]
+    sources = tuple(
+        scrub(source, redact, provenance="memory/write/source")[0]
+        for source in proposal.source_refs
+    )
+    return replace(proposal, title=title, claim=claim, summary=summary, source_refs=sources)
 
 
 def _canonical_privacy(value: str) -> str:
@@ -930,31 +980,24 @@ def _build_parser() -> argparse.ArgumentParser:
     memory = sub.add_parser("memory", help="Structured local memory state")
     memory_sub = memory.add_subparsers(dest="memory_command", required=True)
 
-    mem_propose = memory_sub.add_parser("propose", help="Create a guarded memory proposal JSON file")
-    mem_propose.add_argument("claim")
-    mem_propose.add_argument("--out", default="proposal.json")
-    mem_propose.add_argument("--json", action="store_true")
-
     mem_write = memory_sub.add_parser("write", help="Write a guarded memory proposal")
     mem_write.add_argument("--from", dest="from_path", required=True)
     mem_write.add_argument("--json", action="store_true")
 
-    mem_list_cards = memory_sub.add_parser("list", help="List memory cards")
+    mem_list_cards = memory_sub.add_parser("list", help="List canonical memory records")
     mem_list_cards.add_argument("--type")
     mem_list_cards.add_argument("--status")
     mem_list_cards.add_argument("--limit", type=int, default=200)
-    mem_list_cards.add_argument("--atoms", action="store_true",
-                                help="List append-only JSONL atoms instead of memory cards")
     mem_list_cards.add_argument("--json", action="store_true")
 
-    mem_show = memory_sub.add_parser("show", help="Show a memory card")
+    mem_show = memory_sub.add_parser("show", help="Show a canonical memory record")
     mem_show.add_argument("id")
 
-    mem_archive = memory_sub.add_parser("archive", help="Archive a memory card")
+    mem_archive = memory_sub.add_parser("archive", help="Archive a canonical memory record")
     mem_archive.add_argument("id")
     mem_archive.add_argument("--json", action="store_true")
 
-    mem_supersede = memory_sub.add_parser("supersede", help="Mark one memory card superseded by another")
+    mem_supersede = memory_sub.add_parser("supersede", help="Mark one canonical memory record superseded by another")
     mem_supersede.add_argument("id")
     mem_supersede.add_argument("--with", dest="with_id", required=True)
     mem_supersede.add_argument("--json", action="store_true")
@@ -972,7 +1015,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mem_add.add_argument("--type", choices=[
         "fact", "decision", "risk", "task", "preference",
         "contradiction", "source", "error", "test", "event",
-    ], help="Atom type. With --claim and --source, appends a JSONL atom.")
+    ], help="Canonical memory kind.")
     mem_add.add_argument("--claim")
     mem_add.add_argument("--summary")
     mem_add.add_argument("--source")
@@ -986,27 +1029,28 @@ def _build_parser() -> argparse.ArgumentParser:
     mem_add.add_argument("--link", action="append")
     mem_add.add_argument("--json", action="store_true")
 
-    mem_patch = memory_sub.add_parser("patch", help="Patch one memory atom")
+    mem_patch = memory_sub.add_parser("patch", help="Archive or supersede a canonical memory record")
     mem_patch.add_argument("id")
-    mem_patch.add_argument("--status", choices=["active", "stale", "superseded", "disputed", "archived"])
-    mem_patch.add_argument("--summary")
+    mem_patch.add_argument("--status", choices=["superseded", "archived"])
     mem_patch.add_argument("--json", action="store_true")
 
-    mem_health = memory_sub.add_parser("health", help="Generate memory health reports")
-    mem_health.add_argument("--json", action="store_true")
-    mem_health.add_argument("--strict", action="store_true")
-    mem_health.add_argument("--no-write", action="store_true", help="Report without writing memory/reports")
+    mem_search = memory_sub.add_parser("search", help="Search canonical memory records")
+    mem_search.add_argument("query", nargs="?", default="")
+    mem_search.add_argument("--kind")
+    mem_search.add_argument("--limit", type=int, default=10)
+    mem_search.add_argument("--json", action="store_true")
 
-    mem_refine = memory_sub.add_parser("refine", help="Propose safe memory cleanup actions")
-    mem_refine.add_argument("--dry-run", action="store_true")
-    mem_refine.add_argument("--json", action="store_true")
-    mem_refine.add_argument("--strict", action="store_true")
+    mem_get = memory_sub.add_parser("get", help="Get a canonical memory record by id")
+    mem_get.add_argument("id")
+    mem_get.add_argument("--json", action="store_true")
 
-    mem_render = memory_sub.add_parser("render", help="Render Markdown views from canonical memory")
-    mem_render.add_argument("view", choices=[
-        "hot.md", "index.md", "decisions", "risks", "contradictions", "all",
-    ])
-    mem_render.add_argument("--json", action="store_true")
+    mem_history = memory_sub.add_parser("history", help="List canonical memory events")
+    mem_history.add_argument("id", nargs="?")
+    mem_history.add_argument("--limit", type=int, default=200)
+    mem_history.add_argument("--json", action="store_true")
+
+    mem_views = memory_sub.add_parser("views", help="Render generated Markdown views from canonical memory")
+    mem_views.add_argument("--json", action="store_true")
 
     rec = sub.add_parser("recall", help="Recall memory atoms by query")
     rec.add_argument("query")

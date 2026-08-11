@@ -29,7 +29,6 @@ MEMORY_DIRS: tuple[str, ...] = (
     "memory/handoffs",
     "memory/indexes",
     "memory/l0_raw",
-    "memory/l1_atoms",
     "memory/l2_scenes",
     "memory/l3_profiles",
     "memory/layers",
@@ -56,16 +55,6 @@ MEMORY_FILES: tuple[str, ...] = (
     "memory/patterns/PATTERNS.jsonl",
     "memory/state/events.jsonl",
     "memory/state/schema.json",
-    "memory/l1_atoms/facts.jsonl",
-    "memory/l1_atoms/decisions.jsonl",
-    "memory/l1_atoms/risks.jsonl",
-    "memory/l1_atoms/tasks.jsonl",
-    "memory/l1_atoms/preferences.jsonl",
-    "memory/l1_atoms/contradictions.jsonl",
-    "memory/l1_atoms/sources.jsonl",
-    "memory/l1_atoms/errors.jsonl",
-    "memory/l1_atoms/tests.jsonl",
-    "memory/l1_atoms/events.jsonl",
     "memory/audit/writes.jsonl",
     "memory/audit/reads.jsonl",
     "memory/audit/routes.jsonl",
@@ -96,7 +85,6 @@ STATE_SCHEMA: dict = {
                 "updated_at",
                 "archived",
             ],
-            "search_index": "memory_items_fts",
         },
         "memory_cards": {
             "fields": [
@@ -434,22 +422,6 @@ def _write_runtime_files(layout: MemoryLayout) -> None:
 
     if not layout.state_events.exists():
         layout.state_events.write_text("", encoding="utf-8")
-
-    for relative in (
-        "memory/l1_atoms/facts.jsonl",
-        "memory/l1_atoms/decisions.jsonl",
-        "memory/l1_atoms/risks.jsonl",
-        "memory/l1_atoms/tasks.jsonl",
-        "memory/l1_atoms/preferences.jsonl",
-        "memory/l1_atoms/contradictions.jsonl",
-        "memory/l1_atoms/sources.jsonl",
-        "memory/l1_atoms/errors.jsonl",
-        "memory/l1_atoms/tests.jsonl",
-        "memory/l1_atoms/events.jsonl",
-    ):
-        path = layout.path(relative)
-        if not path.exists():
-            path.write_text("", encoding="utf-8")
 
     for relative in (
         "memory/audit/writes.jsonl",

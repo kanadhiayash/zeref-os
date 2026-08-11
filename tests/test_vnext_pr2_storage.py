@@ -48,8 +48,10 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
     missing = expected - tables
     assert not missing, f"missing tables: {sorted(missing)}"
     assert "schema_version" in tables
-    # m0004 adds scope-bound approval records.
-    assert db.schema_version() == 4
+    columns = {row[1] for row in db.connect().execute("PRAGMA table_info(memory_records)")}
+    assert "tags_json" in columns
+    # m0005 adds canonical memory tags.
+    assert db.schema_version() == 5
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:

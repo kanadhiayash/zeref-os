@@ -43,13 +43,14 @@ _RECORD_DEFAULTS: dict[str, object] = {
     "valid_from": None,
     "valid_until": None,
     "archived": 0,
+    "tags_json": "[]",
 }
 
 _RECORD_FIELDS = (
     "id", "kind", "title", "claim", "summary", "status", "confidence",
     "evidence_grade", "privacy_class", "authority", "scope", "valid_from",
     "valid_until", "created_at", "updated_at", "owner", "schema_version",
-    "archived",
+    "archived", "tags_json",
 )
 
 

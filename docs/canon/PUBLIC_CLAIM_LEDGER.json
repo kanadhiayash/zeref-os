@@ -50,10 +50,10 @@
       "id": "readme-cli-commands",
       "surface": "README.md",
       "line": 263,
-      "claim": "shiroe --help lists all 27",
+      "claim": "shiroe --help lists all 21",
       "claim_class": "machine_verified",
       "status": "verified",
-      "evidence_value": 27,
+      "evidence_value": 21,
       "verify": {
         "kind": "count_regex",
         "file": "shiroe/cli*.py",

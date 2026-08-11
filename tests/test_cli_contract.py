@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import re
 from pathlib import Path
 
 
@@ -29,12 +30,13 @@ def test_help_lists_commands(repo_root: Path) -> None:
     assert r.returncode == 0
     for cmd in ("status", "write-decision", "grade", "audit-privacy",
                 "audit", "init", "db-status", "memory", "recall",
-                "explain-search", "cost", "factguard", "evidence", "facts",
-                "contradictions", "privacy", "route", "release", "doctor",
-                "prompt", "handoff"):
+                "explain-search", "route", "release", "doctor",
+                "prompt", "handoff", "capability", "providers", "policy",
+                "state", "claims", "version"):
         assert cmd in r.stdout, f"--help missing command {cmd!r}: {r.stdout}"
-    assert "loop" not in r.stdout
-    assert "team" not in r.stdout
+    choices = set(re.search(r"\{([^}]+)\}", r.stdout).group(1).split(","))
+    for removed in ("loop", "team", "cost", "factguard", "evidence", "facts", "contradictions", "privacy"):
+        assert removed not in choices
 
 
 def test_status_runs(repo_root: Path) -> None:

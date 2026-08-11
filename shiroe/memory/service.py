@@ -87,6 +87,7 @@ class MemoryService:
             scope=proposal.scope,
             valid_from=proposal.valid_from,
             valid_until=proposal.valid_until,
+            tags_json=json.dumps(list(proposal.tags)),
             sources=sources,
         )
         return self.get(record_id)
@@ -97,7 +98,7 @@ class MemoryService:
             SELECT id, kind, title, claim, summary, status, confidence,
                    evidence_grade, privacy_class, authority, scope, valid_from,
                    valid_until, created_at, updated_at, owner, schema_version,
-                   archived
+                   archived, tags_json
             FROM memory_records
             WHERE id = ?
             """,
@@ -130,7 +131,7 @@ class MemoryService:
         sql = (
             "SELECT id, kind, title, claim, summary, status, confidence, "
             "evidence_grade, privacy_class, authority, scope, valid_from, "
-            "valid_until, created_at, updated_at, owner, schema_version, archived "
+            "valid_until, created_at, updated_at, owner, schema_version, archived, tags_json "
             "FROM memory_records"
         )
         if where:
@@ -236,6 +237,7 @@ class MemoryService:
             schema_version=int(row[16]),
             archived=bool(row[17]),
             source_refs=sources,
+            tags=tuple(json.loads(row[18] or "[]")),
         )
 
 

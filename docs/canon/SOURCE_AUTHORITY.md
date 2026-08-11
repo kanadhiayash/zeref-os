@@ -174,6 +174,7 @@ a graph is *not* in order to say what it is.
     "benchmarks/**",
     "scripts/**",
     ".github/**",
+    ".superpowers/**",
     ".cursor/**",
     ".claude-plugin/**",
     ".superpowers/**",
