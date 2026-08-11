@@ -6,7 +6,7 @@ Shiroe is a local-first governance and continuity plane for persistent AI Work
 Graphs. It owns canonical state, policy, approvals, capability control,
 execution supervision, verification, memory, and cross-harness continuation.
 
-Current release: `3.0.0-alpha.1`. The vNext overhaul is in progress, so only
+Current release: `v3.0.0-alpha.1`. The vNext overhaul is in progress, so only
 interfaces shown by the installed CLI are operational.
 
 ## Operational Boundary

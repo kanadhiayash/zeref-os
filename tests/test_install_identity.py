@@ -12,7 +12,6 @@ Covers two things:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -27,8 +26,8 @@ from shiroe.release.manifest import _packaged_files, build_manifest, is_stale
 # fixtures are allowed to keep the old name.
 DISPLAY_SURFACES = [
     "README.md", "SKILL.md", "AGENTS.md", "CLAUDE.md", "CODEX.md", "GEMINI.md",
-    "LLAMA.md", "GITHUB_OS.md", "config/PROJECT.md", "commands/status.md",
-    "commands/start.md", "shiroe/__init__.py", "shiroe/cli.py",
+    "LLAMA.md", "GITHUB_OS.md", "config/PROJECT.md",
+    "shiroe/__init__.py", "shiroe/cli.py",
 ]
 
 
@@ -84,21 +83,8 @@ def test_compat_identifier_intact(repo_root: Path) -> None:
     assert marketplace["name"] == "shiroe"
     assert marketplace["plugins"][0]["name"] == "shiroe"
 
-    registry = json.loads((repo_root / "shiroe-registry.json").read_text(encoding="utf-8"))
-    schema_url = registry["$schema"]
-    assert schema_url == (
-        "https://raw.githubusercontent.com/kanadhiayash/shiroe/main/"
-        "registry/shiroe-registry.schema.json"
-    )
-
-    # The URL's path must resolve to a real, committed file — not a dangling
-    # pointer to a domain the project doesn't control.
-    schema_repo_path = schema_url.split("/main/", 1)[1]
-    schema_path = repo_root / schema_repo_path
-    assert schema_path.is_file(), f"{schema_repo_path} does not exist in the repo"
-
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert not (repo_root / "shiroe-registry.json").exists()
+    assert not (repo_root / "registry" / "shiroe-registry.schema.json").exists()
 
     # The registry must actually validate against the committed schema —
     # run it through the same validator the CI `validate` job and
@@ -108,7 +94,7 @@ def test_compat_identifier_intact(repo_root: Path) -> None:
         cwd=str(repo_root), capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "Registry schema:  valid" in result.stdout
+    assert "Registry schema" not in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -124,14 +110,8 @@ def test_manifest_well_formed_and_digests_match_actual_files(repo_root: Path) ->
     assert manifest.package_file_count > 0
     assert manifest.package_digest.startswith("sha256:")
 
-    expected_registry = "sha256:" + hashlib.sha256(
-        (repo_root / "shiroe-registry.json").read_bytes()
-    ).hexdigest()
-    assert manifest.registry_digest == expected_registry
-
-    expected_agents = "sha256:" + hashlib.sha256(
-        (repo_root / "AGENTS.md").read_bytes()
-    ).hexdigest()
+    import hashlib
+    expected_agents = "sha256:" + hashlib.sha256((repo_root / "AGENTS.md").read_bytes()).hexdigest()
     assert manifest.agents_digest == expected_agents
 
 
@@ -179,9 +159,6 @@ def _seed_installable(root: Path, *, version: str, plugin_description: str) -> N
     (root / "pyproject.toml").write_text(
         f'[project]\nname = "shiroe-os"\nversion = "{version}"\n', encoding="utf-8",
     )
-    (root / "shiroe-registry.json").write_text(
-        json.dumps({"version": version}), encoding="utf-8",
-    )
     (root / ".claude-plugin").mkdir(exist_ok=True)
     (root / ".claude-plugin" / "plugin.json").write_text(
         json.dumps({"name": "shiroe-os", "version": version, "description": plugin_description}),
@@ -226,7 +203,6 @@ def test_upgrade_from_stale_cache_replaces_old_payload(tmp_path: Path, monkeypat
     # The payload genuinely changed (not just the version string).
     assert old_manifest.version != new_manifest.version
     assert old_manifest.package_digest != new_manifest.package_digest
-    assert old_manifest.registry_digest != new_manifest.registry_digest
 
     # A cache still holding the old manifest must be detected as stale
     # against the newly published root — this is what forces the refresh.
@@ -250,7 +226,6 @@ def test_memory_survives_manifest_rebuild(tmp_path: Path) -> None:
         '[project]\nname = "shiroe-os"\n', encoding="utf-8"
     )
     (root / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
-    (root / "shiroe-registry.json").write_text("{}", encoding="utf-8")
 
     before_digest = build_manifest(root).package_digest
     packaged_rel_paths = {str(p.relative_to(root)) for p in _packaged_files(root)}

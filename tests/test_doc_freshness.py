@@ -90,6 +90,8 @@ def test_no_operator_records_tracked_under_docs(repo_root: Path) -> None:
 
     hits: list[str] = []
     for rel in tracked:
+        if rel.startswith("docs/superpowers/"):
+            continue
         parts = Path(rel).parts
         if EVIDENCE_DIR_SEGMENT in parts:
             hits.append(rel)

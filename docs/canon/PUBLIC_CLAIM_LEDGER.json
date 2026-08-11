@@ -36,10 +36,10 @@
       "id": "readme-release-checks",
       "surface": "README.md",
       "line": 123,
-      "claim": "shiroe release check — 16 checks",
+      "claim": "shiroe release check — 14 checks",
       "claim_class": "machine_verified",
       "status": "verified",
-      "evidence_value": 16,
+      "evidence_value": 14,
       "verify": {
         "kind": "count_regex",
         "file": "shiroe/release/checks.py",
@@ -50,10 +50,10 @@
       "id": "readme-cli-commands",
       "surface": "README.md",
       "line": 263,
-      "claim": "shiroe --help lists all 31",
+      "claim": "shiroe --help lists all 29",
       "claim_class": "machine_verified",
       "status": "verified",
-      "evidence_value": 31,
+      "evidence_value": 29,
       "verify": {
         "kind": "count_regex",
         "file": "shiroe/cli*.py",
@@ -66,13 +66,16 @@
       "line": 359,
       "claim": "skills/ — 15 on-trigger procedures",
       "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 15,
+      "status": "removed",
+      "evidence_value": null,
       "verify": {
         "kind": "count_json_array",
         "file": "shiroe-registry.json",
         "path": "skills"
-      }
+      },
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. The root contract registry and first-party Skills directory are no longer active product surfaces."
     },
     {
       "id": "readme-agents-count",
@@ -80,13 +83,16 @@
       "line": 360,
       "claim": "agents/ — 6 background roles",
       "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 6,
+      "status": "removed",
+      "evidence_value": null,
       "verify": {
         "kind": "count_json_array",
         "file": "shiroe-registry.json",
         "path": "agents"
-      }
+      },
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. The root contract registry and first-party Agents directory are no longer active product surfaces."
     },
     {
       "id": "readme-commands-count",
@@ -94,13 +100,16 @@
       "line": 361,
       "claim": "commands/ — 8 user-facing command contracts",
       "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 8,
+      "status": "removed",
+      "evidence_value": null,
       "verify": {
         "kind": "count_json_array",
         "file": "shiroe-registry.json",
         "path": "commands"
-      }
+      },
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. The commands/ contract directory is no longer an active product surface."
     },
     {
       "id": "readme-team-packs-count",
@@ -108,13 +117,16 @@
       "line": 362,
       "claim": "team-packs/ — 9 on-demand multi-agent configurations",
       "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 9,
+      "status": "removed",
+      "evidence_value": null,
       "verify": {
         "kind": "count_json_array",
         "file": "shiroe-registry.json",
         "path": "team_packs"
-      }
+      },
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
     },
     {
       "id": "readme-agent-cap",
@@ -122,9 +134,12 @@
       "line": 362,
       "claim": "team-packs/ — 9 on-demand multi-agent configurations, capped at 6 agents",
       "claim_class": "manual",
-      "status": "verified",
-      "evidence_value": 6,
-      "evidence_path": "team-packs/enterprise.md"
+      "status": "removed",
+      "evidence_value": null,
+      "evidence_path": "team-packs/enterprise.md",
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
     },
     {
       "id": "agents-pack-cap-max",
@@ -132,9 +147,12 @@
       "line": 249,
       "claim": "Max 6 agents per pack",
       "claim_class": "manual",
-      "status": "verified",
-      "evidence_value": 6,
-      "evidence_path": "team-packs/enterprise.md"
+      "status": "removed",
+      "evidence_value": null,
+      "evidence_path": "team-packs/enterprise.md",
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
     },
     {
       "id": "agents-pack-cap-capped",
@@ -142,9 +160,12 @@
       "line": 275,
       "claim": "Team packs are on-demand only and capped at 6 agents",
       "claim_class": "manual",
-      "status": "verified",
-      "evidence_value": 6,
-      "evidence_path": "team-packs/enterprise.md"
+      "status": "removed",
+      "evidence_value": null,
+      "evidence_path": "team-packs/enterprise.md",
+      "owner": "kanadhiayash",
+      "resolving_pr": "vnext-phase-01-scope-reset",
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
     }
   ]
 }
