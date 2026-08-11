@@ -25,6 +25,12 @@ def adapter_registry() -> dict[str, CapabilityAdapter]:
     return dict(_ADAPTERS)
 
 
+def register_adapter(name: str, adapter: CapabilityAdapter) -> None:
+    if not name.strip():
+        raise ValueError("adapter name must be non-empty")
+    _ADAPTERS[name] = adapter
+
+
 def resolve_adapter(name: str) -> CapabilityAdapter:
     try:
         return _ADAPTERS[name]

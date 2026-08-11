@@ -27,12 +27,13 @@ from shiroe.adapters.capabilities.registry import (
     AdapterNotFoundError,
     adapter_registry,
     list_adapters,
+    register_adapter,
     resolve_adapter,
 )
 from shiroe.adapters.capabilities.health import probe, record_status
 
 __all__ = [
     "AdapterResult", "CapabilityAdapter", "EnforcementLevel", "HealthReport",
-    "AdapterNotFoundError", "adapter_registry", "list_adapters", "resolve_adapter",
+    "AdapterNotFoundError", "adapter_registry", "list_adapters", "register_adapter", "resolve_adapter",
     "probe", "record_status",
 ]

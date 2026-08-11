@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,13 @@ from shiroe.work.readiness import ready_node_ids as calculate_ready_node_ids
 
 class ConcurrentWorkUpdate(RuntimeError):
     """Raised when a compare-and-swap state update loses a race."""
+
+
+@dataclass(frozen=True)
+class StoredWorkNode:
+    node: WorkNode
+    status: NodeStatus
+    state_version: int
 
 
 def _now() -> str:
@@ -217,6 +225,21 @@ class WorkStore:
         if row is None:
             raise KeyError(node_id)
         return _loads(row[0], None)
+
+    def get_node(self, node_id: str) -> StoredWorkNode:
+        row = self.conn.execute(
+            """
+            SELECT id, graph_id, kind, objective, requires_json, risk,
+                   approval_required, independent_review, evidence_required,
+                   expected_outputs_json, retry_json, metadata_json, status, state_version
+            FROM work_nodes WHERE id=?
+            """,
+            (node_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(node_id)
+        node = self._node_from_row(row[:12])
+        return StoredWorkNode(node=node, status=NodeStatus(row[12]), state_version=int(row[13]))
 
     def _node_statuses(self, graph_id: str) -> dict[str, str]:
         rows = self.conn.execute(
