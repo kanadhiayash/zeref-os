@@ -33,6 +33,7 @@ from shiroe.policy.autonomy import (
 )
 from shiroe.policy.engine import evaluate
 from shiroe.policy.loader import load_policy_stack
+from shiroe.policy.service import AuthorizationResult, PolicyService
 
 __all__ = [
     "Action", "ActionKind", "Decision", "Verdict",
@@ -40,4 +41,5 @@ __all__ = [
     "ApprovalService", "AuthorizationError", "scope_digest",
     "ALWAYS_REQUIRE_APPROVAL", "AutonomyMode", "autonomy_gate",
     "evaluate", "load_policy_stack",
+    "AuthorizationResult", "PolicyService",
 ]
