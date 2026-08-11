@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -137,7 +138,6 @@ class MemoryStore:
                 """
             )
             _ensure_column(conn, "memory_items", "layer", "TEXT NOT NULL DEFAULT 'L1'")
-            _ensure_fts(conn)
 
     def add(
         self,
@@ -405,19 +405,10 @@ class MemoryStore:
         limit: int = 10,
     ) -> list[MemoryItem]:
         self.ensure()
-        fts_query = _fts_query(query)
         params: list[Any] = []
+        tokens = _query_tokens(query)
 
-        if fts_query:
-            sql = """
-                SELECT mi.*, bm25(memory_items_fts) AS rank
-                FROM memory_items_fts
-                JOIN memory_items mi ON mi.id = memory_items_fts.rowid
-                WHERE memory_items_fts MATCH ? AND mi.archived=0
-            """
-            params.append(fts_query)
-        else:
-            sql = "SELECT mi.*, 0 AS rank FROM memory_items mi WHERE mi.archived=0"
+        sql = "SELECT mi.* FROM memory_items mi WHERE mi.archived=0"
 
         if entity:
             sql += " AND mi.entity LIKE ?"
@@ -430,18 +421,22 @@ class MemoryStore:
             sql += " AND mi.layer=?"
             params.append(layer)
 
-        sql += " ORDER BY rank ASC, mi.updated_at DESC LIMIT ?"
-        params.append(limit)
+        sql += " ORDER BY mi.updated_at DESC, mi.id DESC"
 
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
 
-        items: list[MemoryItem] = []
+        scored: list[tuple[int, str, int, MemoryItem]] = []
         for row in rows:
             item = _item_from_row(row)
-            if item:
-                items.append(_with_reason(item, query=query, entity=entity, kind=kind, layer=layer))
-        return items
+            if not item:
+                continue
+            score = _legacy_overlap_score(tokens, item)
+            if tokens and score <= 0:
+                continue
+            scored.append((score, item.updated_at, item.id, _with_reason(item, query=query, entity=entity, kind=kind, layer=layer)))
+        scored.sort(key=lambda entry: (-entry[0], entry[1], entry[2]))
+        return [entry[3] for entry in scored[:limit]]
 
     def history(self, item_id: int | None = None, limit: int = 20) -> list[MemoryEvent]:
         self.ensure()
@@ -641,51 +636,17 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
-def _ensure_fts(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        DROP TRIGGER IF EXISTS memory_items_ai;
-        DROP TRIGGER IF EXISTS memory_items_ad;
-        DROP TRIGGER IF EXISTS memory_items_au;
-        DROP TABLE IF EXISTS memory_items_fts;
-
-        CREATE VIRTUAL TABLE memory_items_fts
-        USING fts5(
-            title,
-            body,
-            entity,
-            tags,
-            layer,
-            content='memory_items',
-            content_rowid='id'
-        );
-
-        INSERT INTO memory_items_fts(rowid, title, body, entity, tags, layer)
-        SELECT id, title, body, entity, tags, layer FROM memory_items WHERE archived=0;
-
-        CREATE TRIGGER memory_items_ai AFTER INSERT ON memory_items BEGIN
-            INSERT INTO memory_items_fts(rowid, title, body, entity, tags, layer)
-            VALUES (new.id, new.title, new.body, new.entity, new.tags, new.layer);
-        END;
-
-        CREATE TRIGGER memory_items_ad AFTER DELETE ON memory_items BEGIN
-            INSERT INTO memory_items_fts(memory_items_fts, rowid, title, body, entity, tags, layer)
-            VALUES ('delete', old.id, old.title, old.body, old.entity, old.tags, old.layer);
-        END;
-
-        CREATE TRIGGER memory_items_au AFTER UPDATE ON memory_items BEGIN
-            INSERT INTO memory_items_fts(memory_items_fts, rowid, title, body, entity, tags, layer)
-            VALUES ('delete', old.id, old.title, old.body, old.entity, old.tags, old.layer);
-            INSERT INTO memory_items_fts(rowid, title, body, entity, tags, layer)
-            VALUES (new.id, new.title, new.body, new.entity, new.tags, new.layer);
-        END;
-        """
-    )
+def _query_tokens(query: str) -> tuple[str, ...]:
+    normalized = unicodedata.normalize("NFKC", query).lower()
+    return tuple(dict.fromkeys(re.findall(r"\w+", normalized, flags=re.UNICODE)))
 
 
-def _fts_query(query: str) -> str:
-    tokens = re.findall(r"[A-Za-z0-9_./:-]+", query)
-    return " OR ".join(f'"{token}"' for token in tokens)
+def _legacy_overlap_score(tokens: tuple[str, ...], item: MemoryItem) -> int:
+    if not tokens:
+        return 0
+    haystack = " ".join([item.title, item.body, item.entity, " ".join(item.tags)])
+    item_tokens = set(_query_tokens(haystack))
+    return len(set(tokens) & item_tokens)
 
 
 def _item_from_row(row: sqlite3.Row | None) -> MemoryItem | None:
@@ -761,7 +722,7 @@ def _with_reason(item: MemoryItem, *, query: str, entity: str, kind: str, layer:
     if matched:
         reasons.append("matched_terms=" + ",".join(matched[:6]))
     elif query:
-        reasons.append("fts_ranked_match")
+        reasons.append("token_overlap_match")
     else:
         reasons.append("latest_items")
     if entity:

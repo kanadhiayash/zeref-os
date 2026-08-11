@@ -52,7 +52,7 @@ def test_memory_health_reports_findings(repo_root: Path, tmp_path: Path) -> None
         tmp_path,
         [
             "--type", "decision",
-            "--claim", "Use SQLite FTS before vector search.",
+            "--claim", "Use deterministic token overlap before vector search.",
             "--source", "manual:test",
             "--evidence", "A",
             "--privacy", "public-safe",
@@ -63,7 +63,7 @@ def test_memory_health_reports_findings(repo_root: Path, tmp_path: Path) -> None
         tmp_path,
         [
             "--type", "decision",
-            "--claim", "Use SQLite FTS before vector search.",
+            "--claim", "Use deterministic token overlap before vector search.",
             "--source", "manual:test-duplicate",
             "--evidence", "unverified",
         ],

@@ -48,7 +48,7 @@ def test_memory_add_list_patch_round_trip(repo_root: Path, tmp_path: Path) -> No
         [
             "memory", "add",
             "--type", "decision",
-            "--claim", "Use SQLite FTS before optional vector search.",
+            "--claim", "Use deterministic token overlap before optional vector search.",
             "--summary", "Prefer stdlib SQLite for recall.",
             "--source", "manual:test",
             "--source-type", "manual",

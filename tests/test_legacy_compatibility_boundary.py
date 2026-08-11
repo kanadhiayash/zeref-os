@@ -330,22 +330,6 @@ def test_rollback_still_finds_a_pre_rename_backup(tmp_path: Path) -> None:
     assert rows == [("m1",)]
 
 
-def test_legacy_memory_index_cache_is_deleted_not_migrated(tmp_path: Path) -> None:
-    """The index is derived from the JSONL atoms, so the pre-rename cache is
-    removed on rebuild rather than carried forward."""
-    from shiroe.compat.legacy_identity import LEGACY_MEMORY_INDEX_DB_NAME
-    from shiroe.memory.indexer import INDEX_PATH, rebuild_index
-
-    legacy = tmp_path / "memory" / "indexes" / LEGACY_MEMORY_INDEX_DB_NAME
-    legacy.parent.mkdir(parents=True)
-    legacy.write_bytes(b"stale cache")
-
-    rebuild_index(tmp_path)
-
-    assert not legacy.exists(), "the pre-rename index cache survived a rebuild"
-    assert (tmp_path / INDEX_PATH).is_file()
-
-
 def test_claim_gate_matches_the_pre_rename_product_name(tmp_path: Path) -> None:
     """Docs in flight and third-party copy still use the old product name. A
     gate that stopped matching it would let an overclaim through."""

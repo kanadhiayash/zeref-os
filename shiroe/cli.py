@@ -657,16 +657,6 @@ def cmd_memory(args: argparse.Namespace) -> int:
                 print(f"✔ Atom patched: {patched['id']}")
             return 0
 
-        if args.memory_command == "index":
-            from shiroe.memory.indexer import rebuild_index
-
-            result = rebuild_index(root)
-            if args.json:
-                print(json.dumps(result, indent=2, sort_keys=True))
-            else:
-                print(f"✔ Indexed {result['atoms_indexed']} atom(s) at {result['path']}")
-            return 0
-
         if args.memory_command == "health":
             from shiroe.memory.refine import build_health_report, write_health_report
 
@@ -1308,9 +1298,6 @@ def _build_parser() -> argparse.ArgumentParser:
     mem_patch.add_argument("--status", choices=["active", "stale", "superseded", "disputed", "archived"])
     mem_patch.add_argument("--summary")
     mem_patch.add_argument("--json", action="store_true")
-
-    mem_index = memory_sub.add_parser("index", help="Rebuild SQLite memory index")
-    mem_index.add_argument("--json", action="store_true")
 
     mem_health = memory_sub.add_parser("health", help="Generate memory health reports")
     mem_health.add_argument("--json", action="store_true")
