@@ -512,3 +512,24 @@ def test_resume_after_topup_produces_same_usage_totals(tmp_path: Path) -> None:
                     invoker=_inv_full)
     assert result.state == "COMPLETED"
     assert result.budget["usage_totals"] == control_totals
+
+
+# ---------------------------------------------------------------------------
+# SHR-057 — real-adapter path must not hit sqlite check_same_thread
+# ---------------------------------------------------------------------------
+
+def test_real_adapter_path_crosses_thread_boundary(tmp_path: Path) -> None:
+    """Every other test injects a mocked ``invoker``, so the daemon-thread
+    codepath that resolves and calls the built-in generic adapter is
+    never exercised. Reach through it once end-to-end: without this,
+    ``_resolve_adapter_for``'s reuse of ``self._conn`` from inside the
+    timeout worker would raise ``sqlite3.ProgrammingError`` on the first
+    step. The generic-skill adapter reads SKILL.md and returns it as
+    Level-C context, which is enough to prove the step contract path
+    survives the thread boundary.
+    """
+    run_id = _seed(tmp_path)
+    result = Supervisor(tmp_path, run_id,
+                        mode=AutonomyMode.policy_bound).run()
+    assert result.state == "COMPLETED"
+    assert result.completed_steps == list(BUILD_MISSION_STEPS)
