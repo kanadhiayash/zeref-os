@@ -33,13 +33,17 @@ Do not send plaintext credentials or sensitive victim data.
 
 In scope:
 
-- Privacy redaction bypass.
+- Privacy redaction bypass — including unicode-invisible strip evasion, base32/base64/hex encoding evasion, nested-archive smuggling past the declared depth ceiling, or an allowlist widening that silently unblocks a credential in the same commit.
 - Credential leakage through persisted memory files.
 - Prompt-injection paths that bypass documented gates.
 - Unsafe write, sync, or handoff behavior.
-- Release gate bypass.
+- Release gate bypass — including a stale SHA-bound evidence blob presented as authorization to release, or a release-check subcheck silently skipped.
 - Supply-chain issues in workflows or package metadata.
 - Code execution paths triggered by malformed local config.
+- Task-graph compiler or runtime accepting an unguarded irreversible node, a fake edge, a missing artifact, or an unbounded loop.
+- Policy-precedence bypass — a lower-precedence grant widening a higher-precedence deny, or a mandatory-approval action landing without approval.
+- Evidence provenance bypass — a refuting source silently upgrading a card's grade, or a pinned source drifting undetected.
+- Knowledge-graph writes without provenance, or exports that leak a privacy-classed node.
 
 Out of scope:
 
@@ -63,7 +67,8 @@ Published advisories live at:
 ## Safety principles
 
 - Untrusted content must be treated as untrusted.
-- Irreversible actions require explicit approval.
-- Memory writes should be auditable.
-- Security claims require evidence.
+- Irreversible actions require explicit approval; unguarded irreversible task-graph nodes are refused at compile time.
+- Memory writes should be auditable; every knowledge-graph edge carries provenance; every evidence upgrade pins a source hash and refuses a contradicting source.
+- Security claims require evidence; the release gate re-runs every subcheck live per current HEAD and writes SHA-bound evidence.
 - Public issues must not expose live vulnerabilities.
+- The privacy scanner is defense-in-depth, not a substitute for keeping credentials out of the tree.

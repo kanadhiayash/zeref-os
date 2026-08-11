@@ -120,10 +120,11 @@ So this is the honest version: what a machine checks on every commit, and what n
 | Check | What it proves |
 |---|---|
 | `pytest` — Python 3.11/3.12/3.13 | Behaviour under test |
-| `shiroe release check` — **16 checks** | Gate posture; writes SHA-bound evidence to `docs/audits/` |
-| `audit-privacy --strict` | Zero credential-class hits, repo-wide |
+| `shiroe release check` — SHA-bound evidence gate | Every check re-runs live per current HEAD; writes evidence to `docs/audits/release-evidence/<sha>_<ts>.json`; a stale SHA cannot substitute |
+| `audit-privacy --strict` | Zero credential-class hits, repo-wide — unicode-invisible strip, base32/base64/hex probes, nested-archive scan up to depth 3, and allowlist-change detection all defeat the common bypass paths |
 | `check-version-consistency` | 13 version and identity surfaces cannot drift |
-| `shiroe-validate` | Registry matches disk, and matches its JSON Schema |
+| `shiroe-validate` | Registry matches disk; every `runtime`/`adapter` entry resolves to a real artifact; non-runtime entries carry an honest status |
+| `check-trust-registry` | Every public visual under `assets/` and every URL cited from README + root spec files has an approved source + rights status in `docs/canon/TRUST_REGISTRY.json` |
 | Clean-clone install + `init` + `doctor` | It installs and runs from a fresh venv |
 
 ### Enforced against this README
@@ -343,7 +344,7 @@ Stated plainly, because the alternative is letting you discover them later.
 - **Enforcement varies by harness.** Context-only integrations can be instructed but not compelled. Tiers are stated in [`docs/HARNESS_MATRIX.md`](docs/HARNESS_MATRIX.md).
 - **Privacy redaction is defense-in-depth.** It shrinks the blast radius of a mistake. It is not a reason to paste production credentials into a prompt.
 - **Single-machine memory.** Project state lives on the machine it was written on. There is no sync, no shared store, and no multi-device or multi-user story yet.
-- **Execution is a sequence, not a graph.** A mission declares an ordered `execution_sequence` of seats. Execution, routing, and handoffs are governed independently; nothing models them as a task graph, and no task-graph module exists.
+- **Task graph exists but is not wired into mission execution yet.** `shiroe.graph.compile_task_graph` + `shiroe.graph.run_task_graph` (Wave 6) validate and execute declarative task graphs — unknown nodes, fake edges, missing artifacts, unguarded irreversible steps all fail compilation; parallel-ready nodes overlap, sequential ones do not, loops bound, joins wait. Missions still declare an ordered `execution_sequence` of seats; the task-graph runtime is available for other callers but is not the mission executor yet.
 - **Pattern detection proposes, never installs.** Drafts land in `skills/drafts/` for review.
 - **Alpha software.** Interfaces may change. MIT, no warranty.
 
@@ -361,6 +362,7 @@ Stated plainly, because the alternative is letting you discover them later.
 | `commands/` | 8 user-facing command contracts. |
 | `team-packs/` | 9 on-demand multi-agent configurations, capped at 6 agents. |
 | `benchmarks/` | Internal quality axes and external loader scaffolding. |
+| `shiroe/graph/` | Task-graph compiler + runtime; knowledge graph with provenance, domain/range, atomic merges, guarded promotion, privacy-filtered exports. |
 | `docs/` | Architecture, security, release, reference. |
 
 ---
@@ -378,6 +380,8 @@ Stated plainly, because the alternative is letting you discover them later.
 | [`docs/RELEASE_GATES.md`](docs/RELEASE_GATES.md) | Release readiness checks. |
 | [`docs/PUBLIC_SURFACE.md`](docs/PUBLIC_SURFACE.md) | Public claim rules. |
 | [`docs/TRUST_AUDIT.md`](docs/TRUST_AUDIT.md) | Trust axis posture and re-grade binding. |
+| [`docs/canon/TRUST_RIGHTS.md`](docs/canon/TRUST_RIGHTS.md) | Trust and rights registry — approved sources and rights status for every public visual and imported reference. |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Owner and review cadence for every maintenance surface. |
 | [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Canonical term definitions. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history and naming lineage. |
 
@@ -392,7 +396,15 @@ Open an issue before large changes. Keep pull requests focused. Report security 
 Every PR runs the full local gate before push:
 
 ```bash
-python3 -m pytest -q && python3 scripts/shiroe-validate.py && python3 scripts/check-version-consistency.py && python3 benchmarks/run-all.py && python3 -m shiroe audit-privacy --strict && python3 -m shiroe release check
+python3 -m pytest -q \
+  && python3 scripts/check-canon-consistency.py --root . \
+  && python3 scripts/check-active-identity.py --root . \
+  && python3 scripts/shiroe-validate.py \
+  && python3 scripts/check-version-consistency.py \
+  && python3 scripts/check-trust-registry.py \
+  && python3 benchmarks/run-all.py \
+  && python3 -m shiroe audit-privacy --strict --fail-classes credentials \
+  && python3 -m shiroe release check
 ```
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)

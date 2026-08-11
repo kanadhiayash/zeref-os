@@ -48,16 +48,24 @@ Keep PRs focused. Prefer several clear commits over one large mixed commit.
 Run before requesting review:
 
     python3 -m pytest -q
+    python3 scripts/check-canon-consistency.py --root .
+    python3 scripts/check-active-identity.py --root .
     python3 scripts/shiroe-validate.py
-    python3 -m shiroe audit
-    python3 -m shiroe audit-privacy --strict
     python3 scripts/check-version-consistency.py
+    python3 scripts/check-trust-registry.py
+    python3 -m shiroe audit-privacy --strict --fail-classes credentials
     python3 benchmarks/run-all.py
     git diff --check
+    git status --short
 
 For release-facing changes, also run:
 
     python3 -m shiroe release check
+
+The release check re-runs every subcheck live against the current HEAD and
+writes an evidence blob to `docs/audits/release-evidence/<sha>_<ts>.json`.
+A stored blob whose SHA does not match HEAD is stale and cannot substitute
+for a fresh run.
 
 ## Public claims
 
@@ -80,11 +88,13 @@ Not allowed without evidence:
 ## Security rules
 
 - Never commit secrets.
-- Never weaken privacy gates to pass CI.
+- Never weaken privacy gates to pass CI. The scanner defeats unicode-invisible strip, base32/base64/hex encoding, and nested-archive smuggling up to depth 3 by design; loosening any of these is a security regression.
 - Never publish private paths or credentials.
 - Never hide failures in benchmark reports.
 - Never claim a workspace was updated unless a file was actually written.
 - Never delete release history unless there is a clear security, legal, or public-trust reason.
+- Adding a public visual under `assets/` or citing a new external URL from `README.md` / root spec files requires an entry in `docs/canon/TRUST_REGISTRY.json` with an approved source + rights status. The `check-trust-registry.py` gate fails otherwise.
+- An irreversible task-graph node must declare `guarded: true`. `shiroe.graph.compile_task_graph` refuses an unguarded irreversible node at compile time.
 
 ## Branch retention
 
@@ -108,3 +118,12 @@ Release notes must include:
 - Migration notes if needed.
 
 Read `docs/RELEASE_PROCESS.md`.
+
+## Maintenance surfaces and ownership
+
+`docs/OPERATIONS.md` maps every maintenance surface (canonical store,
+registry, trust registry, provider adapters, release evidence, rollback
+runbook, task + knowledge graphs, privacy scanner, policy precedence)
+to an owner and a review cadence. Read that page before touching any
+of them; `tests/test_operations_owners.py` fails when a row loses its
+owner or cadence, so a silent drift is caught in CI.
