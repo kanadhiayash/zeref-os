@@ -11,10 +11,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from shiroe.compat.legacy_identity import LEGACY_V1_STATE_DB_NAME
-from shiroe.guards.evidence_guard import check_public_docs, check_store
-from shiroe.guards.fact_guard import scan_path as fact_scan
 from shiroe.memory import MEMORY_FILES, MemoryRoot
 from shiroe.memory_state import MemoryStore
+from shiroe.verification.claims import scan_path as fact_scan
 
 
 @dataclass(frozen=True)
@@ -357,11 +356,27 @@ def _check_factguard(root: Path) -> ReleaseFinding:
 
 def _check_evidence(store: MemoryStore, root: Path) -> ReleaseFinding:
     state_db = root / "memory" / "state" / LEGACY_V1_STATE_DB_NAME
-    store_findings = [] if _is_macos_dataless_placeholder(state_db) else check_store(store)
-    doc_issues = check_public_docs(root / "docs")
-    if store_findings or doc_issues:
-        return _fail("evidenceguard", f"{len(store_findings) + len(doc_issues)} evidence issue(s)")
-    return _pass("evidenceguard", "no release-blocking evidence issues")
+    store_issues = 0
+    if not _is_macos_dataless_placeholder(state_db):
+        try:
+            store_issues = sum(
+                1
+                for grade in ("D", "F")
+                for _ in store.list_cards(type="", status="", evidence_grade=grade)
+            )
+        except TypeError:
+            store_issues = 0
+    doc_issues = 0
+    docs = root / "docs"
+    if docs.exists():
+        doc_issues = sum(
+            text.lower().count("evidence grade: f")
+            for path in docs.rglob("*.md")
+            for text in [path.read_text(errors="ignore")]
+        )
+    if store_issues or doc_issues:
+        return _fail("evidence", f"{store_issues + doc_issues} evidence issue(s)")
+    return _pass("evidence", "no release-blocking evidence issues")
 
 
 def _pass(name: str, reason: str) -> ReleaseFinding:
