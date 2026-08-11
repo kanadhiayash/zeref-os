@@ -1,11 +1,13 @@
-"""Recall and explain-search response formatting."""
+"""Canonical memory recall and search explanation."""
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from shiroe.memory.search import search_atoms
+from shiroe.memory.models import RecallResult
+from shiroe.memory.search import search_memory
 
 
 def recall(
@@ -15,78 +17,50 @@ def recall(
     limit: int = 5,
     atom_type: str | None = None,
     status: str | None = "active",
-) -> dict[str, Any]:
-    result = search_atoms(root, query, limit=limit, atom_type=atom_type, status=status)
-    matches = result["matches"]
-    top = matches[0]["atom"] if matches else None
-    contradictions = [
-        match["atom"] for match in search_atoms(
-            root,
-            query,
-            limit=limit,
-            atom_type="contradiction",
-            status="active",
-        )["matches"]
-    ]
-    contradictions.extend(_detect_live_conflicts(matches, contradictions))
+) -> RecallResult:
+    statuses = (status,) if status else ("active", "superseded", "archived", "disputed", "stale")
+    kinds = (atom_type,) if atom_type else None
+    result = search_memory(root, query, limit=limit, kinds=kinds, statuses=statuses)
+    evidence_refs = tuple(
+        ref
+        for hit in result.hits
+        for ref in hit.record.source_refs
+    )
+    return RecallResult(
+        query=query,
+        hits=result.hits,
+        evidence_refs=evidence_refs,
+        open_contradictions=(),
+    )
+
+
+def recall_to_dict(result: RecallResult) -> dict[str, Any]:
+    top = result.hits[0].record if result.hits else None
     return {
-        "query": query,
-        "answer": top["summary"] if top else "No matching memory atom found.",
-        "matched_atoms": matches,
-        "evidence_grade": top["evidence"] if top else "unverified",
-        "source": result["source"],
-        "open_contradictions": contradictions,
+        "query": result.query,
+        "answer": top.summary or top.claim if top else "No matching memory record found.",
+        "matched_atoms": [
+            {
+                "atom": _record_to_legacy_atom(hit.record),
+                "score": hit.score,
+                "why": hit.why,
+            }
+            for hit in result.hits
+        ],
+        "hits": [
+            {
+                "record": asdict(hit.record),
+                "score": hit.score,
+                "why": hit.why,
+            }
+            for hit in result.hits
+        ],
+        "evidence_grade": top.evidence_grade if top else "unverified",
+        "evidence_refs": list(result.evidence_refs),
+        "source": "sqlite",
+        "open_contradictions": [asdict(record) for record in result.open_contradictions],
+        "abstained": result.abstained,
     }
-
-
-def _detect_live_conflicts(
-    matches: list[dict[str, Any]],
-    persisted: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Surface structured conflicts among recalled atoms, even before any
-    `contradictions scan` has persisted them. Detection only — never resolves.
-    """
-    from shiroe.memory.contradictions import detect_conflict, suggest_winner
-
-    known_pairs = set()
-    for atom in persisted:
-        linked = sorted(
-            str(link.get("target_id"))
-            for link in atom.get("links", [])
-            if isinstance(link, dict) and link.get("target_id")
-        )
-        if len(linked) == 2:
-            known_pairs.add(tuple(linked))
-
-    detected: list[dict[str, Any]] = []
-    atoms = [match["atom"] for match in matches if match["atom"].get("type") != "contradiction"]
-    for index, left in enumerate(atoms):
-        for right in atoms[index + 1:]:
-            pair = tuple(sorted((left["id"], right["id"])))
-            if pair in known_pairs:
-                continue
-            conflict = detect_conflict(left, right)
-            if conflict is None:
-                continue
-            winner = suggest_winner(left, right)
-            detected.append({
-                "id": f"detected:{pair[0]}:{pair[1]}",
-                "type": "contradiction",
-                "status": "active",
-                "persisted": False,
-                "claim": f"Contradiction between {left['id']} and {right['id']}",
-                "summary": (
-                    f"{left['claim']} <> {right['claim']} | {conflict['reason']} | "
-                    + (f"suggested_winner={winner} (higher evidence grade)" if winner
-                       else "suggested_winner=none (equal evidence grades)")
-                    + "; human arbitration required — run `shiroe contradictions scan` to persist"
-                ),
-                "left_id": left["id"],
-                "right_id": right["id"],
-                "suggested_winner": winner,
-            })
-            known_pairs.add(pair)
-    return detected
 
 
 def explain_search(
@@ -97,21 +71,49 @@ def explain_search(
     atom_type: str | None = None,
     status: str | None = None,
 ) -> dict[str, Any]:
-    result = search_atoms(root, query, limit=limit, atom_type=atom_type, status=status)
+    statuses = (status,) if status else ("active", "superseded", "archived", "disputed", "stale")
+    kinds = (atom_type,) if atom_type else None
+    result = search_memory(root, query, limit=limit, kinds=kinds, statuses=statuses)
     return {
         "query": query,
-        "tokens": result["tokens"],
-        "source": result["source"],
+        "tokens": list(result.tokens),
+        "source": result.source,
         "candidates": [
             {
-                "id": match["atom"]["id"],
-                "type": match["atom"]["type"],
-                "status": match["atom"]["status"],
-                "score": match["score"],
-                "why_selected": match["why"],
-                "claim": match["atom"]["claim"],
-                "evidence": match["atom"]["evidence"],
+                "id": hit.record.id,
+                "type": hit.record.kind,
+                "status": hit.record.status,
+                "score": hit.score,
+                "why_selected": hit.why,
+                "claim": hit.record.claim,
+                "evidence": hit.record.evidence_grade,
             }
-            for match in result["matches"]
+            for hit in result.hits
         ],
+    }
+
+
+def _record_to_legacy_atom(record) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "type": record.kind,
+        "claim": record.claim,
+        "summary": record.summary or record.claim,
+        "source": ",".join(record.source_refs),
+        "source_type": "user",
+        "evidence": record.evidence_grade,
+        "confidence": record.confidence,
+        "status": record.status,
+        "created_at": record.created_at,
+        "observed_at": None,
+        "last_confirmed_at": None,
+        "valid_from": record.valid_from,
+        "valid_until": record.valid_until,
+        "recorded_at": record.created_at,
+        "superseded_at": None,
+        "entities": [],
+        "tags": list(record.tags),
+        "links": [],
+        "privacy": record.privacy_class,
+        "provenance": record.owner,
     }

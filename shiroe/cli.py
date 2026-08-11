@@ -133,15 +133,16 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_recall(args: argparse.Namespace) -> int:
-    from shiroe.memory.recall import recall
+    from shiroe.memory.recall import recall, recall_to_legacy_dict
 
-    result = recall(
+    recall_result = recall(
         _project_root(),
         args.query,
         limit=args.limit,
         atom_type=args.type,
         status=args.status,
     )
+    result = recall_to_legacy_dict(recall_result)
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
