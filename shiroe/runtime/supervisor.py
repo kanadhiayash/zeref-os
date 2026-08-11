@@ -221,11 +221,21 @@ class Supervisor:
         ).fetchall()
 
     def _resolve_adapter_for(self, capability_id: str) -> CapabilityAdapter:
-        row = self._conn.execute(
-            "SELECT manifest FROM capability_versions "
-            "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
-            (capability_id,),
-        ).fetchone()
+        # Called from inside the timeout worker thread (see
+        # _invoke_with_timeout), so it MUST NOT reuse self._conn — that
+        # connection was opened on the main thread and sqlite3's default
+        # check_same_thread=True would raise ProgrammingError. Open a
+        # short-lived, thread-local connection to the same WAL-mode file.
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(self._db.path, timeout=5.0)
+        try:
+            row = conn.execute(
+                "SELECT manifest FROM capability_versions "
+                "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
+                (capability_id,),
+            ).fetchone()
+        finally:
+            conn.close()
         if row is None:
             raise SupervisorError(f"no manifest for {capability_id!r}")
         import json as _json
