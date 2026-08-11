@@ -104,9 +104,6 @@ somebody needs it.
 LEGACY_PRODUCT_NAME = "zeref"
 """The pre-rename product name, lowercased for substring matching.
 
-:mod:`shiroe.release.claim_gate` matches both product names when scanning
-public copy for unevidenced claims. Docs still in flight, archived reports and
-third-party copy all say the old name; a gate that stopped matching it would
-quietly let an overclaim through. This one has no removal date tied to a
-migration -- it retires when no reachable copy uses the old name.
+Kept for migration and import compatibility only. Public-claim scanning moved
+out of the runtime product surface in vNext.
 """

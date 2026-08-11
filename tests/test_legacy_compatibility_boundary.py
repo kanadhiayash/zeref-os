@@ -263,25 +263,6 @@ def test_validator_does_not_require_the_archived_canon_bundle() -> None:
     )
 
 
-def test_claim_gate_does_not_scan_the_archived_canon_bundle(tmp_path: Path) -> None:
-    """Same exclusion the gate already applies to docs/adr/ and CHANGELOG.md:
-    a frozen record cannot be edited to satisfy a gate without falsifying it."""
-    from shiroe.release.claim_gate import scan_public_claims
-
-    canon = tmp_path / "references" / "v4x-canon"
-    canon.mkdir(parents=True)
-    (canon / "MODEL_DEBATE.md").write_text(
-        "| Privacy | 9.5 | Shiroe is best-in-class. |\n", encoding="utf-8",
-    )
-    assert not scan_public_claims(tmp_path), (
-        "the claim gate still derives findings from the archived canon bundle"
-    )
-    # The other half of the pair — that excluding the archive did not reopen
-    # the rest of references/ — is
-    # tests/test_claim_gate.py::test_superiority_claim_under_references_is_caught.
-
-
-
 # --------------------------------------------------------------------------- #
 # One pin per alias — SHR-015's "link to its test" column points here
 # --------------------------------------------------------------------------- #
@@ -329,15 +310,3 @@ def test_rollback_still_finds_a_pre_rename_backup(tmp_path: Path) -> None:
     ).fetchall()
     assert rows == [("m1",)]
 
-
-def test_claim_gate_matches_the_pre_rename_product_name(tmp_path: Path) -> None:
-    """Docs in flight and third-party copy still use the old product name. A
-    gate that stopped matching it would let an overclaim through."""
-    from shiroe.compat.legacy_identity import LEGACY_PRODUCT_NAME
-    from shiroe.release.claim_gate import scan_public_claims
-
-    (tmp_path / "README.md").write_text(
-        f"{LEGACY_PRODUCT_NAME.title()} is best-in-class.\n", encoding="utf-8",
-    )
-    findings = scan_public_claims(tmp_path)
-    assert any(f.constraint == "unverified_superiority_claim" for f in findings)

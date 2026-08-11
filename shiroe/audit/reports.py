@@ -37,7 +37,6 @@ def audit_report(root: Path, *, since: str = "", format: str = "text") -> str:
             f"Guard failures: {counts.get(('guard_failure', 'blocked'), 0)}",
             f"Route decisions: {sum(v for (event_type, _), v in counts.items() if event_type == 'route_decision')}",
             f"Redactions: {sum(v for (event_type, _), v in counts.items() if event_type == 'redaction')}",
-            f"Release checks: {sum(v for (event_type, _), v in counts.items() if event_type == 'release_check')}",
             f"Corrupt JSONL lines: {len(corrupt)}",
         ]
     )
