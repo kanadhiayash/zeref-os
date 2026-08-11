@@ -15,7 +15,7 @@ from shiroe.capabilities.store import CapabilityStore
 from shiroe.execution.budget import BudgetTracker
 from shiroe.policy.schema import Action, ActionKind, Verdict
 from shiroe.policy.service import PolicyService
-from shiroe.work.schema import NodeStatus
+from shiroe.work.schema import NodeKind, NodeStatus
 from shiroe.work.store import ConcurrentWorkUpdate, WorkStore
 
 
@@ -73,6 +73,11 @@ class ExecutionSupervisor:
             for node_id in ready:
                 state = self.store.get_node(node_id)
                 node = state.node
+                if node.kind is NodeKind.approval:
+                    self.store.set_node_status(node_id, "blocked", expected_version=state.state_version)
+                    blocked.append(node_id)
+                    self.store.set_graph_status(graph_id, "paused")
+                    return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval", usage=self.budget.snapshot())
                 if not node.requires:
                     self.store.set_node_status(node_id, "completed", expected_version=state.state_version)
                     completed.append(node_id)
@@ -107,7 +112,11 @@ class ExecutionSupervisor:
                     result = adapter.invoke(
                         capability_id=capability_id,
                         action="run",
-                        inputs={"root": str(self.root), **dict(node.metadata.get("inputs", {}))},
+                        inputs={
+                            "root": str(self.root),
+                            "autonomy_mode": "policy-bound",
+                            **dict(node.metadata.get("inputs", {})),
+                        },
                         timeout_s=int(node.metadata.get("timeout_s", 60)),
                     )
                     if not result.ok:
