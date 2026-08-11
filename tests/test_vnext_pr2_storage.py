@@ -43,12 +43,13 @@ def test_migration_creates_all_v2_tables(tmp_path: Path) -> None:
         "team_runs", "team_assignments", "execution_steps", "evidence_reviews",
         "evaluator_runs", "adapter_status", "codec_profiles",
         "work_graphs", "work_nodes", "work_edges", "work_attempts",
+        "approval_requests",
     }
     missing = expected - tables
     assert not missing, f"missing tables: {sorted(missing)}"
     assert "schema_version" in tables
-    # m0003 adds canonical Work Graph persistence.
-    assert db.schema_version() == 3
+    # m0004 adds scope-bound approval records.
+    assert db.schema_version() == 4
 
 
 def test_migration_is_idempotent(tmp_path: Path) -> None:
