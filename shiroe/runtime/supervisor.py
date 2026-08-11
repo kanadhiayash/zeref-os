@@ -12,6 +12,7 @@ import queue
 import sqlite3
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,12 @@ from shiroe.storage import EventEnvelope, EventLog, StateDB
 
 class SupervisorError(RuntimeError):
     pass
+
+
+class ConcurrentSupervisorError(SupervisorError):
+    """SHR-060/061: another supervisor holds the owner_token for this run,
+    or a state-version CAS lost a race. Detection is at commit time —
+    the caller sees this instead of a silent double-write."""
 
 
 def _now() -> str:
@@ -82,7 +89,8 @@ Invoker = Callable[[str, str, str, dict], AdapterResult]
 class Supervisor:
     def __init__(self, root: Path | str, run_id: str,
                  *, mode: AutonomyMode = AutonomyMode.auto_safe,
-                 invoker: Invoker | None = None):
+                 invoker: Invoker | None = None,
+                 owner_token: str | None = None):
         self.root = Path(root)
         self.run_id = run_id
         self.mode = mode
@@ -93,6 +101,11 @@ class Supervisor:
         self._events = EventLog(self.root, mirror_conn=self._conn)
         self._budget = _load_budget(self._conn, run_id, root=self.root)
         self._mission = _load_mission_safely(self.root, self._conn, run_id)
+        # SHR-060/061: each Supervisor instance carries a unique owner
+        # token used to claim exclusive commit rights on `team_runs` for
+        # the length of `run()`. Tests can pin the token for determinism.
+        self._owner_token = owner_token or f"sup_{uuid.uuid4().hex}"
+        self._owns_run: bool = False
 
     def close(self) -> None:
         self._db.close()
@@ -145,17 +158,34 @@ class Supervisor:
     # ------------------------------------------------------------------
     def _set_run_state(self, target: str, *, reason: str | None = None) -> None:
         row = self._conn.execute(
-            "SELECT state FROM team_runs WHERE id=?", (self.run_id,),
+            "SELECT state, state_version, owner_token "
+            "FROM team_runs WHERE id=?", (self.run_id,),
         ).fetchone()
-        current = row[0] if row else "CREATED"
+        if row is None:
+            raise SupervisorError(f"unknown run {self.run_id!r}")
+        current, current_version, current_owner = row
         assert_run_transition(current, target)
-        self._conn.execute(
-            "UPDATE team_runs SET state=?, ended_at=CASE WHEN ? IN "
-            "('COMPLETED','FAILED','CANCELLED') THEN ? ELSE ended_at END "
-            "WHERE id=?",
-            (target, target, _now(), self.run_id),
+        # SHR-060/061: compare-and-set on (state_version, owner_token).
+        # If a peer supervisor committed between our read and this write,
+        # rowcount is 0 and the caller learns at commit time — the point
+        # of the acceptance gate.
+        cur = self._conn.execute(
+            "UPDATE team_runs SET state=?, state_version=state_version+1, "
+            "ended_at=CASE WHEN ? IN "
+            "('COMPLETED','FAILED','CANCELLED','SELF_VERIFICATION_REJECTED') "
+            "THEN ? ELSE ended_at END "
+            "WHERE id=? AND state_version=? AND owner_token=?",
+            (target, target, _now(), self.run_id,
+             current_version, self._owner_token),
         )
         self._conn.commit()
+        if cur.rowcount == 0:
+            raise ConcurrentSupervisorError(
+                f"run {self.run_id!r}: state CAS lost — "
+                f"state_version was {current_version}, "
+                f"owner was {current_owner!r}, "
+                f"self is {self._owner_token!r}"
+            )
         event_type = _RUN_EVENT_TYPE.get(target, "run.paused")
         self._events.append(EventEnvelope(
             event_type=event_type, actor="supervisor",
@@ -323,13 +353,178 @@ class Supervisor:
         return val, None
 
     # ------------------------------------------------------------------
+    def _claim_ownership(self) -> None:
+        """SHR-060/061: claim exclusive commit rights before any write.
+
+        Uses SQLite's atomic UPDATE (rows locked under WAL) so two
+        supervisors racing on the same run_id both hit the DB but only
+        one wins. The loser raises immediately — no double-commit, no
+        after-the-fact reconciliation.
+        """
+        cur = self._conn.execute(
+            "UPDATE team_runs SET owner_token=? "
+            "WHERE id=? AND owner_token IS NULL",
+            (self._owner_token, self.run_id),
+        )
+        self._conn.commit()
+        if cur.rowcount == 1:
+            self._owns_run = True
+            return
+        row = self._conn.execute(
+            "SELECT owner_token FROM team_runs WHERE id=?", (self.run_id,),
+        ).fetchone()
+        if row is None:
+            raise SupervisorError(f"unknown run {self.run_id!r}")
+        held = row[0]
+        if held == self._owner_token:
+            # Same supervisor re-entering (e.g. run() called twice on the
+            # same instance). Idempotent.
+            self._owns_run = True
+            return
+        raise ConcurrentSupervisorError(
+            f"run {self.run_id!r} already owned by {held!r}; "
+            f"self is {self._owner_token!r}"
+        )
+
+    def _release_ownership(self) -> None:
+        """Clear the token on terminal exit so a resume path can re-claim."""
+        if not self._owns_run:
+            return
+        self._conn.execute(
+            "UPDATE team_runs SET owner_token=NULL "
+            "WHERE id=? AND owner_token=?",
+            (self.run_id, self._owner_token),
+        )
+        self._conn.commit()
+        self._owns_run = False
+
+    def _self_verification_conflict(self, assignments: dict[str, dict]
+                                    ) -> tuple[str, str, str] | None:
+        """SHR-059: return (seat_id, forbidden_seat_id, capability_id) if
+        any seat with an ``independent_from`` constraint is assigned the
+        same capability as a listed peer, else None.
+
+        Honors the mission's own declaration of independence — the same
+        mechanism the compile-time resolver enforces. Runtime check
+        catches the cases the resolver cannot: tampered assignments,
+        missions edited between compile and run, verifier-first orderings
+        that skip the compile check entirely.
+        """
+        if self._mission is None:
+            return None
+        for seat in self._mission.required_seats:
+            seat_id = seat.get("id")
+            if not seat_id or seat_id not in assignments:
+                continue
+            constraints = seat.get("constraints") or {}
+            forbidden = constraints.get("independent_from") or []
+            my_cap = assignments[seat_id]["capability_id"]
+            for other_id in forbidden:
+                other = assignments.get(other_id)
+                if other and other["capability_id"] == my_cap:
+                    return seat_id, other_id, my_cap
+        return None
+
+    def _reject_self_verification(self, seat_id: str, forbidden_seat_id: str,
+                                  capability_id: str,
+                                  completed: list[str]) -> RunResult:
+        """Mark the offending step + run as SELF_VERIFICATION_REJECTED.
+
+        Prefers the exact execution_steps row whose step_name == seat_id;
+        falls back to the first non-terminal step so log readers always
+        get a specific witness even if the mission's execution_sequence
+        was reordered post-compile.
+        """
+        reason = (f"self-verification: seat {seat_id!r} shares capability "
+                  f"{capability_id!r} with independent-from peer "
+                  f"{forbidden_seat_id!r}")
+        row = self._conn.execute(
+            "SELECT id, state FROM execution_steps "
+            "WHERE run_id=? AND step_name=? ORDER BY rowid LIMIT 1",
+            (self.run_id, seat_id),
+        ).fetchone()
+        if row is None:
+            row = self._conn.execute(
+                "SELECT id, state FROM execution_steps "
+                "WHERE run_id=? AND state NOT IN ('PASSED','SKIPPED') "
+                "ORDER BY rowid LIMIT 1",
+                (self.run_id,),
+            ).fetchone()
+        step_id: str | None = row[0] if row else None
+        step_state: str | None = row[1] if row else None
+        if step_id and step_state in ("PENDING", "READY"):
+            self._set_step_state(step_id, "SELF_VERIFICATION_REJECTED",
+                                 reason=reason)
+        self._set_run_state("SELF_VERIFICATION_REJECTED", reason=reason)
+        self._persist_usage()
+        self._release_ownership()
+        return RunResult(
+            self.run_id, "SELF_VERIFICATION_REJECTED", completed,
+            paused_reason=reason, budget=self._budget.snapshot(),
+            resume_token=step_id,
+        )
+
     def run(self, *, max_retries: int = 2) -> RunResult:
+        # try/finally so every early-return path releases the owner
+        # token; skipping it would strand the run and block resume.
+        try:
+            return self._run_impl(max_retries=max_retries)
+        finally:
+            self._release_ownership()
+
+    def _run_impl(self, *, max_retries: int) -> RunResult:
         current_row = self._conn.execute(
             "SELECT state FROM team_runs WHERE id=?", (self.run_id,),
         ).fetchone()
         if current_row is None:
             raise SupervisorError(f"unknown run {self.run_id!r}")
         current = current_row[0]
+        # Terminal states are sticky. A re-run of a rejected/failed/
+        # cancelled/completed run must not silently roll it forward.
+        # SELF_VERIFICATION_REJECTED specifically: the gate says the
+        # refusal must survive re-runs, so we replay the same terminal
+        # answer instead of pretending the plan is fresh.
+        if current in ("COMPLETED", "FAILED", "CANCELLED",
+                       "SELF_VERIFICATION_REJECTED"):
+            completed = [
+                name for (name,) in self._conn.execute(
+                    "SELECT step_name FROM execution_steps "
+                    "WHERE run_id=? AND state='PASSED' ORDER BY rowid",
+                    (self.run_id,),
+                ).fetchall()
+            ]
+            return RunResult(
+                self.run_id, current, completed,
+                paused_reason=(
+                    "already terminal" if current != "SELF_VERIFICATION_REJECTED"
+                    else "self-verification: run already rejected"
+                ),
+                budget=self._budget.snapshot(),
+                resume_token=None,
+            )
+        # SHR-060/061: claim ownership BEFORE any state mutation. A
+        # concurrent supervisor either loses this CAS or a later
+        # state-version CAS, both of which surface as
+        # ConcurrentSupervisorError — never a silent double-commit.
+        self._claim_ownership()
+
+        # SHR-059: reject before any authorization / RUNNING transition so
+        # the offending run never enters an executing state. Same-seat +
+        # same-capability = "self-verification".
+        assignments = self._load_assignments()
+        conflict = self._self_verification_conflict(assignments)
+        if conflict is not None:
+            # If we're already past AUTHORIZED, we need RUNNING to be able
+            # to transition to SELF_VERIFICATION_REJECTED (state machine
+            # only allows RUNNING → SELF_VERIFICATION_REJECTED).
+            if current == "COMPILED":
+                self._set_run_state("AUTHORIZED")
+                self._set_run_state("RUNNING")
+            elif current in ("AUTHORIZED", "PAUSED_PERMISSION",
+                             "PAUSED_BUDGET", "RETRYING", "DEGRADED"):
+                self._set_run_state("RUNNING")
+            return self._reject_self_verification(*conflict, completed=[])
+
         # Move into AUTHORIZED then RUNNING (only from COMPILED)
         if current == "COMPILED":
             self._set_run_state("AUTHORIZED")
