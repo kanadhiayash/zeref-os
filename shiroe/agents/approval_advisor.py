@@ -37,8 +37,8 @@ class ApprovalAdvice:
 class ApprovalAdvisor:
     """Invoke an approved reasoning capability and persist advice only.
 
-    This class intentionally never calls ``ApprovalService.decide_human``. The
-    approval request remains pending until a human decision writes authority.
+    This class intentionally writes no approval decision. The approval request
+    remains pending until a human writes authority through the approval service.
     """
 
     def __init__(self, root: Path | str):
