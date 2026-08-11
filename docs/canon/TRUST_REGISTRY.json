@@ -1,0 +1,78 @@
+{
+  "schema_version": "1",
+  "description": "SHR-077..080: every imported reference and public visual in this repo pins its approved source and rights status. scripts/check-trust-registry.py walks README + assets/ and refuses when any entry is missing.",
+  "public_visuals": [
+    {
+      "path": "assets/shiroe-banner.png",
+      "kind": "raster",
+      "rights_status": "owned_project",
+      "approved_source": "shiroe brand kit (in-repo, no external redistribution)",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Static fallback for shiroe-banner-motion.svg. Provenance: assets/README.md."
+    },
+    {
+      "path": "assets/shiroe-banner-motion.svg",
+      "kind": "vector",
+      "rights_status": "owned_project",
+      "approved_source": "shiroe brand kit (in-repo, no external redistribution)",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Embeds shiroe-banner.png as base64. SHA-256 parity verified per assets/README.md."
+    },
+    {
+      "path": "assets/shiroe-character-snapshot.png",
+      "kind": "raster",
+      "rights_status": "owned_project",
+      "approved_source": "shiroe brand kit (in-repo, no external redistribution)",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Static fallback for shiroe-character-snapshot-motion.svg."
+    },
+    {
+      "path": "assets/shiroe-character-snapshot-motion.svg",
+      "kind": "vector",
+      "rights_status": "owned_project",
+      "approved_source": "shiroe brand kit (in-repo, no external redistribution)",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Embeds shiroe-character-snapshot.png as base64. SHA-256 parity verified per assets/README.md."
+    }
+  ],
+  "imported_references": [
+    {
+      "url_pattern": "^https://img\\.shields\\.io/badge/",
+      "kind": "badge",
+      "rights_status": "public_service",
+      "approved_source": "shields.io badge service (public API, MIT-licensed generator, no attribution required)",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Text-only badges rendered by shields.io from URL params; no third-party content is fetched or embedded."
+    },
+    {
+      "url_pattern": "^https://github\\.com/kanadhiayash/shiroe(/|\\.git|$)",
+      "kind": "self_link",
+      "rights_status": "self_owned",
+      "approved_source": "This repository on GitHub.",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-07-30",
+      "notes": "Links to this repo's own code, issues, and CI. No external rights holder."
+    },
+    {
+      "url_pattern": "^https://claude\\.com/claude-code$",
+      "kind": "attribution",
+      "rights_status": "public_service",
+      "approved_source": "Anthropic Claude Code product page.",
+      "approved_by": "kanadhiayash",
+      "approved_at": "2026-08-11",
+      "notes": "Attribution link inserted in commit messages by Claude Code. No visual asset imported."
+    }
+  ],
+  "rights_statuses": [
+    "owned_project",
+    "self_owned",
+    "public_service",
+    "licensed_third_party",
+    "public_domain"
+  ]
+}
