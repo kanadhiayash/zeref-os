@@ -1,0 +1,16 @@
+{
+  "id": "graph_smoke",
+  "objective": "Verify one-node work graph",
+  "constraints": [],
+  "success_criteria": ["node completes"],
+  "nodes": [
+    {
+      "id": "node_smoke",
+      "kind": "task",
+      "objective": "Run smoke capability",
+      "requires": ["test.echo"],
+      "expected_outputs": ["message"]
+    }
+  ],
+  "edges": []
+}
