@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from shiroe.storage.state import StateDB
+from shiroe.policy.approvals import ApprovalStatus
+from shiroe.policy.approval_service import ApprovalService
 from shiroe.work.schema import (
     GraphStatus,
     NodeKind,
@@ -17,6 +19,7 @@ from shiroe.work.schema import (
     WorkGraph,
     WorkNode,
 )
+from shiroe.work.readiness import ready_node_ids as calculate_ready_node_ids
 
 
 class ConcurrentWorkUpdate(RuntimeError):
@@ -214,3 +217,68 @@ class WorkStore:
         if row is None:
             raise KeyError(node_id)
         return _loads(row[0], None)
+
+    def _node_statuses(self, graph_id: str) -> dict[str, str]:
+        rows = self.conn.execute(
+            "SELECT id, status FROM work_nodes WHERE graph_id=?",
+            (graph_id,),
+        ).fetchall()
+        return {row[0]: row[1] for row in rows}
+
+    def _latest_approval_id(self, graph_id: str, node_id: str) -> str | None:
+        row = self.conn.execute(
+            """
+            SELECT id FROM approval_requests
+            WHERE graph_id=? AND node_id=?
+            ORDER BY requested_at DESC
+            LIMIT 1
+            """,
+            (graph_id, node_id),
+        ).fetchone()
+        return row[0] if row else None
+
+    def refresh_readiness(self, graph_id: str) -> None:
+        graph = self.get(graph_id)
+        service = ApprovalService(self.db.root)
+        with self.conn:
+            for node in graph.nodes:
+                if node.kind is not NodeKind.approval:
+                    continue
+                approval_id = self._latest_approval_id(graph_id, node.id)
+                if approval_id is None:
+                    continue
+                scope = node.metadata.get("scope", {})
+                req = service.assert_current(approval_id, current_scope=scope)
+                next_status = (
+                    NodeStatus.completed.value
+                    if req.status is ApprovalStatus.approved
+                    else NodeStatus.pending.value
+                )
+                self.conn.execute(
+                    """
+                    UPDATE work_nodes
+                    SET status=?,
+                        state_version=CASE WHEN status=? THEN state_version ELSE state_version+1 END
+                    WHERE id=?
+                    """,
+                    (next_status, next_status, node.id),
+                )
+
+    def ready_node_ids(self, graph_id: str) -> tuple[str, ...]:
+        graph = self.get(graph_id)
+        statuses = self._node_statuses(graph_id)
+        ready = set(calculate_ready_node_ids(graph, statuses))
+        predecessors: dict[str, set[str]] = {node.id: set() for node in graph.nodes}
+        for edge in graph.edges:
+            predecessors[edge.dst_id].add(edge.src_id)
+        for node in graph.nodes:
+            if node.kind is not NodeKind.approval:
+                continue
+            if statuses.get(node.id, NodeStatus.pending.value) != NodeStatus.pending.value:
+                continue
+            if all(
+                statuses.get(pred) in {NodeStatus.completed.value, NodeStatus.skipped.value}
+                for pred in predecessors[node.id]
+            ):
+                ready.add(node.id)
+        return tuple(sorted(ready))
