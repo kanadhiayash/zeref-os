@@ -119,6 +119,8 @@ def _advisor_payload(root: Path, approval: ApprovalRequest) -> dict[str, Any]:
         for record in MemoryService(root).list(kinds=("decision",), statuses=("active",), limit=10)
     ]
     return {
+        "root": str(root),
+        "autonomy_mode": "policy-bound",
         "approval": _approval_to_dict(approval),
         "graph_context": graph_context,
         "verification": {"latest": None, "status": "not_run"},
