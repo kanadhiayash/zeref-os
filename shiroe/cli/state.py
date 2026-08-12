@@ -20,9 +20,11 @@ def register(subparsers: argparse._SubParsersAction) -> None:
 def run(args: argparse.Namespace) -> int:
     from shiroe.storage import EventLog, StateDB
     from shiroe.storage import views as views_mod
+    from shiroe.storage.events import HashChainError
 
     root = project_root()
     db = StateDB(root)
+    exit_code = 0
     if args.state_command == "migrate":
         applied = db.migrate()
         payload = {"schema_version": db.schema_version(), "applied": applied, "tables": db.tables()}
@@ -34,7 +36,17 @@ def run(args: argparse.Namespace) -> int:
         payload = {"replayed": replayed, "rendered": [str(path) for path in rendered]}
     else:
         db.migrate()
-        EventLog(root, mirror_conn=db.connect()).verify_chain()
-        payload = {"status": "pass", "chain": "ok", "schema_version": db.schema_version()}
+        try:
+            EventLog(root, mirror_conn=db.connect()).verify_chain()
+        except HashChainError as exc:
+            payload = {
+                "status": "fail",
+                "chain": "broken",
+                "schema_version": db.schema_version(),
+                "error": str(exc),
+            }
+            exit_code = 1
+        else:
+            payload = {"status": "pass", "chain": "ok", "schema_version": db.schema_version()}
     print_json(payload) if getattr(args, "json", False) else print(payload)
-    return 0
+    return exit_code
