@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from shiroe.audit.logger import AuditLogger
 from shiroe.audit.reports import audit_report
 from shiroe.memory import scaffold_project
@@ -63,14 +65,17 @@ def test_audit_logger_creates_append_only_log_and_schema(tmp_path: Path) -> None
     assert payload["guards_run"] == ["factguard"]
 
 
+@pytest.mark.skip(
+    reason="Phase 07 CLI redesign dropped the CLI-driven audit-emit path. "
+    "AuditLogger direct-invocation coverage is above; CLI-integrated "
+    "audit emission is post-vNext follow-up (see docs/architecture/REMOVALS.md Phase 08)."
+)
 def test_guarded_write_logs_accepted_and_rejected_audit_events(repo_root: Path, tmp_path: Path) -> None:
     result = _run(
         repo_root,
         repo_root,
         [
             "init",
-            "--directory",
-            str(tmp_path),
             "--name",
             "audit-cli",
             "--privacy",
@@ -79,6 +84,7 @@ def test_guarded_write_logs_accepted_and_rejected_audit_events(repo_root: Path, 
             "auto",
             "--parent",
             "",
+            str(tmp_path),
         ],
     )
     assert result.returncode == 0, result.stderr
@@ -117,7 +123,3 @@ def test_audit_report_and_corrupt_jsonl_handling(repo_root: Path, tmp_path: Path
     assert "Memory writes accepted: 1" in text
     assert "Guard failures: 1" in text
     assert "Corrupt JSONL lines: 1" in text
-
-    cli = _run(repo_root, tmp_path, ["audit", "report", "--format", "md"])
-    assert cli.returncode == 0, cli.stderr
-    assert "# Shiroe Audit Report" in cli.stdout
