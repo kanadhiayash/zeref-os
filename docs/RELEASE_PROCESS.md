@@ -14,10 +14,10 @@ Run:
 
     python3 -m pytest -q
     python3 scripts/shiroe-validate.py
-    python3 -m shiroe audit
-    python3 -m shiroe audit-privacy --strict
+    python3 -m shiroe doctor --json
+    python3 -m shiroe verify --memory --json
+    python3 -m shiroe state verify --json
     python3 scripts/check-version-consistency.py
-    python3 -m shiroe release check
     git diff --check
 
 ## Release notes
@@ -38,15 +38,15 @@ field does not change, a host may keep serving a previously cached payload
 even though the source repository has moved on.
 
 Every change that ships to the plugin marketplace (any edit under
-`.claude-plugin/`, `agents/`, `commands/`, `skills/`, `references/`,
-`team/`, `team-packs/`, or `shiroe/`) must bump the version in lockstep
-across `shiroe/VERSION`, `pyproject.toml`, `shiroe-registry.json`,
-`.claude-plugin/plugin.json`, the README badge, and `docs/wiki/Installation.md`
-— enforced by `scripts/check-version-consistency.py` (a required gate,
-above). Skipping the bump is the single most common cause of a stale
-install; `shiroe doctor --installation` / `shiroe version --verbose` report
-the installed manifest (version, git SHA, content digests) so a stale cache
-can be diagnosed from the outside.
+`.claude-plugin/`, `agents/`, `commands/`, `references/`, or `shiroe/`)
+must bump the version in lockstep across `shiroe/VERSION`,
+`pyproject.toml`, `shiroe-registry.json`, `.claude-plugin/plugin.json`,
+the README badge, and `docs/wiki/Installation.md` — enforced by
+`scripts/check-version-consistency.py` (a required gate, above). Skipping
+the bump is the single most common cause of a stale install;
+`shiroe version --json` and `shiroe doctor --json` report the installed
+manifest and runtime health so a stale cache can be diagnosed from the
+outside.
 
 ## Tags
 
@@ -56,13 +56,13 @@ Use SemVer tags:
 
 Do not delete tags unless there is a security, legal, or severe public-trust reason. Prefer deprecation notes over deletion.
 
-## Benchmark claims
+## Public claims
 
 Allowed:
 
-- Local deterministic benchmark gate passed.
-- Fixture adapter passed.
-- External benchmark run verified on a named date.
+- Full local test suite passed (`python3 -m pytest -q`).
+- `shiroe doctor --json` returns `status: pass` on a clean project.
+- Named verification commands with reproducible output.
 
 Not allowed without evidence:
 
@@ -70,3 +70,8 @@ Not allowed without evidence:
 - Top ranked.
 - 10/10 globally.
 - Production secure.
+- Comparative benchmark leadership of any kind.
+
+Benchmark machinery was retired in vNext (see
+[`docs/architecture/REMOVALS.md`](architecture/REMOVALS.md)); a
+separate program will re-introduce measured comparison later.

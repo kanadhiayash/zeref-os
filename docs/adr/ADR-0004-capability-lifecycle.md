@@ -1,7 +1,29 @@
 # ADR-0004: Capability lifecycle
 
-**Status:** Accepted
+**Status:** Accepted; partially superseded by vNext (2026-08-12).
 **Date:** 2026-07-12
+
+## Post-vNext addendum (2026-08-12)
+
+The core lifecycle machine below (discovered → quarantined → inspected →
+approved → benchmarked → active, with digest-change → re-quarantine) is
+still in force. The following details in the original ADR are wrong
+against the shipped runtime and should be read with these corrections:
+
+- The manifest schema id is `shiroe.capability/v1`, not
+  `zeref.capability/v1` (see `shiroe/capabilities/manifest.py`).
+- The `zeref` product name predates the rename to Shiroe; wherever this
+  ADR reads "Zeref", the shipped runtime is Shiroe.
+- The `shiroe capability` CLI in the vNext release exposes only `list`,
+  `adapters`, and `gate` subcommands. The broader verb set named in
+  §Consequences (`discover|inspect|approve|benchmark|activate|...`) was
+  retired with the Phase 07 CLI reshape; the underlying state machine
+  still runs but is driven by library APIs and the execution supervisor,
+  not by a discover/approve CLI surface.
+- Team Packs and the mission compiler mentioned in §Consequences were
+  retired in vNext (see [`docs/architecture/REMOVALS.md`](../architecture/REMOVALS.md));
+  capability selection is done by the Work Graph store and the
+  execution supervisor directly.
 
 ## Context
 

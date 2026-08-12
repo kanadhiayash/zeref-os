@@ -2,7 +2,7 @@
 
 # Contributing to Shiroe
 
-Shiroe is a local-first AI work control plane for AI-assisted work. Contributions should improve the runtime, docs, guards, benchmarks, install path, or release safety.
+Shiroe is a local-first AI work control plane for AI-assisted work. Contributions should improve the runtime, docs, guards, install path, or release safety.
 
 ## Before starting
 
@@ -24,7 +24,7 @@ Examples:
 
     docs/shr-public-surface-overhaul
     fix/shr-privacy-redaction-edge-case
-    test/shr-benchmark-failure-report
+    test/shr-approval-lifecycle-regression
 
 `docs/BRANCHING.md` is the branch model of record — allowed types, branch
 lifetime, merge and retention rules. Read it before opening your first PR.
@@ -37,7 +37,6 @@ A PR should include:
 - Why the change is needed.
 - User-visible behavior.
 - Security impact.
-- Benchmark impact.
 - Verification commands and outputs.
 - Risks and rollback notes.
 
@@ -53,19 +52,9 @@ Run before requesting review:
     python3 scripts/shiroe-validate.py
     python3 scripts/check-version-consistency.py
     python3 scripts/check-trust-registry.py
-    python3 -m shiroe audit-privacy --strict --fail-classes credentials
-    python3 benchmarks/run-all.py
+    python3 -m shiroe doctor --json
     git diff --check
     git status --short
-
-For release-facing changes, also run:
-
-    python3 -m shiroe release check
-
-The release check re-runs every subcheck live against the current HEAD and
-writes an evidence blob to `docs/audits/release-evidence/<sha>_<ts>.json`.
-A stored blob whose SHA does not match HEAD is stale and cannot substitute
-for a fresh run.
 
 ## Public claims
 
@@ -73,9 +62,9 @@ Do not add unsupported claims.
 
 Allowed:
 
-- Local deterministic benchmark gate passed.
+- Full local test suite passed (`python3 -m pytest -q`).
+- `python3 -m shiroe doctor --json` returns `status: pass` on a clean project.
 - Fixture adapter passed.
-- External benchmark verified with named commands and date.
 
 Not allowed without evidence:
 
@@ -83,14 +72,14 @@ Not allowed without evidence:
 - World top.
 - 10/10 globally.
 - Production secure.
-- External benchmark leadership.
+- Comparative benchmark leadership of any kind.
 
 ## Security rules
 
 - Never commit secrets.
 - Never weaken privacy gates to pass CI. The scanner defeats unicode-invisible strip, base32/base64/hex encoding, and nested-archive smuggling up to depth 3 by design; loosening any of these is a security regression.
 - Never publish private paths or credentials.
-- Never hide failures in benchmark reports.
+- Never hide failures in verification evidence.
 - Never claim a workspace was updated unless a file was actually written.
 - Never delete release history unless there is a clear security, legal, or public-trust reason.
 - Adding a public visual under `assets/` or citing a new external URL from `README.md` / root spec files requires an entry in `docs/canon/TRUST_REGISTRY.json` with an approved source + rights status. The `check-trust-registry.py` gate fails otherwise.
@@ -113,7 +102,6 @@ Release notes must include:
 - Summary.
 - Compatibility.
 - Security notes.
-- Benchmark scope.
 - Known risks.
 - Migration notes if needed.
 

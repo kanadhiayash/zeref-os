@@ -26,8 +26,9 @@ current navigation (README, `docs/GETTING_STARTED.md`,
 
 - `assets/archive/` — historical brand assets; superseded by
   `assets/*.svg` + `assets/*.png` documented in `assets/README.md`.
-- `docs/BENCHMARK_REPORT.md` — historical snapshot; live report is
-  `benchmarks/results.json`.
+- `docs/BENCHMARK_REPORT.md` and `benchmarks/` — retired in vNext.
+  Benchmark machinery has no live successor in the current runtime; see
+  [`docs/architecture/REMOVALS.md`](architecture/REMOVALS.md).
 
 ## Escalation and review
 
@@ -35,9 +36,8 @@ current navigation (README, `docs/GETTING_STARTED.md`,
   gate scripts (`scripts/check-canon-consistency.py`,
   `scripts/check-active-identity.py`, `scripts/shiroe-validate.py`,
   `scripts/check-version-consistency.py`,
-  `scripts/check-trust-registry.py`, `shiroe audit-privacy --strict`,
-  `shiroe release check`) are exhaustive; do not add human-only checks
-  that duplicate them.
+  `scripts/check-trust-registry.py`, `shiroe doctor --json`) are
+  exhaustive; do not add human-only checks that duplicate them.
 - Every maintenance surface in the table above must have a named owner
   and a real review cadence. `tests/test_operations_owners.py` fails
   loudly when a row breaks either invariant.
