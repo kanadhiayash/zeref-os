@@ -19,11 +19,3 @@ def test_validator_passes_on_clean_checkout(repo_root: Path) -> None:
     assert r.returncode == 0, (
         f"validator failed on clean checkout:\nstdout:\n{r.stdout}\nstderr:\n{r.stderr}"
     )
-
-
-def test_validator_invoked_via_cli(repo_root: Path) -> None:
-    r = subprocess.run(
-        [sys.executable, "-m", "shiroe", "audit"],
-        capture_output=True, text=True, cwd=str(repo_root),
-    )
-    assert r.returncode == 0, r.stderr

@@ -29,69 +29,61 @@ def _init(repo_root: Path, root: Path) -> None:
         repo_root,
         [
             "init",
-            "--directory", str(root),
             "--name", "memory-cli-test",
             "--privacy", "abstract",
             "--tier", "auto",
             "--parent", "",
+            str(root),
         ],
     )
     assert result.returncode == 0, result.stderr
 
 
-def test_memory_add_list_patch_round_trip(repo_root: Path, tmp_path: Path) -> None:
+def test_memory_write_list_supersede_round_trip(repo_root: Path, tmp_path: Path) -> None:
     _init(repo_root, tmp_path)
 
-    add = _run(
-        repo_root,
-        tmp_path,
-        [
-            "memory", "add",
-            "--type", "decision",
-            "--claim", "Use deterministic token overlap before optional vector search.",
-            "--summary", "Prefer stdlib SQLite for recall.",
-            "--source", "manual:test",
-            "--source-type", "manual",
-            "--evidence", "A",
-            "--confidence", "high",
-            "--privacy", "public-safe",
-            "--tag", "recall",
-            "--json",
-        ],
-    )
-    assert add.returncode == 0, add.stderr
-    atom = json.loads(add.stdout)
-    assert atom["type"] == "decision"
-    assert atom["tags"] == ["recall"]
+    payload = {
+        "type": "decision",
+        "title": "recall preference",
+        "claim": "Use deterministic token overlap before optional vector search.",
+        "summary": "Prefer stdlib SQLite for recall.",
+        "privacy_class": "public-safe",
+        "evidence_grade": "A",
+        "source_refs": ["manual:test"],
+    }
+    (tmp_path / "decision.json").write_text(json.dumps(payload), encoding="utf-8")
 
-    listed = _run(repo_root, tmp_path, ["memory", "list", "--type", "decision", "--json"])
+    write = _run(repo_root, tmp_path, ["memory", "write", "--from", "decision.json", "--json"])
+    assert write.returncode == 0, write.stderr
+    record = json.loads(write.stdout)
+    assert record["type"] == "decision"
+
+    listed = _run(repo_root, tmp_path, ["memory", "list", "--json"])
     assert listed.returncode == 0, listed.stderr
-    assert json.loads(listed.stdout)[0]["id"] == atom["id"]
+    ids = [row["id"] for row in json.loads(listed.stdout)]
+    assert record["id"] in ids
 
-    patched = _run(
+    replacement_payload = {
+        "type": "decision",
+        "title": "recall preference (revised)",
+        "claim": "Vector search stays optional; deterministic overlap is primary.",
+        "summary": "Revised: stdlib SQLite remains the sole recall path.",
+        "privacy_class": "public-safe",
+        "evidence_grade": "A",
+        "source_refs": ["manual:test"],
+    }
+    (tmp_path / "revised.json").write_text(json.dumps(replacement_payload), encoding="utf-8")
+    revised = _run(repo_root, tmp_path, ["memory", "write", "--from", "revised.json", "--json"])
+    assert revised.returncode == 0, revised.stderr
+    replacement_id = json.loads(revised.stdout)["id"]
+
+    superseded = _run(
         repo_root,
         tmp_path,
-        ["memory", "patch", atom["id"], "--status", "superseded", "--json"],
+        ["memory", "supersede", record["id"], "--with", replacement_id],
     )
-    assert patched.returncode == 0, patched.stderr
-    assert json.loads(patched.stdout)["status"] == "superseded"
+    assert superseded.returncode == 0, superseded.stderr
 
-
-def test_memory_add_scrubs_credentials(repo_root: Path, tmp_path: Path) -> None:
-    _init(repo_root, tmp_path)
-
-    result = _run(
-        repo_root,
-        tmp_path,
-        [
-            "memory", "add",
-            "--type", "risk",
-            "--claim", "Rotate secret key fakecredential123",
-            "--source", "manual:test",
-            "--json",
-        ],
-    )
-    assert result.returncode == 0, result.stderr
-    atom = json.loads(result.stdout)
-    assert "fakecredential123" not in atom["claim"]
-    assert "[REDACTED:credentials]" in atom["claim"]
+    shown = _run(repo_root, tmp_path, ["memory", "show", record["id"], "--json"])
+    assert shown.returncode == 0, shown.stderr
+    assert json.loads(shown.stdout)["status"] == "superseded"

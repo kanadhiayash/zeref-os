@@ -27,11 +27,11 @@ REQUIRED_FILES = [
 def test_init_scaffolds_full_layout(repo_root: Path, tmp_path: Path) -> None:
     r = subprocess.run(
         [sys.executable, "-m", "shiroe", "init",
-         "--directory", str(tmp_path),
          "--name", "scaffold-test",
          "--privacy", "abstract",
          "--tier", "auto",
-         "--parent", ""],
+         "--parent", "",
+         str(tmp_path)],
         capture_output=True, text=True, cwd=str(repo_root),
     )
     assert r.returncode == 0, (
