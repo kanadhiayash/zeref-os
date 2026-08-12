@@ -11,13 +11,8 @@ def test_core_scope_declares_operational_only_surface():
     assert "work graph" in text.lower()
 
 
-def test_agents_spec_no_longer_declares_contract_skills_or_team_packs():
+def test_agents_spec_declares_executable_only_runtime():
     text = (ROOT / "AGENTS.md").read_text()
-    for removed in (
-        "budget-governor",
-        "skill-router",
-        "fleet-activator",
-        "pattern-to-skill",
-        "Team Packs",
-    ):
-        assert removed not in text
+    assert "Every declared component must be executable" in text
+    assert "Work Graph" in text
+    assert "approval_advisor" in text

@@ -11,7 +11,7 @@ from shiroe.prompt.rewrite import brief_to_markdown, build_brief
 from shiroe.prompt.target_profile import (
     TargetProfile,
     maybe_load_profile,
-    caveman_skip_categories,
+    target_skip_categories,
 )
 
 
@@ -46,7 +46,7 @@ def _target_aware_note(profile: TargetProfile | None) -> str:
     """
     if profile is None:
         return ""
-    skips = list(caveman_skip_categories(profile))
+    skips = list(target_skip_categories(profile))
     if not skips:
         return ""
     return (f"_target-profile:{profile.target_id} — skip: "
@@ -61,7 +61,7 @@ def inject_prompt(raw_prompt: str,
 
     When `profile_id` is passed OR a default profile exists for `target`, the
     wrapper emits a compact target-aware preamble that tells downstream
-    caveman-handoff/compressors which categories the target already knows.
+    consumers which categories the target already knows.
     Fail-open — profiles missing = pre-v1.2 behavior unchanged.
     """
     if target not in TARGET_HEADERS:

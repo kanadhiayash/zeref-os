@@ -39,12 +39,32 @@ transitional until Phase 04 replaces it with Work Graph supervision.
 ## Phase 06
 
 - Generic context packets and codec registry/runtime packages. Handoff now
-  compiles canonical JSON/Markdown directly from Work Graph, approval, memory,
-  and verification state. Obsolete schema tables remain until the Phase 08
-  backup-backed destructive migration.
+  reads canonical state (Work Graph, approval, memory, verification) directly
+  and renders JSON and Markdown views from it — the views remain generated,
+  not canonical. Obsolete schema tables remain until the Phase 08 backup-backed
+  destructive migration.
 
 ## Phase 07
 
 - Generated runtime registry files and `shiroe.registry` generation code.
   Active CLI commands and adapters are discovered from executable Python
   registrations and CapabilityStore state instead of tracked inventories.
+
+## Phase 08
+
+- `shiroe/core/deprecations.py` runtime alias resolver (`resolve_alias`,
+  `DEPRECATED_ALIASES`). Replaced by the explicit
+  `shiroe/compat/legacy_identity.py` boundary; no runtime callers remained.
+- `docs/wiki/Team-Packs.md` and `docs/wiki/Pattern-Detection.md` active-nav
+  wiki pages. The surfaces they described were retired in Phases 04 and 05
+  respectively; git history remains the archive.
+- `tests/test_canon_consistency.py` and
+  `tests/invariant/test_no_contract_surfaces.py`. Superseded by
+  `tests/invariant/test_no_dead_surface_references.py` and
+  `tests/test_canonical_state_contract.py`, which enforce the vNext
+  active-surface invariants without depending on removed abstractions.
+- The vNext one-cycle alias rows in `docs/DEPRECATIONS.md` covering the
+  removed component names (capability-resolver / capability-prober /
+  capability-manager and the execution-policy / reasoning-class tier
+  renames). The aliased replacements themselves were retired in earlier
+  phases; only the pre-rename identity boundary rows remain.

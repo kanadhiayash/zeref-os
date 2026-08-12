@@ -38,8 +38,4 @@ Canonical term definitions. Where a term names a code construct, the module is c
 | — `auto-safe` | Default. Executes local, reversible, already-approved actions automatically. |
 | — `policy-bound` | Executes everything the active policy allows and stops only at a denied boundary. |
 | | All three modes always stop for the hardcoded `ALWAYS_REQUIRE_APPROVAL` list (see `docs/adr/ADR-0005-policy-precedence.md`) regardless of mode. |
-| **Component status taxonomy** | The label every component and registry entry must carry so nothing claims capability it doesn't have. |
-| — `runtime` | Backed by executing code with test coverage. |
-| — `adapter` | A provider/harness/capability bridge — thin, declarative, swappable. |
-| — `contract` | A schema, manifest, or markdown spec describing required behavior not yet (or not necessarily) runtime-backed. |
-| — `experimental` | Implemented but not yet benchmarked past its acceptance threshold; may regress or be removed. |
+| **Executable-only surface** | Active product components must resolve to executable runtime code or adapter code. Removed surfaces are documented in `docs/architecture/REMOVALS.md`; no compatibility registry is authoritative. |

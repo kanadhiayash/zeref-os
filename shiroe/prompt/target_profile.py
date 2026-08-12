@@ -4,9 +4,8 @@ privacy-audit: allow-file "Target-profile loader references profile field names 
 Target-model profile loader.
 
 Reads YAML frontmatter from `references/target-model-profiles/*.md` into typed
-dicts. Consumers: `shiroe/prompt/inject.py`, `shiroe/memory/cost_router.py`,
-`skills/caveman-handoff/SKILL.md` (via CLI hint), and any target-aware
-wrapping code path.
+dicts. Consumers use these profiles to avoid repeating target-known context in
+handoff and prompt wrappers.
 
 Zero external deps — reuses `_parse_yaml_frontmatter` from `shiroe.security.policy`.
 
@@ -274,8 +273,8 @@ def relative_cost(profile: TargetProfile | None,
             + float(output_tokens) * profile.output_cost_multiplier)
 
 
-def caveman_skip_categories(profile: TargetProfile | None) -> Iterable[str]:
-    """Categories caveman-handoff can safely drop when this target is the recipient."""
+def target_skip_categories(profile: TargetProfile | None) -> Iterable[str]:
+    """Categories a target-aware wrapper can safely drop for this recipient."""
     if profile is None:
         return ()
     return profile.already_knows

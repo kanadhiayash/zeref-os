@@ -10,8 +10,6 @@
 - [[Architecture]]
 - [[Memory-Model]]
 - [[Privacy-Model]]
-- [[Team-Packs]]
-- [[Pattern-Detection]]
 
 **Reference**
 - [[Glossary]]

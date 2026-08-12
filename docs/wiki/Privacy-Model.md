@@ -1,6 +1,8 @@
 # Privacy Model
 
-Privacy in Shiroe is deterministic and code-enforced. The `shiroe/privacy.py` runtime applies redaction rules before any write, and `shiroe/guards/privacy_guard.py` sits on the write path. Nothing depends on a model remembering to be careful.
+Privacy in Shiroe is deterministic and code-enforced. The `shiroe/privacy.py`
+runtime applies redaction rules before canonical writes and handoffs. Nothing
+depends on a model remembering to be careful.
 
 That distinction is the whole design. A model asked to redact is a model that can be talked out of redacting. A regex cannot be persuaded.
 
@@ -90,8 +92,8 @@ Under `local-only`, the path is blocked entirely and staging does not proceed.
 ## Verify it yourself
 
 ```bash
-python3 -m shiroe audit      # structural validation and privacy audit
-python3 -m pytest -q        # includes redaction and export tests
+python3 -m shiroe doctor --json
+python3 -m pytest -q
 ```
 
 Report vulnerabilities privately per [`SECURITY.md`](https://github.com/kanadhiayash/shiroe/blob/main/SECURITY.md). Do not open public issues for them.
@@ -99,6 +101,6 @@ Report vulnerabilities privately per [`SECURITY.md`](https://github.com/kanadhia
 ## Related
 
 - [[Memory-Model]] — where writes land
-- [[Architecture]] — the guard chain
+- [[Architecture]] — the governance runtime
 - [[Installation]] — configure privacy before first write
 - [[FAQ]] — common questions

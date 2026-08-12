@@ -60,8 +60,8 @@ python3 -m pytest -q
 python3 -m shiroe doctor --format json
 ```
 
-The overhaul does not use a benchmark score as an acceptance gate. Public
-claims require executed evidence.
+The overhaul acceptance gate is executable product evidence, not comparative
+scoring. Public claims require executed evidence.
 
 ## License
 

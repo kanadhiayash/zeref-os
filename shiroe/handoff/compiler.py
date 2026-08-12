@@ -29,7 +29,7 @@ def compile_handoff(
     objective: str = "Continue from current Shiroe memory state.",
     include_private: bool = False,
 ) -> dict[str, Any]:
-    """Compile a canonical-state handoff and write JSON/Markdown artifacts.
+    """Compile a handoff over canonical state and render JSON + Markdown views.
 
     The machine packet is assembled from SQLite Work Graph, approval, memory,
     and verification state. Generated Markdown memory views are never read.
