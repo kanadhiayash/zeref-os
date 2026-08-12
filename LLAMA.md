@@ -15,7 +15,7 @@ Open WebUI, and any harness that fronts a Llama-family model).
   via a wrapper script or the harness's prompt-template feature.
 - For tool-calling harnesses (Open WebUI, vLLM with function calling),
   expose `shiroe` as a subprocess tool: `python3 -m shiroe status`,
-  `python3 -m shiroe write-decision …`, `python3 -m shiroe audit-privacy`.
+  `python3 -m shiroe memory write …`, `python3 -m shiroe doctor --json`.
 
 ## First action every session
 

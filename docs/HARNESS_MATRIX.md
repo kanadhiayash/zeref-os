@@ -72,13 +72,11 @@ An entry with all 8 steps + a signed log promotes the harness to `verified`.
 
 ```bash
 # in any harness, from your project root:
-python3 scripts/harness-probe.py                 # file-presence check (does not prove boot)
-python3 -m shiroe status                          # discovery + memory read
-python3 -m shiroe write-decision \
-  --title "Harness smoke test" --why "Verifying boot" \
-  --evidence "harness-matrix" --grade medium     # single-writer + scrub + audit log
-python3 -m shiroe audit-privacy --strict          # policy-vs-enforcement
-python3 -m shiroe handoff compile                 # cross-model packager
+python3 scripts/harness-probe.py                       # file-presence check (does not prove boot)
+python3 -m shiroe status --json                        # discovery + memory read
+python3 -m shiroe memory write --from smoke.json       # single-writer + scrub + audit log
+python3 -m shiroe doctor --json                        # runtime health
+python3 -m shiroe handoff --graph <graph-id> claude    # cross-model packager
 ```
 
 The `harness-probe.py` file-presence check alone does NOT constitute a `verified` state

@@ -1,33 +1,24 @@
-<!-- privacy-audit: allow-file "Quickstart with example install / env-var / decision commands. No real user data." -->
+<!-- privacy-audit: allow-file "Quickstart with example install / CLI commands. No real user data." -->
 
 # Shiroe — Quickstart
 
-5 steps from zero to first decision. Match [INSTALL.md](INSTALL.md) for the
-canonical install channels.
+Five steps from zero to a first Work Graph run. Match
+[INSTALL.md](INSTALL.md) for the canonical install channels.
 
 ---
 
 ## 1. Install
 
 ```bash
-# From the current release (published on PyPI as `shiroe` for URL compat, per D2):
-pip install shiroe                    # zero-dependency core
-pip install "shiroe[all]"             # with litellm, duckdb, pyyaml
-```
-
-Or from this repo:
-
-```bash
 git clone https://github.com/kanadhiayash/shiroe
 cd shiroe
 pip install -e .
+shiroe --help
 ```
 
-Verify:
-```bash
-shiroe --help
-shiroe db-status          # shows backend availability
-```
+Public surface (installed help is the source of truth): `init`, `status`,
+`plan`, `run`, `approve`, `memory`, `verify`, `handoff`, `doctor`,
+`policy`, `capability`, `state`, `version`.
 
 ---
 
@@ -35,64 +26,54 @@ shiroe db-status          # shows backend availability
 
 ```bash
 cd ~/my-project
-shiroe init --name "My Project" --privacy abstract --tier auto --parent ''
+shiroe init . --name "My Project" --privacy abstract --tier auto
 ```
 
-Scaffolds:
-- `config/PROJECT.md`
-- `PRIVACY.md`, `REDACT.md`, `SHARING_POLICY.md`
-- `config/BUDGET.md`
-- `memory/` flat layout (`hot.md`, `index.md`, `DECISIONS.md`, ...)
-- `skills/drafts/`
+Scaffolds `config/PROJECT.md`, `PRIVACY.md`, `REDACT.md`,
+`SHARING_POLICY.md`, `config/BUDGET.md`, `memory/` (flat layout), and the
+canonical state directories under `memory/state/` and `memory/events/`.
+No connectors are enabled.
 
 Inspect:
+
 ```bash
-shiroe status
+shiroe status --json
+shiroe doctor --json
 ```
 
 ---
 
-## 3. Write Your First Decision
+## 3. Persist a Work Graph
+
+Draft a Work Graph as JSON (see `docs/wiki/WorkGraph.md` for the schema)
+and register it:
 
 ```bash
-shiroe write-decision \
-  --title "Use PostgreSQL for relational workloads" \
-  --why "Better transactional guarantees than MongoDB" \
-  --evidence "internal benchmark 2026-06-01" \
-  --grade high
+shiroe plan --from-json path/to/graph.json --json
 ```
 
-If input contains PII you'll see `PII scrubbed from inputs: N token(s)` — `shiroe write-decision` scrubs before write.
+The graph is stored in canonical SQLite; markdown/index views are
+generated projections.
 
 ---
 
-## 4. Grade a Claim
+## 4. Run and Approve
 
 ```bash
-shiroe grade "PostgreSQL beats MongoDB for relational data"
-```
-
-Heuristic without an API key. With `litellm` + key, it's LLM-graded.
-
----
-
-## 5. Audit
-
-```bash
-shiroe audit-privacy --directory memory/   # PII scan
-shiroe audit                               # structural validation
+shiroe run <graph-id>            # execute; pauses on require_approval
+shiroe approve list --json       # see pending approvals
+shiroe approve decide <id> --status approved --reason "…"
+shiroe run <graph-id>            # resume — same command
 ```
 
 ---
 
-## Daily Loop
+## 5. Verify
 
 ```bash
-shiroe status            # session start
-# ...work...
-shiroe write-decision    # capture each decision
-shiroe grade <claim>     # grade open questions
-# /done in harness consolidates hot.md
+shiroe verify --graph <graph-id> --json     # graph invariants
+shiroe verify --memory --json               # memory chain + digest
+shiroe state verify --json                  # event-log hash chain
 ```
 
 ---
@@ -101,19 +82,24 @@ shiroe grade <claim>     # grade open questions
 
 | Command | Purpose |
 |---|---|
-| `shiroe init` | Scaffold new project |
-| `shiroe status` | hot.md + tier + registry |
-| `shiroe write-decision` | Append to DECISIONS.md (scrubs PII) |
-| `shiroe grade <claim>` | Evidence grader |
-| `shiroe audit-privacy` | Scan for PII hits |
-| `shiroe audit` | Structural validation |
-| `shiroe db-status` | Backend availability |
+| `shiroe init` | Scaffold a new project |
+| `shiroe status` | Project or Work Graph status |
+| `shiroe plan --from-json` | Persist a Work Graph |
+| `shiroe run` | Execute or resume a Work Graph |
+| `shiroe approve` | List, advise, decide approvals |
+| `shiroe memory write --from` | Canonical memory write |
+| `shiroe verify` | Graph / memory verification |
+| `shiroe handoff` | Compile a canonical handoff |
+| `shiroe doctor` | Runtime health checks |
+| `shiroe state verify` | Event-log chain check |
+| `shiroe policy` | Inspect policy stack |
+| `shiroe capability` | Inspect executable capabilities |
 
 ---
 
 ## Next
 
-- `AGENTS.md` — canonical spec
-- `CHANGELOG.md` — release notes
-- `GITHUB_OS.md` — per-repo doctrine
+- `AGENTS.md` — canonical harness spec
+- `README.md` — project overview and release
+- `docs/architecture/CORE_SCOPE.md` — operational boundary
 - `docs/wiki/` — full documentation
