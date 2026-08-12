@@ -10,8 +10,7 @@ not six months later in a reader's head.
 
 The prose detectors are imported from scripts/check-canon-consistency.py
 rather than re-written. Two copies of a regex drift; one does not. This file
-asserts the *invariant holds*, while tests/test_canon_consistency.py asserts
-the *detector fires* — different jobs, same rules.
+asserts the active canonical-state invariant holds.
 """
 
 from __future__ import annotations

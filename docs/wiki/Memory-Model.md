@@ -13,7 +13,7 @@
 | Markdown | Generated human-readable view. Carries a do-not-edit header. |
 | TOON | Optional generated model-input view. |
 
-The Markdown you read in `memory/` is a view, not the record. Editing it by hand edits the projection rather than the source; regeneration overwrites your change. Write through the CLI or a session so the write passes the guards.
+The Markdown you read in `memory/` is a view, not the record. Editing it by hand edits the projection rather than the source; regeneration overwrites your change. Write through the CLI or a session so the write passes verification.
 
 Recorded in [`docs/adr/ADR-0001-canonical-store.md`](https://github.com/kanadhiayash/shiroe/blob/main/docs/adr/ADR-0001-canonical-store.md).
 
@@ -56,16 +56,17 @@ The discipline matters more than it looks. Once an agent is allowed to "just loa
 
 ## The guarded write path
 
-Every write flows through the same sequence. No skill writes to `memory/` directly.
+Every write flows through one canonical service path. No component writes to
+`memory/` directly.
 
 ```
 claim
-  ↓ fact_guard            unsupported superlatives, unsourced absolutes
-  ↓ evidence_guard        missing or under-graded evidence
-  ↓ privacy_guard         redaction per active mode
-  ↓ contradiction_guard   conflicts with stored state
-  ↓ write_gate            admits only what cleared the above
-disk
+  ↓ privacy verification
+  ↓ evidence verification
+  ↓ fact verification
+  ↓ contradiction verification
+  ↓ canonical write
+SQLite + event log
 ```
 
 Concurrency is handled by an advisory lock in `shiroe/lock.py`. A second concurrent writer aborts with a clear error rather than interleaving, and writes are atomic, so an interrupted write does not leave a half-written file.
@@ -104,38 +105,32 @@ Agreement among reviewers never upgrades weak source evidence to a strong grade.
 
 ## The append-only event log
 
-`memory/patterns/` holds an append-only JSONL event log. Each event is a single JSON line carrying a timestamp, the actor, the event type, a target, a payload, and an integrity hash.
+`memory/events/` holds the canonical append-only JSONL event log. Each event is
+a single JSON line carrying a timestamp, the actor, the event type, a target, a
+payload, a previous hash, and an integrity hash.
 
-The log is never edited in place. Entries are appended; replay reconstructs state. Pattern detection reads it as a stream.
+The log is never edited in place. Entries are appended; replay reconstructs
+state.
 
-Event types are allowlisted and each carries a required payload shape, validated by `scripts/shiroe-validate.py`. The validator is the source of truth for which events and values are legal — it enforces the allowlist, per-event schema, and value enums, and reports findings rather than silently accepting unknown types.
+Event types are allowlisted by `shiroe.storage.events`. Unknown event types are
+rejected unless the caller explicitly declares a versioned schema.
 
 ## Snapshots and archival
 
 Session close copies the memory state to a timestamped snapshot directory with a manifest. Superseded content moves to `archive/` rather than being deleted, so a bad consolidation is recoverable and provenance chains stay intact.
 
-## Sync
-
-For projects that roll up into a parent, the sequence is staged and gated rather than automatic:
-
-1. **Stage** — filter by evidence grade, pass through privacy redaction, write to `sync/outbound/` with a manifest.
-2. **Approve** — explicit user confirmation, with a preview of exactly what would leave.
-3. **Push** — copy to the parent's inbound directory and log the push.
-4. **Ingest** — the parent runs contradiction detection on arriving entries.
-
-`local-only` privacy mode blocks the whole path. Staged content that has not been approved does not move.
-
 ## Validation
 
 ```bash
-python3 scripts/shiroe-validate.py
+python3 -m shiroe state verify --json
+python3 -m shiroe doctor --json
 ```
 
-Checks that registered surfaces resolve on disk, that root privacy files are present, that the memory layout is well-formed, and that the event log passes schema lint. Exits non-zero on any finding.
+Checks that canonical state, event replay integrity, root privacy files, and the
+runtime surface are valid. Exits non-zero on blocking findings.
 
 ## Related
 
-- [[Architecture]] — guards, adapters, routing
+- [[Architecture]] — Work Graph, approval, capabilities, routing
 - [[Privacy-Model]] — modes, classes, export policy
-- [[Pattern-Detection]] — how the event log becomes a proposal
 - [[Glossary]] — canonical terms
