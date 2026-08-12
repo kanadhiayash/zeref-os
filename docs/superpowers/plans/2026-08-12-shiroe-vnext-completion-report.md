@@ -137,8 +137,7 @@ From the master plan's final inventory table (§Final target inventory):
 
 ## 5. Gate evidence
 
-All commands run in the main worktree
-`/Users/yashkanadhia/yashiroe-node-0/Missions/shiroe` at HEAD `702ada0`.
+All commands run in the main Shiroe worktree at HEAD `702ada0`.
 
 ### 5.1 Task 6 pre-commit gate (post-A+B fixes)
 
