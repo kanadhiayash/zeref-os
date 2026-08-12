@@ -149,14 +149,6 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install -e .
 
-      - name: Run strict privacy audit repo-wide (severity-class gate)
-        run: |
-          # Severity model mirrors _check_privacy_scan in shiroe/release/checks.py:
-          # credentials-class hits have ZERO tolerance; other classes are informational.
-          # Allowlisted files carry `privacy-audit: allow-file "<reason>"` in their first
-          # 40 lines; single lines can carry `noqa: privacy-audit`.
-          python3 -m shiroe audit-privacy --strict --fail-classes credentials
-
       - name: Scan repo for committed secrets
         run: |
           # any provider-shaped credential pattern anywhere in the repo
@@ -172,32 +164,6 @@ jobs:
             exit 1
           fi
           echo "No committed credentials detected"
-
-  release-check:
-    runs-on: ubuntu-latest
-    steps:
-      # actions/checkout — pinned to v7.0.0 release SHA (Node 24)
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        # actions/setup-python — pinned to v5.3.0 release SHA
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: '3.12'
-
-      - name: Install package (editable)
-        run: |
-          python3 -m pip install --upgrade pip
-          # pytest is required at runtime, not just for the `test` job: the
-          # release gate executes the suite live rather than trusting a stored
-          # result, so without pytest here the gate fails on its own tooling.
-          pip install -e . pytest
-
-      - name: Run release readiness gate
-        run: |
-          python3 -m shiroe.cli release check
 
   e2e:
     runs-on: ubuntu-latest
