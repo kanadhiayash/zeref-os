@@ -30,14 +30,45 @@ def run(args: argparse.Namespace) -> int:
             store.close()
         payload = {"subject": "work_graph", "graph_id": args.graph, "status": "block" if blocked else "pass", "blocked_nodes": blocked}
     elif args.memory:
+        from shiroe.memory.models import MemoryWrite
         from shiroe.memory.service import MemoryService
+        from shiroe.verification.engine import VerificationEngine
 
         service = MemoryService(root)
         try:
             record = service.get(args.memory)
         finally:
             service.close()
-        payload = {"subject": "memory", "memory_id": record.id, "status": "pass"}
+        proposal = MemoryWrite(
+            kind=record.kind,
+            title=record.title,
+            claim=record.claim,
+            source_refs=record.source_refs,
+            summary=record.summary,
+            confidence=record.confidence,
+            evidence_grade=record.evidence_grade,
+            privacy_class=record.privacy_class,
+            authority=record.authority,
+            scope=record.scope,
+            valid_from=record.valid_from,
+            valid_until=record.valid_until,
+            owner=record.owner,
+            tags=record.tags,
+        )
+        report = VerificationEngine(root).verify_memory_write(proposal)
+        status = report.status.value if hasattr(report.status, "value") else str(report.status)
+        payload = {
+            "subject": "memory",
+            "memory_id": record.id,
+            "status": status,
+            "checks": [
+                {
+                    "name": c.name,
+                    "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                }
+                for c in report.checks
+            ],
+        }
     else:
         payload = {"subject": "runtime", "status": "pass"}
     print_json(payload) if args.json else print(payload["status"])
