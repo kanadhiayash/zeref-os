@@ -43,7 +43,7 @@ from pathlib import Path
 LEGACY_RE = re.compile(r"\bzeref|\bzrf", re.IGNORECASE)
 
 MAX_SCAN_BYTES = 2_000_000
-PRUNE_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache"}
+PRUNE_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".claude"}
 BINARY_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz",
     ".tar", ".woff", ".woff2", ".ttf", ".otf", ".sqlite", ".db", ".mp4", ".svg",
@@ -71,6 +71,7 @@ ALLOWLIST: dict[str, str] = {
     # SHR-014 and is gone from this list.
     "memory/state/schema.json": "Generated at runtime from shiroe/memory/core.py STATE_SCHEMA; records the v1 store filename it was generated for. Gitignored, so it exists only in working trees.",
     "skills/memory-import-export/SKILL.md": "Names the v3/v4.2 Zeref OS layouts its migration scripts convert from.",
+    "docs/DEPRECATIONS.md": "Legacy-identity register: names the pre-rename tokens the compat boundary preserves. The scan's own subject.",
 
     # --- records of past runs and of the public surface as it stands --------
     "docs/RELEASE_VERDICT_2.0.0-alpha.3.md": "Dated release verdict. A record, not a live surface.",
