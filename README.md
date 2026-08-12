@@ -6,20 +6,24 @@ Shiroe is a local-first governance and continuity plane for persistent AI Work
 Graphs. It owns canonical state, policy, approvals, capability control,
 execution supervision, verification, memory, and cross-harness continuation.
 
-Current release: `v3.0.0-alpha.1`. The vNext overhaul is in progress, so only
-interfaces shown by the installed CLI are operational.
+Current release: `v3.0.0-alpha.1`. The vNext core overhaul is complete; every
+approved runtime engine and CLI surface is operational and covered by tests.
+See
+[`docs/superpowers/plans/2026-08-12-shiroe-vnext-completion-report.md`](docs/superpowers/plans/2026-08-12-shiroe-vnext-completion-report.md)
+for the completion audit.
 
 ## Operational Boundary
 
-Every declared product component must be executable. Shiroe does not ship
-declaration-only product components or `contract` and `experimental` product
-statuses. The authoritative boundary and phased removals are documented in
-[`docs/architecture/CORE_SCOPE.md`](docs/architecture/CORE_SCOPE.md) and
+Every declared product component is executable. Shiroe ships no
+declaration-only components and no `contract` or `experimental` product
+status. The authoritative boundary lives in
+[`docs/architecture/CORE_SCOPE.md`](docs/architecture/CORE_SCOPE.md); retired
+surfaces are recorded in
 [`docs/architecture/REMOVALS.md`](docs/architecture/REMOVALS.md).
 
-The approved final runtime is organized around one Work Graph, one canonical
-SQLite state store with append-only event history, one canonical memory write
-path, and one conditional non-authorizing Approval Advisor.
+The runtime is organized around one Work Graph, one canonical SQLite state
+store with a hash-chained append-only event history, one canonical memory
+write path, and one conditional non-authorizing Approval Advisor.
 
 ## Install
 
@@ -28,40 +32,58 @@ Shiroe requires Python 3.11 or newer and has no mandatory runtime dependency.
 ```bash
 git clone https://github.com/kanadhiayash/shiroe.git
 cd shiroe
-python3 -m shiroe init
-python3 -m shiroe doctor --format json
+python3 -m pip install -e .
+python3 -m shiroe --help
 ```
 
-## Current CLI
+Scaffold a project:
 
-Run the CLI help for the executable surface at the checked-out revision:
+```bash
+python3 -m shiroe init /path/to/project --name my-project --privacy abstract --tier auto
+cd /path/to/project
+python3 -m shiroe status --json
+```
+
+`init` creates local configuration, privacy files, canonical state
+directories, and the append-only event log. It does not enable connectors.
+
+## CLI
+
+Public commands: `init`, `status`, `plan`, `run`, `approve`, `memory`,
+`verify`, `handoff`, `doctor`.
+
+Operator commands: `policy`, `capability`, `state`, `version`.
+
+The installed help is the source of truth:
 
 ```bash
 python3 -m shiroe --help
 ```
 
-The final vNext public command target is `init`, `status`, `plan`, `run`,
-`approve`, `memory`, `verify`, `handoff`, and `doctor`. The operator target is
-`policy`, `capability`, `state`, and `version`. A target command is not an
-operational claim until its implementation phase has landed and its tests pass.
-
 ## State And Privacy
 
-Canonical state is local SQLite plus hash-chained append-only events. Markdown
-and indexes are generated projections. All writes and external transmission are
-governed by `PRIVACY.md`, `REDACT.md`, and `SHARING_POLICY.md`; connectors are
-disabled by default.
+Canonical state is local SQLite (`memory/state/shiroe.sqlite`) plus a
+hash-chained append-only event log (`memory/events/<yyyy>/<mm>/events.jsonl`).
+Markdown and indexes are generated projections rebuilt from those two stores;
+they are never the source of truth (see
+[`docs/adr/ADR-0001-canonical-store.md`](docs/adr/ADR-0001-canonical-store.md)).
+
+All writes and external transmission are governed by `PRIVACY.md`,
+`REDACT.md`, and `SHARING_POLICY.md`. Default privacy mode is `abstract`; all
+connectors are disabled by default and none are installed on the user's
+behalf.
 
 ## Verification
 
 ```bash
 python3 -m compileall -q shiroe
 python3 -m pytest -q
-python3 -m shiroe doctor --format json
+python3 -m shiroe doctor --json
+python3 -m shiroe state verify --json
 ```
 
-The overhaul acceptance gate is executable product evidence, not comparative
-scoring. Public claims require executed evidence.
+Acceptance is executable product evidence, not comparative scoring. Public
+claims require executed evidence.
 
 ## License
 
