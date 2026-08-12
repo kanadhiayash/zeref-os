@@ -68,3 +68,10 @@ transitional until Phase 04 replaces it with Work Graph supervision.
   capability-manager and the execution-policy / reasoning-class tier
   renames). The aliased replacements themselves were retired in earlier
   phases; only the pre-rename identity boundary rows remain.
+- CI workflow references to removed CLI surface: the
+  `shiroe audit-privacy` step in the `privacy` job (retired in Phase 07;
+  the sibling grep-based `Scan repo for committed secrets` step still
+  enforces the credentials-must-not-commit invariant), and the entire
+  `release-check` job (its only step invoked `python3 -m shiroe.cli
+  release check`; the `shiroe/release/` package was retired in Phase 07).
+  A dedicated release-readiness gate is a post-vNext follow-up.
