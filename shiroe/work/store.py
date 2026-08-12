@@ -260,6 +260,20 @@ class WorkStore:
         ).fetchone()
         return row[0] if row else None
 
+    # Approval-lifecycle mapping for approval-kind nodes. Each of the six
+    # ApprovalStatus values is projected onto exactly one NodeStatus so
+    # rejected / revise decisions are not silently retried as pending, and
+    # stale / deferred still block downstream nodes until a fresh decision
+    # covers the current scope.
+    _APPROVAL_TO_NODE_STATUS: dict[ApprovalStatus, NodeStatus] = {
+        ApprovalStatus.approved: NodeStatus.completed,
+        ApprovalStatus.pending: NodeStatus.pending,
+        ApprovalStatus.deferred: NodeStatus.pending,
+        ApprovalStatus.stale: NodeStatus.pending,
+        ApprovalStatus.rejected: NodeStatus.failed,
+        ApprovalStatus.revise: NodeStatus.blocked,
+    }
+
     def refresh_readiness(self, graph_id: str) -> None:
         graph = self.get(graph_id)
         service = ApprovalService(self.db.root)
@@ -272,11 +286,7 @@ class WorkStore:
                     continue
                 scope = node.metadata.get("scope", {})
                 req = service.assert_current(approval_id, current_scope=scope)
-                next_status = (
-                    NodeStatus.completed.value
-                    if req.status is ApprovalStatus.approved
-                    else NodeStatus.pending.value
-                )
+                next_status = self._APPROVAL_TO_NODE_STATUS[req.status].value
                 self.conn.execute(
                     """
                     UPDATE work_nodes
