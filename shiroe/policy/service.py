@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from shiroe.policy.approval_service import ApprovalService
+from shiroe.policy.approvals import ApprovalStatus
 from shiroe.policy.autonomy import AutonomyMode
 from shiroe.policy.engine import evaluate
 from shiroe.policy.loader import load_policy_stack
@@ -70,14 +71,44 @@ class PolicyService:
 
         current_scope = dict(scope or {"target": action.target, "context": action.context or {}})
         requested_action = action.target or action.kind.value
-        existing = self.approvals.find_pending(
+
+        # Consult the LATEST request for this exact scope, regardless of
+        # status. This is what unblocks pause/resume: without it, the
+        # supervisor's second call after a human approves finds no
+        # pending row (the request is now 'approved'), authorize mints a
+        # fresh pending request, and the graph pauses forever.
+        prior = self.approvals.find_latest_matching(
             graph_id=graph_id,
             node_id=node_id,
             action_kind=action.kind.value,
             requested_action=requested_action,
             scope=current_scope,
         )
-        req = existing or self.approvals.request(
+        if prior is not None:
+            if prior.status is ApprovalStatus.approved:
+                return AuthorizationResult(
+                    verdict=Verdict.allow,
+                    reason=f"human-approved: {prior.decision_reason or 'approved'}",
+                    deciding_layer=decision.deciding_layer,
+                    approval_id=prior.id,
+                )
+            if prior.status is ApprovalStatus.rejected:
+                return AuthorizationResult(
+                    verdict=Verdict.deny,
+                    reason=f"human-rejected: {prior.decision_reason or 'rejected'}",
+                    deciding_layer=decision.deciding_layer,
+                    approval_id=prior.id,
+                )
+            # pending, deferred, revise, stale -> keep waiting; reuse the
+            # existing row so we don't accumulate orphaned requests.
+            return AuthorizationResult(
+                verdict=decision.verdict,
+                reason=f"awaiting human decision ({prior.status.value})",
+                deciding_layer=decision.deciding_layer,
+                approval_id=prior.id,
+            )
+
+        req = self.approvals.request(
             approval_type="action",
             requested_action=requested_action,
             scope=current_scope,
