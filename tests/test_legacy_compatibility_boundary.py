@@ -299,7 +299,7 @@ def test_rollback_still_finds_a_pre_rename_backup(tmp_path: Path) -> None:
     db.close()
 
     backup_dir = tmp_path / "memory" / "state" / "backups"
-    backup_dir.mkdir(parents=True)
+    backup_dir.mkdir(parents=True, exist_ok=True)
     backup = backup_dir / f"{LEGACY_IMPORT_BACKUP_PREFIX}20250101T000000.sqlite"
     backup.write_bytes((tmp_path / DB_RELPATH).read_bytes())
     (tmp_path / DB_RELPATH).write_bytes(b"")
