@@ -207,3 +207,41 @@ class ApprovalService:
             ),
         ).fetchone()
         return self.get(row[0]) if row else None
+
+    def find_latest_matching(
+        self,
+        *,
+        graph_id: str | None,
+        node_id: str | None,
+        action_kind: str | None,
+        requested_action: str,
+        scope: Mapping[str, Any],
+    ) -> ApprovalRequest | None:
+        """Latest request for the exact scope, regardless of status.
+
+        Used by the policy service to consult prior human decisions
+        before minting a new pending request -- so an approved decision
+        can advance execution and a rejected one can fail it, instead of
+        being invisible because ``find_pending`` filters by pending only.
+        """
+        digest = scope_digest(scope)
+        row = self.conn.execute(
+            """
+            SELECT id FROM approval_requests
+            WHERE COALESCE(graph_id, '')=COALESCE(?, '')
+              AND COALESCE(node_id, '')=COALESCE(?, '')
+              AND COALESCE(action_kind, '')=COALESCE(?, '')
+              AND requested_action=?
+              AND scope_digest=?
+            ORDER BY requested_at DESC
+            LIMIT 1
+            """,
+            (
+                graph_id,
+                node_id,
+                action_kind,
+                requested_action,
+                digest,
+            ),
+        ).fetchone()
+        return self.get(row[0]) if row else None

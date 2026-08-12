@@ -52,6 +52,12 @@ class ExecutionSupervisor:
         )
 
     def run(self, graph_id: str) -> RunSummary:
+        # Resume-safety: any task-kind node that a previous pass parked in
+        # `blocked` (approval or budget) needs to re-derive its status now.
+        # Otherwise it stays out of ready_node_ids and the loop treats the
+        # graph as deadlocked. Approval-kind nodes are refreshed by
+        # refresh_readiness against the latest approval row.
+        self._unblock_task_nodes(graph_id)
         self.store.set_graph_status(graph_id, "running")
         completed: list[str] = []
         failed: list[str] = []
@@ -103,7 +109,8 @@ class ExecutionSupervisor:
                         self.store.set_node_status(node_id, "blocked", expected_version=state.state_version)
                         blocked.append(node_id)
                         self.store.set_graph_status(graph_id, "paused")
-                        return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval", usage=self.budget.snapshot())
+                        reason = f"approval {auth.approval_id}: {auth.reason}" if auth.approval_id else "approval"
+                        return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason=reason, usage=self.budget.snapshot())
                     if auth.verdict is Verdict.deny:
                         raise PermissionError(auth.reason)
                     adapter_name = self._adapter_name(capability_id)
@@ -143,6 +150,23 @@ class ExecutionSupervisor:
 
     def resume(self, graph_id: str) -> RunSummary:
         return self.run(graph_id)
+
+    def _unblock_task_nodes(self, graph_id: str) -> None:
+        """Reset task-kind blocked nodes to pending on run/resume entry.
+
+        Approval-kind nodes stay put: refresh_readiness projects the
+        latest approval decision onto them (approved/rejected/revise/...)
+        each cycle.
+        """
+        graph = self.store.get(graph_id)
+        for node in graph.nodes:
+            if node.kind is NodeKind.approval:
+                continue
+            state = self.store.get_node(node.id)
+            if state.status is NodeStatus.blocked:
+                self.store.set_node_status(
+                    node.id, "pending", expected_version=state.state_version
+                )
 
     def _adapter_name(self, capability_id: str) -> str:
         store = CapabilityStore(self.root)
