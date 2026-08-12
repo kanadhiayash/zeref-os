@@ -888,17 +888,17 @@ def audit(
     # Trees that intentionally cite PII-shaped tokens as content, examples,
     # or historical spec text are skipped in strict mode. The scan focuses
     # on trees where a real leak would be an accidental egress:
-    #   scanned in strict:  root *.md, config/, shiroe/, .github/, benchmarks/*.py
-    #   skipped in strict:  docs/, references/, skills/, team-packs/, tests/,
-    #                       CHANGELOG.md (release history), and self-referential
-    #                       modules whose docstrings document detection patterns.
+    #   scanned in strict:  root *.md, config/, shiroe/, .github/
+    #   skipped in strict:  docs/, references/, tests/, CHANGELOG.md
+    #                       (release history), and self-referential modules
+    #                       whose docstrings document detection patterns.
     # Skip rules match whole path COMPONENTS (or an exact repo-relative path),
     # never a substring of the joined path. A substring test silently exempts
     # any file whose name merely contains a skip token — "notdocs.md" matching
     # "docs", "distribution.md" matching "dist" — which is a fail-open hole in
     # a scan whose entire job is to catch accidental egress.
     _SKIP_DIRS = {
-        "docs", "references", "skills", "team-packs", "team",
+        "docs", "references",
         "tests", ".git", "__pycache__", "node_modules", "assets",
         # Third-party and generated trees. These are not authored surfaces:
         # dependency source legitimately contains credential-shaped example
@@ -914,8 +914,6 @@ def audit(
         "CHANGELOG.md",
         # detection modules whose own docstrings show pattern examples
         "shiroe/privacy.py", "shiroe/security/policy.py",
-        # generated benchmark report
-        "benchmarks/BENCHMARK_REPORT.md",
     }
 
     def _skipped(rel_path: Path) -> bool:
