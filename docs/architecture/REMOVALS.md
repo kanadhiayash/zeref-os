@@ -75,3 +75,21 @@ transitional until Phase 04 replaces it with Work Graph supervision.
   `release-check` job (its only step invoked `python3 -m shiroe.cli
   release check`; the `shiroe/release/` package was retired in Phase 07).
   A dedicated release-readiness gate is a post-vNext follow-up.
+
+## H4.3 (post-vNext hardening 2026-08-13) — orphan removals
+
+Four modules with zero importers across `shiroe/` and `tests/` were
+deleted under the H4.3 prove-or-delete rule:
+
+- `shiroe/audit/traces.py` — 3-line `write_trace` helper; nothing called
+  it after the audit/trace redesign.
+- `shiroe/memory/render.py` — CLI-compat rendering wrapper superseded
+  by `shiroe.memory.views` and used only by the pre-Phase-07 CLI.
+- `shiroe/routing/policy.py` — `DEFAULT_POLICY` static config; the
+  gateway does not consult it and no other module imports it.
+- `shiroe/yaml_subset.py` — 160-line hand-rolled YAML parser retained
+  for the retired mission / execution-policy files. No caller remains.
+
+None are compatibility-migration files (per H4.3's "do not delete
+historical compatibility migrations" rule); git history remains the
+archive.
