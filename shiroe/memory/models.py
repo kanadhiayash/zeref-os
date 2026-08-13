@@ -25,7 +25,7 @@ class MemoryWrite:
     scope: str = "project"
     valid_from: str | None = None
     valid_until: str | None = None
-    owner: str = "memory-keeper"
+    owner: str = "shiroe-runtime"
     tags: tuple[str, ...] = ()
 
 

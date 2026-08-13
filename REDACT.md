@@ -58,7 +58,7 @@ classes:
 1. `privacy-guardian` reads `PRIVACY.md` mode.
 2. If mode = `abstract`, `privacy-abstraction` skill runs over the candidate write.
 3. Skill walks each `enabled: true` class in this file and substitutes per the `replacement_strategy` below.
-4. Resulting content goes to `memory-keeper` for write.
+4. Resulting content goes to `shiroe-runtime` for write.
 5. Original raw content NEVER lands in `memory/` outside `memory/raw/` (which is gitignored or local-only).
 
 ## Replacement strategy

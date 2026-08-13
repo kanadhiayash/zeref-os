@@ -26,7 +26,7 @@ DEFAULT_POLICY = {
             "domain": "memory",
             "keywords": ["memory", "recall", "contradiction", "evidence", "source"],
             "weight": "medium",
-            "lead": "memory-keeper",
+            "lead": "shiroe-runtime",
         },
         {
             "domain": "docs",

@@ -22,7 +22,7 @@ branch lifetime, squash-merge and retention rules — in `docs/BRANCHING.md`.
 `<type>/shr-<short-description>`.
 
 Examples:
-- `feat/shr-skill-router-v2`
+- `feat/shr-approval-lifecycle-hardening`
 - `fix/shr-validator-skills-count`
 - `release/*` — frozen-baseline snapshot (never receives further commits after creation; named per `docs/RELEASE_PROCESS.md`)
 

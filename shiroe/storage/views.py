@@ -19,7 +19,7 @@ VIEWS_DIR = Path("memory") / "views"
 
 _VIEW_NAMES = (
     "hot", "decisions", "risks", "contradictions",
-    "project-context", "capabilities", "active-team", "session-summary",
+    "project-context", "capabilities", "active-graphs", "session-summary",
 )
 
 
@@ -86,7 +86,7 @@ def _render_view(name: str, conn: sqlite3.Connection) -> str:
         "contradictions": _view_contradictions,
         "project-context": _view_project_context,
         "capabilities": _view_capabilities,
-        "active-team": _view_active_team,
+        "active-graphs": _view_active_team,
         "session-summary": _view_session_summary,
     }[name]
     return BANNER + f"\n# {name}\n\n_state as of {_stamp(conn)}_\n\n" + body_fn(conn)

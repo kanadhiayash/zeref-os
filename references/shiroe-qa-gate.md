@@ -28,7 +28,7 @@ Reads happened via `memory/hot.md` → `memory/index.md` → page section (per A
 No invented file paths, metrics, user research, citations, repo state, or build results. Exact commands / paths / URLs / errors preserved verbatim.
 
 ### 6. Single-writer compliance
-Wiki writes routed through `memory-keeper`. No skill or agent attempts direct write to flat `memory/` wiki files (`index.md`, `DECISIONS.md`, `OPEN_QUESTIONS.md`, `RISKS.md`, `CONFLICTS.md`, `MEMORY.md`, `hot.md`).
+Wiki writes routed through `shiroe-runtime`. No skill or agent attempts direct write to flat `memory/` wiki files (`index.md`, `DECISIONS.md`, `OPEN_QUESTIONS.md`, `RISKS.md`, `CONFLICTS.md`, `MEMORY.md`, `hot.md`).
 
 ### 7. Contradiction handling
 If conflict detected: halt write, append to `CONFLICTS.md`, surface to user. Never silent resolve.

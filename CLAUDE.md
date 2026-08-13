@@ -7,7 +7,7 @@
 - Use Claude Code's Skill tool to invoke skills as `shiroe:<skill-name>` (post-install).
 - Slash commands resolve under `/shiroe:<command>` namespace.
 - Sub-agents (Task tool) are not required — Shiroe uses lightweight markdown agents.
-- Prefer Haiku for `memory-keeper` writes; Sonnet for `project-setup` interview; Opus only for `pattern-to-skill` draft generation.
+- Prefer Haiku for `shiroe-runtime` writes; Sonnet for `project-setup` interview; Opus only when the caller explicitly requests it.
 - Per-harness quirks live in `config/claude-overrides.md`.
 
 ## First action every session

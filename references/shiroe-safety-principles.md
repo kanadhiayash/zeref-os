@@ -8,7 +8,7 @@ These rules exist not as arbitrary restrictions but because Shiroe handles persi
 
 ## Rule 1 — Single writer to flat memory/
 **Why**: Concurrent writes cause silent data loss and corrupt index consistency.
-**What**: Only `memory-keeper` writes to wiki files in flat `memory/` (`index.md`, `DECISIONS.md`, `OPEN_QUESTIONS.md`, `RISKS.md`, `CONFLICTS.md`, `MEMORY.md`, `hot.md`). Any other agent attempting to write triggers a block + violation log event.
+**What**: Only `shiroe-runtime` writes to wiki files in flat `memory/` (`index.md`, `DECISIONS.md`, `OPEN_QUESTIONS.md`, `RISKS.md`, `CONFLICTS.md`, `MEMORY.md`, `hot.md`). Any other agent attempting to write triggers a block + violation log event.
 
 ## Rule 2 — Append-only logs
 **Why**: Mutable logs destroy audit trail. Migration, debugging, and pattern detection all depend on event immutability.
@@ -16,11 +16,11 @@ These rules exist not as arbitrary restrictions but because Shiroe handles persi
 
 ## Rule 3 — Privacy mode enforcement before every write
 **Why**: A single accidental write of credentials or sensitive paths poisons the wiki and any downstream sync.
-**What**: Every payload passes through `privacy-guardian` per root `PRIVACY.md` mode + `REDACT.md` classes + `SHARING_POLICY.md` connector allowlist before reaching `memory-keeper`. Always-block patterns (credentials, `.gitignore` contents) reject regardless of mode.
+**What**: Every payload passes through `privacy-guardian` per root `PRIVACY.md` mode + `REDACT.md` classes + `SHARING_POLICY.md` connector allowlist before reaching `shiroe-runtime`. Always-block patterns (credentials, `.gitignore` contents) reject regardless of mode.
 
 ## Rule 4 — Contradictions never silently resolved
 **Why**: Silent resolution destroys both sides of a real disagreement and erodes user trust in the wiki as canonical state.
-**What**: When `memory-keeper` detects a conflict, both sides go to `memory/CONFLICTS.md`. User arbitrates. `contradiction-resolution` skill orchestrates.
+**What**: When `shiroe-runtime` detects a conflict, both sides go to `memory/CONFLICTS.md`. User arbitrates. `contradiction-resolution` skill orchestrates.
 
 ## Rule 5 — Boundary-first reads (per AGENTS.md §"First action every session")
 **Why**: Loading full wiki pages on every operation blows the token budget and defeats progressive activation.
@@ -40,7 +40,7 @@ These rules exist not as arbitrary restrictions but because Shiroe handles persi
 
 ## Rule 9 — Review-first skill extension
 **Why**: Auto-activating drafted skills creates a feedback loop where the agent invents its own scope creep.
-**What**: `pattern-to-skill` only drafts to `skills/drafts/`. `/review-skill` is the only path from `skills/drafts/` to `skills/`. The Two-Strikes Rule (`references/two-strikes-rule.md`) gates rule creation — never codify on first occurrence.
+**What**: vNext has no first-party Skills authoring path. Rule-creation still follows the Two-Strikes Rule (`references/two-strikes-rule.md`) — never codify on first occurrence; only codify after a pattern has repeated.
 
 ## Rule 10 — Honest limits declared publicly
 **Why**: Overpromised capabilities erode trust when reality disappoints. Better to declare what Shiroe doesn't do.
