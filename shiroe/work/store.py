@@ -57,6 +57,12 @@ class WorkStore:
     def close(self) -> None:
         self.db.close()
 
+    def __enter__(self) -> "WorkStore":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     def create(self, graph: WorkGraph) -> None:
         now = _now()
         with self.conn:

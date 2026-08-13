@@ -33,6 +33,12 @@ class CapabilityStore:
     def close(self) -> None:
         self.db.close()
 
+    def __enter__(self) -> "CapabilityStore":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     # ------------------------------------------------------------------
     def upsert_capability(self, *, capability_id: str, name: str, type_: str,
                           lifecycle: str, digest: str,
