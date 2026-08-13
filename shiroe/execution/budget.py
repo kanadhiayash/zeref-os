@@ -11,12 +11,42 @@ class BudgetError(RuntimeError):
 
 @dataclass
 class BudgetTracker:
+    """Cost / token cap tracker.
+
+    Cap semantics:
+      - ``0`` (the default) means UNLIMITED for that axis -- would_exceed
+        never returns that axis, and charge never raises. This matches
+        the supervisor default which does not enforce a per-run cap
+        unless the caller sets one.
+      - A POSITIVE cap enforces ``spent + projected > cap`` -- equality
+        is allowed (i.e. hitting the cap exactly is not a burst).
+      - NEGATIVE caps are rejected at construction (ValueError) because
+        they can never allow any spend and would only occur through a
+        misconfiguration.
+
+    Callers wanting an explicit "reject any spend" sentinel should pass
+    a tiny positive value (e.g. usd_max=1e-9); ``None`` is not a valid
+    input because the field types are non-optional float / int.
+    """
+
     usd_max: float = 0.0
     tokens_input_max: int = 0
     tokens_output_max: int = 0
     usd_spent: float = 0.0
     tokens_input_spent: int = 0
     tokens_output_spent: int = 0
+
+    def __post_init__(self) -> None:
+        if self.usd_max < 0:
+            raise ValueError(f"usd_max must be >= 0 (0 = unlimited); got {self.usd_max}")
+        if self.tokens_input_max < 0:
+            raise ValueError(
+                f"tokens_input_max must be >= 0 (0 = unlimited); got {self.tokens_input_max}"
+            )
+        if self.tokens_output_max < 0:
+            raise ValueError(
+                f"tokens_output_max must be >= 0 (0 = unlimited); got {self.tokens_output_max}"
+            )
 
     def would_exceed(self, projection: dict) -> str | None:
         cost = float(projection.get("cost_usd", 0.0) or 0.0)
