@@ -7,10 +7,9 @@ project_root: "<discovered-at-runtime>"
 created: "2026-06-05"
 last_session: ""
 active_agents:
-  - memory-keeper
+  - shiroe-runtime
 active_skills:
   - wiki-maintenance
-  - budget-governor
   - evidence-grader
 privacy_mode: abstract
 parent_project: null

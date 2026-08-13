@@ -142,11 +142,11 @@ class MemoryService:
             params.append(limit)
         return tuple(self._record_from_row(row) for row in self._conn.execute(sql, params))
 
-    def supersede(self, record_id: str, *, actor: str = "memory-keeper") -> MemoryRecord:
+    def supersede(self, record_id: str, *, actor: str = "shiroe-runtime") -> MemoryRecord:
         supersede_record(self._conn, self._log, id_=record_id, actor=actor)
         return self.get(record_id)
 
-    def archive(self, record_id: str, *, actor: str = "memory-keeper") -> MemoryRecord:
+    def archive(self, record_id: str, *, actor: str = "shiroe-runtime") -> MemoryRecord:
         archive_record(self._conn, self._log, id_=record_id, actor=actor)
         return self.get(record_id)
 

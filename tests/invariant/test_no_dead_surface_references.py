@@ -6,18 +6,54 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-ACTIVE_ROOTS = (
-    ROOT / "AGENTS.md",
-    ROOT / "README.md",
+
+def _root_markdown_files() -> tuple[Path, ...]:
+    """Root-level *.md files (harness shims, contributor docs, guides)."""
+    return tuple(sorted(p for p in ROOT.glob("*.md") if p.is_file()))
+
+
+ACTIVE_ROOTS: tuple[Path, ...] = (
+    *_root_markdown_files(),
+    ROOT / ".aider.conf.yml.example",
+    ROOT / ".claude-plugin",
+    ROOT / ".cursor",
+    ROOT / ".windsurfrules",
+    ROOT / "_shared",
+    ROOT / "config",
     ROOT / "docs" / "GLOSSARY.md",
     ROOT / "docs" / "architecture",
     ROOT / "docs" / "wiki",
+    ROOT / "references",
     ROOT / "shiroe",
     ROOT / "tests",
 )
 
 ALLOWLIST = {
+    # Retirement register: intentionally names removed surfaces.
     ROOT / "docs" / "architecture" / "REMOVALS.md",
+    # Identity-only compatibility register (post-Phase-08 shape).
+    ROOT / "docs" / "DEPRECATIONS.md",
+    # Migration guide: legitimate references to pre-rebrand names.
+    ROOT / "MIGRATION.md",
+    # Release notes: append-only historical claims.
+    ROOT / "CHANGELOG.md",
+    # Canon docs (pre-vNext architecture snapshots kept for parity with
+    # the parent project; not our active surface to rewrite unilaterally).
+    ROOT / "references" / "v4x-canon" / "SHIROE_OS.md",
+    ROOT / "references" / "v4x-canon" / "DECISION_LOG.md",
+    ROOT / "references" / "v4x-canon" / "MODEL_DEBATE.md",
+    # Target-model profiles: describe cross-harness handoff features from
+    # the shared harness catalog, not vNext product surfaces.
+    ROOT / "references" / "target-model-profiles" / "README.md",
+    ROOT / "references" / "target-model-profiles" / "claude-opus-4-8.md",
+    ROOT / "references" / "target-model-profiles" / "gpt-5-5-instant.md",
+    # Retired-feature reference doc: documents a superseded sub-system
+    # (parent sync). Retained as historical reference; not scaffolded.
+    ROOT / "config" / "PARENT_SYNC.md",
+    # Shared cross-agent enforcement rules; retired-agent names remain as
+    # per-agent scoping tokens for a rule set that predates vNext.
+    ROOT / "_shared" / "rules.md",
+    # This scanner file itself: contains the pattern strings by definition.
     Path(__file__).resolve(),
 }
 
@@ -29,14 +65,20 @@ FORBIDDEN = (
     re.compile(r"parent-sync", re.I),
     re.compile(r"skill-router", re.I),
     re.compile(r"budget-governor", re.I),
-    re.compile(r"Team Packs"),
-    re.compile(r"Mission seats", re.I),
+    # Retired product surfaces: proper-noun / hyphenated forms only so English
+    # prose like "mission-critical" or "seat belt" cannot false-hit.
+    re.compile(r"\bTeam Packs?\b"),
+    re.compile(r"\bMission Packs?\b"),
+    re.compile(r"\bMission Seats?\b", re.I),
     re.compile(r"\bBM25\b"),
     re.compile(r"benchmark score", re.I),
     re.compile(r"status:\s*contract", re.I),
     re.compile(r"status:\s*experimental", re.I),
     re.compile(r'"status"\s*:\s*"contract"', re.I),
     re.compile(r'"status"\s*:\s*"experimental"', re.I),
+    # Retired runtime identities / view names (H0 residue).
+    re.compile(r"memory-keeper"),
+    re.compile(r"\bactive-team\b"),
 )
 
 

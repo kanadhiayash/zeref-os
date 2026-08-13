@@ -14,7 +14,7 @@ pattern_detection: true         # set false to disable pattern-observer
 
 # Token Budget
 
-The `budget-governor` skill scales output verbosity and read patterns to the active model tier and remaining budget. God Mode activates automatically when a high-tier model is detected (per SHIROE_OS §5 + D5).
+The runtime `BudgetTracker` (`shiroe/execution/budget.py`) scales output verbosity and read patterns to the active model tier and remaining budget. Elevated modes activate when a high-tier model is detected (per SHIROE_OS §5 + D5).
 
 ## Tier table
 
@@ -45,7 +45,7 @@ The `budget-governor` skill scales output verbosity and read patterns to the act
 
 - Surface remaining tokens
 - Offer to consolidate via `wiki-maintenance`
-- Offer to snapshot + archive via `memory-keeper`
+- Offer to snapshot + archive via `shiroe-runtime`
 
 ## When budget hits hard cap
 

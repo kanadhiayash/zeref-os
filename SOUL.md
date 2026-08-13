@@ -42,7 +42,7 @@ gate on `require_connector` / `require_network`.
 directory scan when a targeted read suffices. Context budget is the first-class
 constraint — every read counts.
 
-Enforcement: [AGENTS.md](AGENTS.md) §0 reading order; skill-router `boundary_first: true`.
+Enforcement: [AGENTS.md](AGENTS.md) §0 reading order; runtime reads `memory/hot.md` before `memory/index.md`.
 
 ## 4. Human arbitration
 
@@ -60,7 +60,7 @@ Strikes Rule detects repeated behavior before Shiroe proposes a new skill.
 Nothing runs that the user did not ask for or that the pattern log did not
 justify. Cost, complexity, and blast radius all belong to the user's choice.
 
-Enforcement: `agents/pattern-observer.md`; `skills/pattern-to-skill/SKILL.md`;
+Enforcement: pattern observation happens against `memory/patterns/PATTERNS.jsonl` in the memory engine (no first-party Skills path in vNext);
 `team-packs/*.md` opt-in via `/team <name>`.
 
 ---

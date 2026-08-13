@@ -7,9 +7,8 @@ overrides:
   skill_invocation: native        # use Claude Code's Skill tool with `shiroe:<name>`
   command_namespace: /shiroe       # slash commands resolve under /shiroe:<command>
   subagent_model_pref:
-    memory-keeper: haiku
+    shiroe-runtime: haiku
     project-setup: sonnet
-    pattern-to-skill: opus        # only for draft generation
   hook_ordering: native           # rely on Claude Code SessionStart/UserPromptSubmit hooks
 ---
 
@@ -21,9 +20,9 @@ overrides:
 
 ## Model selection
 
-- **memory-keeper** writes use the `fast` class (haiku alias) for cost/speed (high-frequency, low-reasoning).
+- **shiroe-runtime** writes use the `fast` class (haiku alias) for cost/speed (high-frequency, low-reasoning).
 - **project-setup** uses the `balanced` class (sonnet alias) for the interview (conversational, moderate reasoning).
-- **pattern-to-skill** draft generation uses the `deep` class (opus alias) for creative synthesis from event log.
+- Explicit `deep`-class overrides (opus alias) are reserved for creative synthesis that the caller requests directly.
 
 ## Skill / command surface
 

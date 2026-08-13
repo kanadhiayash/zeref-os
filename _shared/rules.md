@@ -8,12 +8,12 @@ Rules repeated across ≥3 skills, extracted here to reduce drift. Reference thi
 
 ## R1 — Single-Writer + Privacy Gate
 
-**All writes to `memory/` must pass through `memory-keeper` → `privacy-guardian`.**
+**All writes to `memory/` must pass through `shiroe-runtime` → `privacy-guardian`.**
 
 No skill writes directly. The chain is always:
 
 ```
-skill output → memory-keeper (conflict check, single-write lock) → privacy-guardian (PRIVACY.md mode + REDACT.md classes) → disk
+skill output → shiroe-runtime (conflict check, single-write lock) → privacy-guardian (PRIVACY.md mode + REDACT.md classes) → disk
 ```
 
 Applies to: wiki-maintenance, project-setup, contradiction-resolution, handoff-compiler, memory-import-export, parent-sync, pattern-to-skill.
