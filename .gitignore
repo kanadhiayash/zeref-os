@@ -104,3 +104,4 @@ docs/_evidence/
 
 # Local verification evidence (never published; see hardening program governance)
 docs/_evidence/
+.coverage
