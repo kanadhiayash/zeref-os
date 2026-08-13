@@ -42,6 +42,12 @@ class ApprovalService:
     def close(self) -> None:
         self.db.close()
 
+    def __enter__(self) -> "ApprovalService":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     def request(
         self,
         *,
