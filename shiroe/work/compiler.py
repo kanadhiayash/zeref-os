@@ -56,6 +56,14 @@ def _edge(raw: Any, graph_id: str) -> WorkEdge:
 
 
 def _reject_cycles(node_ids: set[str], edges: tuple[WorkEdge, ...]) -> None:
+    """Iterative DFS cycle detector.
+
+    H5.1: the previous recursive implementation exhausted Python's
+    default recursion limit on a 1000-deep linear graph. This iterative
+    variant preserves the same external contract (raises WorkGraphError
+    with message "graph contains a cycle" iff a directed cycle exists)
+    but uses an explicit stack so it scales to arbitrary depth.
+    """
     outgoing: dict[str, list[str]] = {node_id: [] for node_id in node_ids}
     for edge in edges:
         outgoing[edge.src_id].append(edge.dst_id)
@@ -63,19 +71,26 @@ def _reject_cycles(node_ids: set[str], edges: tuple[WorkEdge, ...]) -> None:
     visiting: set[str] = set()
     visited: set[str] = set()
 
-    def visit(node_id: str) -> None:
-        if node_id in visiting:
-            raise WorkGraphError("graph contains a cycle")
-        if node_id in visited:
-            return
-        visiting.add(node_id)
-        for dst in outgoing[node_id]:
-            visit(dst)
-        visiting.remove(node_id)
-        visited.add(node_id)
-
-    for node_id in sorted(node_ids):
-        visit(node_id)
+    for root in sorted(node_ids):
+        if root in visited:
+            continue
+        stack: list[tuple[str, "iter[str]"]] = [(root, iter(outgoing[root]))]
+        visiting.add(root)
+        while stack:
+            node_id, children = stack[-1]
+            try:
+                child = next(children)
+            except StopIteration:
+                visiting.discard(node_id)
+                visited.add(node_id)
+                stack.pop()
+                continue
+            if child in visiting:
+                raise WorkGraphError("graph contains a cycle")
+            if child in visited:
+                continue
+            visiting.add(child)
+            stack.append((child, iter(outgoing[child])))
 
 
 def compile_work_graph(spec: dict[str, Any]) -> WorkGraph:
