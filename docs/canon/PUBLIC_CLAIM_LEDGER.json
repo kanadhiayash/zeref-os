@@ -33,31 +33,17 @@
       "why_unverified": "Withdrawn from README.md rather than re-pinned. Nothing regenerates the README, so a hardcoded count is stale the next time a test lands -- this one drifted twice (979 -> 1179 tests, 82 -> 94 files) and produced a canon finding each time. The Python matrix on that row carries the information a reader needs; the counts carried drift."
     },
     {
-      "id": "readme-release-checks",
-      "surface": "README.md",
-      "line": 123,
-      "claim": "shiroe release check — 14 checks",
-      "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 14,
-      "verify": {
-        "kind": "count_regex",
-        "file": "shiroe/release/checks.py",
-        "pattern": "(?m)^def _check_"
-      }
-    },
-    {
       "id": "readme-cli-commands",
       "surface": "README.md",
       "line": 263,
-      "claim": "shiroe --help lists all 21",
+      "claim": "shiroe --help lists all 13 top-level commands",
       "claim_class": "machine_verified",
       "status": "verified",
-      "evidence_value": 21,
+      "evidence_value": 13,
       "verify": {
         "kind": "count_regex",
-        "file": "shiroe/cli*.py",
-        "pattern": "\\bsub\\.add_parser\\("
+        "file": "shiroe/cli/*.py",
+        "pattern": "(?m)^COMMAND_NAME\\s*=\\s*\""
       }
     },
     {

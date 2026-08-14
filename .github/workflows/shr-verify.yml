@@ -213,7 +213,6 @@ jobs:
           cd /tmp/shr-e2e-project
           /tmp/shr-e2e-venv/bin/shiroe init --name e2e-check --privacy local-only --tier standard
           /tmp/shr-e2e-venv/bin/shiroe doctor --json
-          /tmp/shr-e2e-venv/bin/shiroe verify --memory --json
           /tmp/shr-e2e-venv/bin/shiroe state verify --json
 
   release-readiness:
