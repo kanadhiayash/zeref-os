@@ -78,33 +78,37 @@ Re-run `/shiroe:start` after to boot the session. Default privacy mode is **abst
 python3 .shiroe/scripts/shiroe-validate.py
 ```
 
-Expect output like the following (counts are derived from the tree and
-`shiroe-registry.json` at run time, so exact numbers track the current release):
+Expect output like the following (exact rows are derived from the tree at
+run time):
+
 ```
 Shiroe validator — /path/to/your/project
-Skills:           15/15 (from shiroe-registry.json)
-Agents:           6/6 (filesystem vs registry)
-Commands:         8/8 (filesystem vs registry)
-Team packs:       9/9 (filesystem vs registry)
+Contract dirs:    absent
 Config:           5/5
 Root privacy:     3/3 (PRIVACY, REDACT, SHARING_POLICY)
-v4x canon:        6/6
 Harness stubs:    3/3
 Memory layout:    flat
+PATTERNS lint:    0 finding(s)
 ✔ Validation passed
+```
+
+For the installed Python runtime (once `pip install -e .` has run):
+
+```bash
+python3 -m shiroe doctor --json
+python3 -m shiroe version --json
 ```
 
 ## Checking install freshness
 
-If commands or skills seem out of date after an update, confirm what's
-actually installed:
+If commands seem out of date after an update, confirm what's actually
+installed:
 
 ```bash
-shiroe doctor --installation   # or: shiroe version --verbose
+python3 -m shiroe version --json
 ```
 
-This reports the installed product identity, version, git SHA, and content
-digests. If the version/SHA don't match the latest tag on the source repo,
+If the reported version doesn't match the latest tag on the source repo,
 your harness is serving a cached copy — reinstall the plugin to refresh it.
 
 ## Uninstall

@@ -44,7 +44,13 @@ Keep PRs focused. Prefer several clear commits over one large mixed commit.
 
 ## Required local gates
 
-Run before requesting review:
+One command runs the full aggregate gate and prints a machine-readable
+JSON result:
+
+    python3 scripts/release_ready.py
+
+It composes the individual checks below; run them directly when you want
+to iterate on one:
 
     python3 -m pytest -q
     python3 scripts/check-canon-consistency.py --root .
@@ -53,6 +59,7 @@ Run before requesting review:
     python3 scripts/check-version-consistency.py
     python3 scripts/check-trust-registry.py
     python3 -m shiroe doctor --json
+    python3 -m shiroe state verify --json
     git diff --check
     git status --short
 
@@ -83,7 +90,7 @@ Not allowed without evidence:
 - Never claim a workspace was updated unless a file was actually written.
 - Never delete release history unless there is a clear security, legal, or public-trust reason.
 - Adding a public visual under `assets/` or citing a new external URL from `README.md` / root spec files requires an entry in `docs/canon/TRUST_REGISTRY.json` with an approved source + rights status. The `check-trust-registry.py` gate fails otherwise.
-- An irreversible task-graph node must declare `guarded: true`. `shiroe.graph.compile_task_graph` refuses an unguarded irreversible node at compile time.
+- Irreversible actions (push, merge, publish, delete, external message, secret read, …) are on the mandatory-approval list in `shiroe/policy/autonomy.py`. Execution pauses on them and cannot proceed without a human approval decision — never weaken that list to auto-run one.
 
 ## Branch retention
 

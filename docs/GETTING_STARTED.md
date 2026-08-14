@@ -1,43 +1,42 @@
 # Getting Started
 
-From a repo root:
+Scaffold a project:
 
 ```bash
 python3 -m shiroe --version
-python3 -m shiroe init --name "My Project" --privacy abstract --tier auto --parent ""
-python3 -m shiroe status
+python3 -m shiroe init /path/to/project --name "My Project" --privacy abstract --tier auto
+cd /path/to/project
+python3 -m shiroe status --json
 ```
 
-Add structured memory:
+Write canonical memory (single-writer path, scrubbed + graded + logged):
 
 ```bash
-python3 -m shiroe memory propose "User prefers public-safe copy by default."
 python3 -m shiroe memory write --from proposal.json
-python3 -m shiroe memory search "public-safe copy"
+python3 -m shiroe memory recall "public-safe copy"
+python3 -m shiroe memory list --json
 ```
 
-Run local gates:
+Run a Work Graph through the approval lifecycle:
 
 ```bash
-python3 -m pytest -q
-python3 scripts/shiroe-validate.py
-python3 -m shiroe audit
-python3 -m shiroe audit-privacy --strict
-python3 scripts/check-version-consistency.py
-git diff --check
+python3 -m shiroe plan --from-json graph.json --json
+python3 -m shiroe run <graph-id>                 # pauses on require_approval
+python3 -m shiroe approve list --json
+python3 -m shiroe approve decide <id> --status approved --reason "…"
+python3 -m shiroe run <graph-id>                 # resume
 ```
 
-Useful hardening commands:
+Verify state:
 
 ```bash
-python3 -m shiroe factguard scan README.md
-python3 -m shiroe evidence check memory/
-python3 -m shiroe contradictions scan memory/
-python3 -m shiroe privacy scan docs/
-python3 -m shiroe route policy validate
-python3 -m shiroe release check
-python3 -m shiroe doctor
+python3 -m shiroe doctor --json
+python3 -m shiroe verify --graph <graph-id> --json
+python3 -m shiroe state verify --json
 ```
 
-`privacy scan` is report-only by default. Use `--strict` when it should fail the
-gate on findings.
+Run the aggregate local gate before opening a PR:
+
+```bash
+python3 scripts/release_ready.py
+```

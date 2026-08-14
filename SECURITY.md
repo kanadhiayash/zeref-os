@@ -37,7 +37,7 @@ In scope:
 - Credential leakage through persisted memory files.
 - Prompt-injection paths that bypass documented gates.
 - Unsafe write, sync, or handoff behavior.
-- Release gate bypass — including a stale SHA-bound evidence blob presented as authorization to release, or a release-check subcheck silently skipped.
+- Release gate bypass — a mandatory subcheck in `scripts/release_ready.py` silently skipped, disabled, or reporting PASS without actually running.
 - Supply-chain issues in workflows or package metadata.
 - Code execution paths triggered by malformed local config.
 - Task-graph compiler or runtime accepting an unguarded irreversible node, a fake edge, a missing artifact, or an unbounded loop.
@@ -69,6 +69,6 @@ Published advisories live at:
 - Untrusted content must be treated as untrusted.
 - Irreversible actions require explicit approval; unguarded irreversible task-graph nodes are refused at compile time.
 - Memory writes should be auditable; every knowledge-graph edge carries provenance; every evidence upgrade pins a source hash and refuses a contradicting source.
-- Security claims require evidence; the release gate re-runs every subcheck live per current HEAD and writes SHA-bound evidence.
+- Security claims require evidence; `scripts/release_ready.py` re-runs every subcheck live against the working tree and prints a machine-readable JSON result.
 - Public issues must not expose live vulnerabilities.
 - The privacy scanner is defense-in-depth, not a substitute for keeping credentials out of the tree.

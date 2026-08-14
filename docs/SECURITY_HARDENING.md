@@ -41,8 +41,9 @@ Run before release:
 
     python3 -m pytest -q
     python3 scripts/shiroe-validate.py
-    python3 -m shiroe audit
-    python3 -m shiroe audit-privacy --strict
     python3 scripts/check-version-consistency.py
-    python3 -m shiroe release check
+    python3 scripts/check-trust-registry.py
+    python3 -m shiroe doctor --json
+    python3 -m shiroe state verify --json
+    python3 scripts/release_ready.py
     git diff --check
