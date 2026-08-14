@@ -44,7 +44,7 @@ def test_checks_cover_surviving_vnext_invariants():
         "version-consistency",
         "trust-registry",
         "doctor",
-        "verify-memory",
+        "verify-runtime",
         "state-verify",
         "invariant-suite",
         "dead-surface-scanner",
