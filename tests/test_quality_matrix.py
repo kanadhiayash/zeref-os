@@ -86,17 +86,17 @@ def test_provider_adapter_load_completes_under_budget() -> None:
 
 def test_quality_matrix_declares_every_axis() -> None:
     text = CI_WORKFLOW.read_text(encoding="utf-8")
-    # The 'strict privacy audit repo-wide' and 'release readiness gate' steps
-    # were retired in Phase 08 alongside their Phase-07-removed CLI backing
-    # (shiroe audit-privacy, shiroe.cli release). Credentials coverage remains
-    # via the grep-based 'Scan repo for committed secrets' step; a dedicated
-    # release-readiness gate is a post-vNext follow-up (see
-    # docs/architecture/REMOVALS.md Phase 08).
+    # The 'strict privacy audit repo-wide' step was retired in Phase 08
+    # alongside its Phase-07-removed CLI backing (shiroe audit-privacy).
+    # Credentials coverage remains via the grep-based 'Scan repo for
+    # committed secrets' step. H7.2 re-introduces a vNext-native
+    # release-readiness gate via scripts/release_ready.py.
     axes = {
         "validate": "Run shiroe-validate",
         "version_consistency": "Run version consistency checker",
         "secrets": "Scan repo for committed secrets",
         "pytest": "Run pytest with coverage",
+        "release_readiness": "scripts/release_ready.py",
     }
     missing = [name for name, needle in axes.items() if needle not in text]
     assert not missing, f"CI workflow missing quality axes: {missing}"
