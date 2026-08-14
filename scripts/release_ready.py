@@ -59,7 +59,7 @@ _ALL_CHECKS = [
     ("version-consistency", ["python3", "scripts/check-version-consistency.py"]),
     ("trust-registry", ["python3", "scripts/check-trust-registry.py"]),
     ("doctor", ["python3", "-m", "shiroe", "doctor", "--json"]),
-    ("verify-memory", ["python3", "-m", "shiroe", "verify", "--memory", "--json"]),
+    ("verify-runtime", ["python3", "-m", "shiroe", "verify", "--json"]),
     ("state-verify", ["python3", "-m", "shiroe", "state", "verify", "--json"]),
     ("invariant-suite", ["python3", "-m", "pytest", "tests/invariant", "-q"]),
     ("dead-surface-scanner",
