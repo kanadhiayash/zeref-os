@@ -87,11 +87,24 @@ def _check_wiki_install(root: Path, expected: str) -> tuple[str, str | None]:
     return ("docs/wiki/Installation.md", m.group(1) if m else None)
 
 
+def _check_skill_manifest(root: Path, expected: str) -> tuple[str, str | None]:
+    # H7.3: root SKILL.md is a plugin surface with its own YAML frontmatter
+    # version. Must stay locked to shiroe/VERSION so a plugin marketplace
+    # cannot advertise a stale version and mislead an install.
+    path = root / "SKILL.md"
+    if not path.exists():
+        return ("SKILL.md:frontmatter.version", None)
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    m = re.search(r"(?m)^version:\s*(\d+\.\d+\.\d+(?:[-+][\w.\-]+)?)\s*$", text)
+    return ("SKILL.md:frontmatter.version", m.group(1) if m else None)
+
+
 CHECKS = [
     _check_pyproject,
     _check_init,
     _check_plugin,
     _check_wiki_install,
+    _check_skill_manifest,
 ]
 
 
