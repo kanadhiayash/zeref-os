@@ -1,7 +1,7 @@
 <!-- privacy-audit: allow-file "Plugin manifest. Documents skill triggers using example pattern names." -->
 ---
 name: shiroe
-version: 1.1.1
+version: 3.0.0-alpha.1
 description: Shiroe (compat identifier `shiroe`) — local-first AI work control plane for AI-assisted work. Harness-agnostic, model-agnostic, privacy-first. Flat memory layout, per-project wiki, append-only pattern log, snapshots, on-demand team packs. Makes AI work cumulative instead of stateless across every harness.
 ---
 
