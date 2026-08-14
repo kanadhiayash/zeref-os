@@ -38,15 +38,15 @@ field does not change, a host may keep serving a previously cached payload
 even though the source repository has moved on.
 
 Every change that ships to the plugin marketplace (any edit under
-`.claude-plugin/`, `agents/`, `commands/`, `references/`, or `shiroe/`)
-must bump the version in lockstep across `shiroe/VERSION`,
-`pyproject.toml`, `shiroe-registry.json`, `.claude-plugin/plugin.json`,
-the README badge, and `docs/wiki/Installation.md` — enforced by
-`scripts/check-version-consistency.py` (a required gate, above). Skipping
-the bump is the single most common cause of a stale install;
-`shiroe version --json` and `shiroe doctor --json` report the installed
-manifest and runtime health so a stale cache can be diagnosed from the
-outside.
+`.claude-plugin/`, `references/`, or `shiroe/`) must bump the version in
+lockstep across the surfaces `scripts/check-version-consistency.py`
+enforces (a required gate, above): `shiroe/VERSION` (canonical),
+`shiroe/__init__.py` loader, `pyproject.toml`,
+`.claude-plugin/plugin.json`, `docs/wiki/Installation.md`, and the root
+`SKILL.md` frontmatter. Skipping the bump is the single most common
+cause of a stale install; `shiroe version --json` and
+`shiroe doctor --json` report the installed manifest and runtime health
+so a stale cache can be diagnosed from the outside.
 
 ## Tags
 
