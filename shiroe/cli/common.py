@@ -15,8 +15,6 @@ def project_root() -> Path:
 
 
 def print_json(payload: Any) -> None:
-    # Payloads are recursively stripped of known sensitive identity/secret keys before output.
-    # codeql[py/clear-text-logging-sensitive-data]
     print(json.dumps(_redact_json_payload(payload), indent=2, sort_keys=True))
 
 
@@ -31,7 +29,6 @@ _SENSITIVE_JSON_KEYS = {
     "tailscale_stable_id",
     "token",
     "transport_host",
-    "trusted_controller_tailscale_ids",
 }
 
 

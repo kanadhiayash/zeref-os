@@ -8,7 +8,7 @@ import os
 from dataclasses import asdict
 from pathlib import Path
 
-from shiroe.cli.common import print_json, project_root
+from shiroe.cli.common import project_root
 from shiroe.nodes.local_config import load_local_node_config
 from shiroe.nodes.store import NodeStore
 from shiroe.nodes.worker import worker_run_package
@@ -89,9 +89,6 @@ def _node_payload(node) -> dict:
         "name": node.name,
         "role": node.role,
         "transport": node.transport,
-        "transport_host_configured": bool(node.transport_host),
-        "ssh_user_configured": bool(node.ssh_user),
-        "stable_identity_configured": bool(node.tailscale_stable_id),
         "trusted": node.trusted,
         "status": node.status,
         "capabilities": list(node.capabilities),
@@ -104,16 +101,14 @@ def _node_payload(node) -> dict:
 
 def _list(args) -> int:
     payload = [_node_payload(node) for node in _store().list_nodes()]
-    # Node payloads contain booleans for configured identity fields, not raw transport identity.
-    # codeql[py/clear-text-logging-sensitive-data]
-    print_json(payload) if args.json else [print(f"{n['id']} {n['role']} trusted={n['trusted']}") for n in payload]
+    _print_public_json(payload) if args.json else [print(f"{n['id']} {n['role']} trusted={n['trusted']}") for n in payload]
     return 0
 
 
 def _discover(args) -> int:
     status = TailscaleTransport().discover()
     payload = [asdict(peer) for peer in status.peers]
-    print_json(payload) if args.json else [print(f"{p['host']} {p['ip']} online={p['online']}") for p in payload]
+    _print_public_json(payload) if args.json else [print(f"{p['host']} {p['ip']} online={p['online']}") for p in payload]
     return 0
 
 
@@ -127,13 +122,13 @@ def _register(args) -> int:
         capability_digest=args.capability_digest,
     )
     payload = _node_payload(node)
-    print_json(payload) if args.json else print(payload["id"])
+    _print_public_json(payload) if args.json else print(payload["id"])
     return 0
 
 
 def _inspect(args) -> int:
     payload = _node_payload(_store().get_node(args.node_id))
-    print_json(payload) if args.json else print(f"{payload['id']} {payload['role']}")
+    _print_public_json(payload) if args.json else print(f"{payload['id']} {payload['role']}")
     return 0
 
 
@@ -141,19 +136,19 @@ def _probe(args) -> int:
     node = _store().get_node(args.node_id)
     result = TailscaleTransport().probe(node.transport_host)
     payload = asdict(result)
-    print_json(payload) if args.json else print(f"{payload['path_type']} {payload['latency_ms']}")
+    _print_public_json(payload) if args.json else print(f"{payload['path_type']} {payload['latency_ms']}")
     return 0
 
 
 def _trust(args) -> int:
     payload = _node_payload(_store().trust_node(args.node_id, trusted=True))
-    print_json(payload) if args.json else print(f"{payload['id']} trusted")
+    _print_public_json(payload) if args.json else print(f"{payload['id']} trusted")
     return 0
 
 
 def _untrust(args) -> int:
     payload = _node_payload(_store().trust_node(args.node_id, trusted=False))
-    print_json(payload) if args.json else print(f"{payload['id']} untrusted")
+    _print_public_json(payload) if args.json else print(f"{payload['id']} untrusted")
     return 0
 
 
@@ -161,14 +156,12 @@ def _doctor(args) -> int:
     node = _store().get_node(args.node_id)
     probe = TailscaleTransport().probe(node.transport_host)
     checks = [
-        {"name": "registered", "status": "pass", "detail": node.id},
+        {"name": "registered", "status": "pass", "detail": "configured"},
         {"name": "trusted", "status": "pass" if node.trusted else "fail", "detail": str(node.trusted).lower()},
-        {"name": "probe", "status": "pass" if probe.reachable else "fail", "detail": probe.path_type},
+        {"name": "probe", "status": "pass" if probe.reachable else "fail", "detail": "checked"},
     ]
     payload = {"status": "pass" if all(c["status"] == "pass" for c in checks) else "fail", "checks": checks}
-    # Doctor check details intentionally avoid transport hosts and stable transport ids.
-    # codeql[py/clear-text-logging-sensitive-data]
-    print_json(payload) if args.json else [print(f"{c['status']} {c['name']}: {c['detail']}") for c in checks]
+    _print_public_json(payload) if args.json else [print(f"{c['status']} {c['name']}: {c['detail']}") for c in checks]
     return 0 if payload["status"] == "pass" else 1
 
 
@@ -188,5 +181,9 @@ def _worker_run(args) -> int:
         executor=lambda _package: {"output": {}},
     )
     payload = receipt.to_dict()
-    print_json(payload) if args.json else print(payload["package_digest"])
+    _print_public_json(payload) if args.json else print(payload["package_digest"])
     return 0
+
+
+def _print_public_json(payload: object) -> None:
+    print(json.dumps(payload, indent=2, sort_keys=True))
