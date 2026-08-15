@@ -101,14 +101,18 @@ def _node_payload(node) -> dict:
 
 def _list(args) -> int:
     payload = [_node_payload(node) for node in _store().list_nodes()]
-    _print_public_json(payload) if args.json else [print(f"{n['id']} {n['role']} trusted={n['trusted']}") for n in payload]
+    if args.json:
+        _write_public_json(payload)
+    else:
+        for node in payload:
+            print(f"{node['id']} {node['role']} trusted={node['trusted']}")
     return 0
 
 
 def _discover(args) -> int:
     status = TailscaleTransport().discover()
     payload = [asdict(peer) for peer in status.peers]
-    _print_public_json(payload) if args.json else [print(f"{p['host']} {p['ip']} online={p['online']}") for p in payload]
+    _write_public_json(payload) if args.json else [print(f"{p['host']} {p['ip']} online={p['online']}") for p in payload]
     return 0
 
 
@@ -122,13 +126,13 @@ def _register(args) -> int:
         capability_digest=args.capability_digest,
     )
     payload = _node_payload(node)
-    _print_public_json(payload) if args.json else print(payload["id"])
+    _write_public_json(payload) if args.json else print(payload["id"])
     return 0
 
 
 def _inspect(args) -> int:
     payload = _node_payload(_store().get_node(args.node_id))
-    _print_public_json(payload) if args.json else print(f"{payload['id']} {payload['role']}")
+    _write_public_json(payload) if args.json else print(f"{payload['id']} {payload['role']}")
     return 0
 
 
@@ -136,19 +140,19 @@ def _probe(args) -> int:
     node = _store().get_node(args.node_id)
     result = TailscaleTransport().probe(node.transport_host)
     payload = asdict(result)
-    _print_public_json(payload) if args.json else print(f"{payload['path_type']} {payload['latency_ms']}")
+    _write_public_json(payload) if args.json else print(f"{payload['path_type']} {payload['latency_ms']}")
     return 0
 
 
 def _trust(args) -> int:
     payload = _node_payload(_store().trust_node(args.node_id, trusted=True))
-    _print_public_json(payload) if args.json else print(f"{payload['id']} trusted")
+    _write_public_json(payload) if args.json else print(f"{payload['id']} trusted")
     return 0
 
 
 def _untrust(args) -> int:
     payload = _node_payload(_store().trust_node(args.node_id, trusted=False))
-    _print_public_json(payload) if args.json else print(f"{payload['id']} untrusted")
+    _write_public_json(payload) if args.json else print(f"{payload['id']} untrusted")
     return 0
 
 
@@ -161,7 +165,11 @@ def _doctor(args) -> int:
         {"name": "probe", "status": "pass" if probe.reachable else "fail", "detail": "checked"},
     ]
     payload = {"status": "pass" if all(c["status"] == "pass" for c in checks) else "fail", "checks": checks}
-    _print_public_json(payload) if args.json else [print(f"{c['status']} {c['name']}: {c['detail']}") for c in checks]
+    if args.json:
+        _write_public_json(payload)
+    else:
+        for check in checks:
+            print(f"{check['status']} {check['name']}: {check['detail']}")
     return 0 if payload["status"] == "pass" else 1
 
 
@@ -181,9 +189,12 @@ def _worker_run(args) -> int:
         executor=lambda _package: {"output": {}},
     )
     payload = receipt.to_dict()
-    _print_public_json(payload) if args.json else print(payload["package_digest"])
+    if args.json:
+        _write_public_json(payload)
+    else:
+        print(payload["package_digest"])
     return 0
 
 
-def _print_public_json(payload: object) -> None:
-    print(json.dumps(payload, indent=2, sort_keys=True))
+def _write_public_json(payload: object) -> None:
+    os.write(1, (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8"))
