@@ -104,8 +104,7 @@ def _list(args) -> int:
     if args.json:
         _write_public_json(payload)
     else:
-        for node in payload:
-            print(f"{node['id']} {node['role']} trusted={node['trusted']}")
+        print(f"{len(payload)} registered")
     return 0
 
 
@@ -168,8 +167,7 @@ def _doctor(args) -> int:
     if args.json:
         _write_public_json(payload)
     else:
-        for check in checks:
-            print(f"{check['status']} {check['name']}: {check['detail']}")
+        print(payload["status"])
     return 0 if payload["status"] == "pass" else 1
 
 
