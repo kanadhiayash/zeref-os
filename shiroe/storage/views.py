@@ -126,10 +126,11 @@ def _view_risks(conn: sqlite3.Connection) -> str:
 def _view_contradictions(conn: sqlite3.Connection) -> str:
     rows = _rows(
         conn,
-        "SELECT id, side_a, side_b, state, detected_at FROM contradictions "
-        "WHERE state != 'resolved' ORDER BY detected_at DESC",
+        "SELECT id, title, claim, status, updated_at "
+        "FROM memory_records WHERE kind='contradiction' AND archived=0 "
+        "ORDER BY updated_at DESC",
     )
-    return _table(["id", "side_a", "side_b", "state", "detected_at"], [list(r) for r in rows])
+    return _table(["id", "title", "claim", "status", "updated_at"], [list(r) for r in rows])
 
 
 def _view_project_context(conn: sqlite3.Connection) -> str:

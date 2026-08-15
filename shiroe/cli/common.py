@@ -9,9 +9,9 @@ from typing import Any
 
 
 def project_root() -> Path:
-    from shiroe.memory import MemoryRoot
+    from shiroe.memory import discover_project_root
 
-    return MemoryRoot.discover().root
+    return discover_project_root()
 
 
 def print_json(payload: Any) -> None:
@@ -37,7 +37,7 @@ def memory_write_from_payload(payload: dict[str, Any]):
         summary=str(payload.get("summary") or ""),
         source_refs=tuple(str(ref) for ref in (payload.get("source_refs") or payload.get("sources") or ["user-input"])),
         confidence=str(payload.get("confidence") or "unknown"),
-        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or "C"),
+        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or ""),
         privacy_class=str(payload.get("privacy_class") or payload.get("privacy") or "internal"),
         tags=tuple(str(tag) for tag in (payload.get("tags") or ())),
     )

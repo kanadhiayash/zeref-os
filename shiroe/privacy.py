@@ -243,7 +243,7 @@ class ScrubReport:
 # REDACT.md parser
 # ---------------------------------------------------------------------------
 def _load_redact_md(path: Path) -> list[RedactClass]:
-    """Parse REDACT.md YAML frontmatter into RedactClass list."""
+    """Parse REDACT.md frontmatter into RedactClass list."""
     if not path.exists():
         return [
             RedactClass(name=n, enabled=True, replacement=f"[PII:{n}]")
@@ -254,63 +254,66 @@ def _load_redact_md(path: Path) -> list[RedactClass]:
     if text.startswith("---"):
         parts = text.split("---", 2)
         if len(parts) >= 3:
-            try:
-                import yaml
-                data = yaml.safe_load(parts[1])
-                if isinstance(data, dict):
-                    return _parse_yaml_classes(data)
-            except ImportError:
-                pass
+            classes = _parse_redact_frontmatter(parts[1])
+            if classes:
+                return classes
 
-    # Regex fallback parser
-    classes: list[RedactClass] = []
-    for m in re.finditer(
-        r"-\s+name:\s*(\S+).*?enabled:\s*(true|false)(?:.*?replacement:\s*(.+?))?(?=\s+-\s+name:|\Z)",
-        text,
-        re.DOTALL,
-    ):
-        classes.append(RedactClass(
-            name=m.group(1),
-            enabled=m.group(2) == "true",
-            replacement=(m.group(3) or f"[PII:{m.group(1)}]").strip(),
-        ))
-
-    return classes or [
+    return [
         RedactClass(name=n, enabled=True, replacement=f"[PII:{n}]")
         for n in _BUILTIN_PATTERNS
     ]
 
 
-def _parse_yaml_classes(data: dict) -> list[RedactClass]:
-    out: list[RedactClass] = []
-    raw = data.get("classes", [])
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in {"true", "yes", "on", "1"}
 
-    # Format A: list of {name, enabled, ...} dicts
-    if isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, dict):
-                name = item.get("name", "unknown")
-                out.append(RedactClass(
-                    name=name,
-                    enabled=bool(item.get("enabled", False)),
-                    replacement=item.get("replacement", f"[PII:{name}]"),
-                    pattern=item.get("pattern"),
-                ))
-    # Format B: dict of {name: {enabled, patterns, ...}} — actual REDACT.md format
-    elif isinstance(raw, dict):
-        for name, cfg in raw.items():
-            if isinstance(cfg, dict):
-                out.append(RedactClass(
-                    name=name,
-                    enabled=bool(cfg.get("enabled", False)),
-                    replacement=cfg.get("replacement", f"[PII:{name}]"),
-                    pattern=cfg.get("pattern"),
-                ))
 
-    # Fallback: all built-ins enabled
-    return out or [
-        RedactClass(name=n, enabled=True, replacement=f"[PII:{n}]")
-        for n in _BUILTIN_PATTERNS
+def _parse_scalar(value: str) -> str:
+    value = value.strip()
+    if "#" in value:
+        value = value.split("#", 1)[0].strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _parse_redact_frontmatter(block: str) -> list[RedactClass]:
+    classes: dict[str, dict[str, str]] = {}
+    in_classes = False
+    current: str | None = None
+
+    for raw in block.splitlines():
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+
+        if indent == 0:
+            in_classes = stripped == "classes:"
+            current = None
+            continue
+        if not in_classes:
+            continue
+        if indent == 2 and stripped.endswith(":") and not stripped.startswith("- "):
+            current = stripped[:-1].strip()
+            classes.setdefault(current, {})
+            continue
+        if current is None or indent != 4 or ":" not in stripped:
+            continue
+        key, _, value = stripped.partition(":")
+        value = _parse_scalar(value)
+        if key.strip() in {"enabled", "replacement", "pattern"}:
+            classes[current][key.strip()] = value
+
+    return [
+        RedactClass(
+            name=name,
+            enabled=_parse_bool(cfg.get("enabled", "false")),
+            replacement=cfg.get("replacement", f"[PII:{name}]"),
+            pattern=cfg.get("pattern"),
+        )
+        for name, cfg in classes.items()
     ]
 
 

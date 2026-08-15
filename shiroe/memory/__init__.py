@@ -1,12 +1,6 @@
 """Canonical memory APIs for Shiroe."""
 
 from shiroe.memory.core import (
-    MEMORY_DIRS,
-    MEMORY_FILES,
-    MEMORY_LAYERS,
-    PROJECT_DIRS,
-    STATE_SCHEMA,
-    MemoryLayout,
     MemoryRoot,
     MemoryWriter,
     discover_project_root,
@@ -18,15 +12,9 @@ from shiroe.memory.service import MemoryService
 from shiroe.memory.views import render_views
 
 __all__ = [
-    "MEMORY_DIRS",
-    "MEMORY_FILES",
-    "MEMORY_LAYERS",
     "MemoryRecord",
-    "PROJECT_DIRS",
     "RecallResult",
     "SearchResult",
-    "STATE_SCHEMA",
-    "MemoryLayout",
     "MemoryRoot",
     "MemoryService",
     "MemoryWriter",

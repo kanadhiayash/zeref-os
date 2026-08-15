@@ -17,7 +17,7 @@ def _integrity_check(path: Path) -> str:
 
 def test_destructive_migration_creates_verifiable_backup(tmp_path, monkeypatch):
     with StateDB(tmp_path) as db:
-        db.migrate(target_version=2)
+        db.connect().execute("CREATE TABLE preexisting_state(id TEXT)")
 
     module = types.SimpleNamespace(DESTRUCTIVE=True, up=lambda conn: conn.execute("CREATE TABLE destructive_probe(id TEXT)"))
     import shiroe.migrations as migrations

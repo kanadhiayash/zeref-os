@@ -35,8 +35,8 @@ def test_script_exists_and_imports():
 
 def test_checks_cover_surviving_vnext_invariants():
     module = _load()
-    names = {name for name, _cmd in module.CHECKS}
-    required = {
+    names = [name for name, _cmd in module.CHECKS]
+    required = [
         "pytest-full",
         "shiroe-validate",
         "canon-consistency",
@@ -47,10 +47,14 @@ def test_checks_cover_surviving_vnext_invariants():
         "verify-runtime",
         "state-verify",
         "invariant-suite",
-        "dead-surface-scanner",
-    }
-    missing = required - names
+        "fresh-init-contract",
+        "docs-command-parser",
+        "node-schema-lease-transport",
+        "benchmark-entry-status",
+    ]
+    missing = set(required) - set(names)
     assert not missing, f"release_ready missing required checks: {sorted(missing)}"
+    assert names == required
 
 
 def test_no_check_touches_the_network():

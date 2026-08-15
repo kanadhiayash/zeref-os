@@ -24,7 +24,7 @@ def _run(cwd: Path, args: list[str]) -> subprocess.CompletedProcess:
 
 
 def test_memory_verify_and_handoff_cli(tmp_path: Path) -> None:
-    assert _run(ROOT, ["init", str(tmp_path), "--name", "handoff", "--privacy", "abstract", "--tier", "auto"]).returncode == 0
+    assert _run(ROOT, ["init", str(tmp_path), "--name", "handoff", "--privacy", "abstract"]).returncode == 0
     assert _run(tmp_path, ["plan", "--from-json", str(GRAPH)]).returncode == 0
 
     written = _run(tmp_path, ["memory", "write", "--from", str(MEMORY), "--json"])

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from shiroe.adapters.capabilities.base import AdapterResult, EnforcementLevel, HealthReport
@@ -32,6 +33,12 @@ class EchoAdapter:
 
 
 def register_test_capability(root: Path, *, capability_id: str, adapter=None) -> Path:
+    policy_dir = root / ".shiroe" / "policy"
+    policy_dir.mkdir(parents=True, exist_ok=True)
+    (policy_dir / "defaults.json").write_text(
+        json.dumps({"allow": ["capability.invoke", "subprocess"]}),
+        encoding="utf-8",
+    )
     adapter = adapter or EchoAdapter()
     register_adapter(adapter.name, adapter)
     src = root / "capabilities" / capability_id.replace(".", "_") / "run.sh"

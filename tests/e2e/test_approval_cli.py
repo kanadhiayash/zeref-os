@@ -48,7 +48,7 @@ def _seed_reasoner(root: Path) -> str:
             "type": "script",
             "version": "1.0.0",
             "source": {"kind": "file", "location": str(script)},
-            "entrypoint": {"adapter": "cli"},
+            "entrypoint": {"adapter": "cli", "command": [sys.executable, str(script)]},
             "requires": {},
         },
         source_kind="file",
@@ -58,11 +58,14 @@ def _seed_reasoner(root: Path) -> str:
 
 
 def test_approval_advise_does_not_decide_and_human_decide_approves(tmp_path: Path) -> None:
-    init = _run(ROOT, ["init", str(tmp_path), "--name", "approvals", "--privacy", "abstract", "--tier", "auto"])
+    init = _run(ROOT, ["init", str(tmp_path), "--name", "approvals", "--privacy", "abstract"])
     assert init.returncode == 0, init.stderr
     policy_dir = tmp_path / ".shiroe" / "policy"
-    policy_dir.mkdir(parents=True)
-    (policy_dir / "defaults.json").write_text('{"allow":["subprocess"]}', encoding="utf-8")
+    policy_dir.mkdir(parents=True, exist_ok=True)
+    (policy_dir / "defaults.json").write_text(
+        '{"allow":["capability.invoke","subprocess"]}',
+        encoding="utf-8",
+    )
     approval = ApprovalService(tmp_path).request(
         approval_type="strategic",
         requested_action="choose release path",

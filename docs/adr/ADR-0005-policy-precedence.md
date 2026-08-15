@@ -5,7 +5,7 @@
 
 ## Context
 
-Zeref operates at both a global root (`~/.zeref/`) and a per-project root (`.zeref/`), and layers in harness defaults, user grants, and runtime safety invariants. Without an explicit, ordered precedence rule, it is ambiguous which layer wins when policies conflict — e.g. whether a project-level allow can override a global deny, or whether a harness default can silently escalate what a project intended to restrict. The architecture plan (§13.3) requires one fixed order, enforced in code, not left to per-feature judgment calls.
+Shiroe operates at both a global root (`~/.shiroe/`) and a per-project root (`.shiroe/`), and layers in harness defaults, user grants, and runtime safety invariants. Without an explicit, ordered precedence rule, it is ambiguous which layer wins when policies conflict — e.g. whether a project-level allow can override a global deny, or whether a harness default can silently escalate what a project intended to restrict. The architecture plan (§13.3) requires one fixed order, enforced in code, not left to per-feature judgment calls.
 
 ## Decision
 

@@ -130,7 +130,7 @@ def refresh_provider(provider: str, *, project_root: Path | None = None) -> dict
     enabled (SHARING_POLICY.md or ``SHIROE_ALLOW_CONNECTOR=provider_refresh``)
     — disabled by default, so this is a no-op-by-refusal in CI and tests.
     """
-    from shiroe.memory.core import discover_project_root
+    from shiroe.memory import discover_project_root
     from shiroe.security import load_policy, require_connector
 
     root = project_root or discover_project_root()

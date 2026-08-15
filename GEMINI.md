@@ -1,23 +1,16 @@
-<!-- privacy-audit: allow-file "Gemini harness stub references AGENTS.md + example paths." -->
+# GEMINI.md - Gemini Harness Shim
 
-# GEMINI.md — Gemini harness shim (Shiroe)
+Canonical operating spec: `AGENTS.md`. This file keeps Gemini-oriented
+sessions aligned with Shiroe's executable runtime.
 
-**Canonical spec: `AGENTS.md`** — read it first. This file only adds Gemini-specific notes.
+## Boot
 
-## Gemini-specific
+1. Read `AGENTS.md` and `SOUL.md`.
+2. Discover the project root.
+3. Run `python3 -m shiroe status --json`.
+4. Inspect the relevant Work Graph or memory record through the CLI.
+5. Respect policy, approval, capability, privacy, and sharing gates.
+6. Use `python3 -m shiroe handoff` for bounded continuation.
 
-- Large-context-friendly: Gemini can load full flat `memory/` in a single call. Still prefer boundary-first (hot.md → index.md → section) for token discipline.
-- No native skill registry: invoke skills by reading the relevant `skills/<name>/SKILL.md` directly.
-- Commands map to user prompts containing `/start`, `/done`, etc. — interpret as instruction triggers.
-- Tool-state awareness: surface MCP tool availability in session boot report (per `SHARING_POLICY.md`).
-
-## First action every session
-
-Identical to AGENTS.md §"First action every session":
-1. Read `config/PROJECT.md`
-2. Read `memory/hot.md` (≤500 words)
-3. Read `memory/index.md` if hot insufficient
-4. Read `PRIVACY.md` (root)
-5. Read `REDACT.md` (root)
-6. Tail last 3 entries of `memory/patterns/PATTERNS.jsonl`
-7. Report state
+Large context windows do not change authority: generated Markdown can aid
+reading, but canonical state is inspected through the runtime.

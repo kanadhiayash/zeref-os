@@ -30,7 +30,6 @@ def recall(
         query=query,
         hits=result.hits,
         evidence_refs=evidence_refs,
-        open_contradictions=(),
     )
 
 
@@ -58,7 +57,6 @@ def recall_to_dict(result: RecallResult) -> dict[str, Any]:
         "evidence_grade": top.evidence_grade if top else "unverified",
         "evidence_refs": list(result.evidence_refs),
         "source": "sqlite",
-        "open_contradictions": [asdict(record) for record in result.open_contradictions],
         "abstained": result.abstained,
     }
 

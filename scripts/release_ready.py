@@ -21,7 +21,10 @@ Runs (all local, no network):
   8. python3 -m shiroe verify --memory --json    -- memory chain
   9. python3 -m shiroe state verify --json       -- event log chain
  10. python3 -m pytest tests/invariant -q        -- mandatory invariants
- 11. Dead-surface scanner (invariant/test_no_dead_surface_references.py)
+ 11. python3 -m pytest tests/test_init_scaffold.py tests/invariant/test_current_init_surface.py -q
+ 12. python3 -m pytest tests/invariant/test_docs_command_examples.py -q
+ 13. python3 -m pytest node/transport/lease slices -q
+ 14. python3 scripts/check-benchmark-entry-status.py
 
 No benchmark, no push, no external network. If any subcheck fails, the
 gate is CLOSED and the summary records the first failure's stderr.
@@ -62,9 +65,27 @@ _ALL_CHECKS = [
     ("verify-runtime", ["python3", "-m", "shiroe", "verify", "--json"]),
     ("state-verify", ["python3", "-m", "shiroe", "state", "verify", "--json"]),
     ("invariant-suite", ["python3", "-m", "pytest", "tests/invariant", "-q"]),
-    ("dead-surface-scanner",
+    ("fresh-init-contract",
      ["python3", "-m", "pytest",
-      "tests/invariant/test_no_dead_surface_references.py", "-q"]),
+      "tests/test_init_scaffold.py",
+      "tests/invariant/test_current_init_surface.py",
+      "-q"]),
+    ("docs-command-parser",
+     ["python3", "-m", "pytest",
+      "tests/invariant/test_docs_command_examples.py",
+      "-q"]),
+    ("node-schema-lease-transport",
+     ["python3", "-m", "pytest",
+      "tests/unit/nodes",
+      "tests/unit/transport",
+      "tests/unit/transfer",
+      "tests/integration/nodes",
+      "tests/integration/transport",
+      "tests/integration/work/test_placement_roundtrip.py",
+      "tests/integration/execution/test_remote_supervisor.py",
+      "tests/invariant/test_remote_execution_lease.py",
+      "-q"]),
+    ("benchmark-entry-status", ["python3", "scripts/check-benchmark-entry-status.py"]),
 ]
 
 

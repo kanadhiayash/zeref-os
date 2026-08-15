@@ -6,11 +6,11 @@ Versioning: [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH`.
 
 ## Naming lineage
 
-The project shipped as **Zeref OS** / **Zeref Memory Engine** through
+The project shipped as **Shiroe OS** / **Shiroe Memory Engine** through
 `2.0.0-alpha.3`, and as **Shiroe AI Tactician** from `3.0.0-alpha.1`. Entries
 at or before `2.0.0-alpha.3` keep the old name — they record what was true
 when written, and rewriting them would falsify the record. The same applies
-to `docs/adr/`, `docs/audits/release-evidence/`, and the `ZRF-AUDIT-###`
+to `docs/adr/`, `docs/audits/release-evidence/`, and the `SHR-AUDIT-###`
 work-item identifiers cited in closed issues and pull requests; new work
 items use the `SHR-` prefix.
 
@@ -18,35 +18,35 @@ items use the `SHR-` prefix.
 
 ## [3.0.0-alpha.1] — 2026-07-31 — Shiroe: rebrand, namespace migration, retrieval fix
 
-Renames every identity surface from Zeref to Shiroe and fixes the retrieval
+Renames every identity surface from Shiroe to Shiroe and fixes the retrieval
 defect behind issue #196. Major version because the Python module, the CLI,
-and the distribution name all change — importing `zeref` or invoking `zeref`
+and the distribution name all change — importing `shiroe` or invoking `shiroe`
 no longer works.
 
 ### Changed — breaking
 
-- **Python module** `zeref` → `shiroe`; **CLI** `zeref` → `shiroe`;
-  **distribution** `zeref-os` → `shiroe`; **plugin/marketplace id**
-  `zeref-os` → `shiroe`; slash commands `/zeref-os:<cmd>` → `/shiroe:<cmd>`.
+- **Python module** `shiroe` → `shiroe`; **CLI** `shiroe` → `shiroe`;
+  **distribution** `shiroe-os` → `shiroe`; **plugin/marketplace id**
+  `shiroe-os` → `shiroe`; slash commands `/shiroe-os:<cmd>` → `/shiroe:<cmd>`.
   No compatibility shim: alpha software, clean break. Reinstall the plugin.
 - **Repository** renamed to `kanadhiayash/shiroe`. GitHub redirects the old
   slug, so existing links keep resolving.
-- **Environment variables** `ZEREF_*` → `SHIROE_*`. The old names still work
+- **Environment variables** `SHIROE_*` → `SHIROE_*`. The old names still work
   and emit a `DeprecationWarning` (`shiroe/env.py`). They live in shell
   profiles and CI configs this repo cannot rewrite, and an unset variable
   does not error — it falls back to its default, so dropping
-  `ZEREF_ALLOW_NETWORK` outright would have silently re-armed a network
+  `SHIROE_ALLOW_NETWORK` outright would have silently re-armed a network
   guard an operator had deliberately opened.
-- **Canonical state DB** `memory/state/zeref2.sqlite` → `shiroe.sqlite`,
+- **Canonical state DB** `memory/state/shiroe2.sqlite` → `shiroe.sqlite`,
   adopted by rename on first open. Left un-migrated it would present as
   total memory loss rather than a rename. When both exist the new one wins.
-- **Workspace directory** `.zeref/` → `.shiroe/`, still reading the old
+- **Workspace directory** `.shiroe/` → `.shiroe/`, still reading the old
   location when the new one has no file at that path. These are deny rules
   and write scopes; a rename that stopped loading them would not error, the
   guard would just quietly stop denying.
-- **Search index** `memory/indexes/zeref.sqlite` → `shiroe.sqlite`. Derived
+- **Search index** `memory/indexes/shiroe.sqlite` → `shiroe.sqlite`. Derived
   from the JSONL atoms, so the stale file is deleted, not migrated.
-- `ZerefError` → `ShiroeError`. Workflow `zrf-verify.yml` → `shr-verify.yml`
+- `ShiroeError` → `ShiroeError`. Workflow `zrf-verify.yml` → `shr-verify.yml`
   — **re-select the required status checks in branch protection**, GitHub
   binds them per workflow file and the old binding does not follow a rename.
 
@@ -80,7 +80,7 @@ no longer works.
   `check-version-consistency.py` validating 8 identity surfaces alongside the
   6 version surfaces, so no manifest can drift unnoticed.
 - **A registry schema that exists.** `$schema` pointed at
-  `zeref-os.dev/registry.schema.json` — a host the project does not own,
+  `shiroe-os.dev/registry.schema.json` — a host the project does not own,
   serving a file that never existed, validating nothing. There is now a
   committed draft 2020-12 schema, a `$schema` URL that resolves, and
   enforcement in `shiroe-validate.py` via a stdlib checker (no new
@@ -96,7 +96,7 @@ no longer works.
   claims anywhere on a public surface — no claim of superiority ships
   without a public benchmark-verified result, and none exists yet.
 - **Franchise references.** No Fairy Tail, no Dragneel, no origin story.
-- **Zeref-branded hero and icon art**, and the "not an operating system"
+- **Shiroe-branded hero and icon art**, and the "not an operating system"
   disclaimer set, which the new name makes moot.
 
 ---
@@ -116,23 +116,23 @@ installed plugin's version from `plugin.json` first.
   `source_authority` field (`official` | `third_party` | `derived`); a
   stale `official`-sourced profile still hard-fails release, a stale
   `third_party`/`derived` one now emits a non-blocking WARNING surfaced in
-  both the release report and `zeref doctor`, instead of the gate refusing
+  both the release report and `shiroe doctor`, instead of the gate refusing
   to pass.
 - **External benchmark truth gate** — a capability evidence matrix
   (namespace: conformance/integration/performance/external_benchmark/
   security_review; evidence tier: fixture-tested/external-tested) plus a
-  public-claim scanner wired into `zeref release check` and a new
-  `zeref claims` command. Blocks routing-accuracy claims resting on a
+  public-claim scanner wired into `shiroe release check` and a new
+  `shiroe claims` command. Blocks routing-accuracy claims resting on a
   self-authored fixture corpus, comparative rankings resting on contested
-  vendor figures, Zeref benchmark numbers published without baselines, and
+  vendor figures, Shiroe benchmark numbers published without baselines, and
   external-benchmark score claims before any dataset run is on record.
 - **Upgrade-from-stale-cache regression fixture** for the install-freshness
   manifest.
 
 ### Version
 
-- `2.0.0-alpha.3` across `zeref/VERSION`, `pyproject.toml`,
-  `zeref-registry.json`, `.claude-plugin/plugin.json`, README badge,
+- `2.0.0-alpha.3` across `shiroe/VERSION`, `pyproject.toml`,
+  `shiroe-registry.json`, `.claude-plugin/plugin.json`, README badge,
   `docs/wiki/Installation.md`.
 
 ---
@@ -146,35 +146,35 @@ Consistency and claim-accuracy hardening release. No runtime behavior change.
 - **Council removal completed** — the FAANG-MANGOES Council subsystem removal (started in 2.0.0-alpha.1) is finished: remaining dependents rewired and the subsystem deleted (#129).
 - **Sync-cruft guard** — repository guard against macOS/cloud-sync duplicate artifacts (#128).
 - **Claim-accuracy sweep** — live public surfaces (README, top-level docs, wiki, skill docs) no longer carry unsupported quantitative claims: the "~40-60% token reduction" handoff-compression figure is replaced with "compressed handoffs; reduction varies by content", and stale validator-output examples are updated to current counts. Fixture-based external-benchmark adapters (LoCoMo, LongMemEval, BEAM, PersonaMem) remain explicitly fixture-only; full dataset runs are pending.
-- **Validator** — `scripts/zeref-validate.py` derives agent/command/team-pack counts from the tree and cross-checks skill directories against `zeref-registry.json`, instead of reporting hardcoded expected counts that mask drift.
+- **Validator** — `scripts/shiroe-validate.py` derives agent/command/team-pack counts from the tree and cross-checks skill directories against `shiroe-registry.json`, instead of reporting hardcoded expected counts that mask drift.
 
 ### Version
 
-- `2.0.0-alpha.2` across `zeref/VERSION`, `pyproject.toml`, `zeref-registry.json`, `.claude-plugin/plugin.json`, README badge, `docs/RELEASE_LOG.md`, `docs/wiki/Installation.md`.
+- `2.0.0-alpha.2` across `shiroe/VERSION`, `pyproject.toml`, `shiroe-registry.json`, `.claude-plugin/plugin.json`, README badge, `docs/RELEASE_LOG.md`, `docs/wiki/Installation.md`.
 
 ---
 
 ## [2.0.0-alpha.1] — 2026-07-12
 
-vNext architecture reset, PR 1 of the `ZEREF_VNEXT_AGENTIC_OPERATIONS_UPGRADE_PLAN.md` sequence. Breaking architectural pivot. Not a documentation refresh: terminology, registry shape, and one runtime enforcement path all change.
+vNext architecture reset, PR 1 of the `SHIROE_VNEXT_AGENTIC_OPERATIONS_UPGRADE_PLAN.md` sequence. Breaking architectural pivot. Not a documentation refresh: terminology, registry shape, and one runtime enforcement path all change.
 
 ### Removed
 
-- **FAANG-MANGOES council** — `team-packs/faang-mangoes-council.md` deleted completely: pack, registry entry (`zeref-registry.json` `team_packs` 10 → 9), and all references from `SOUL.md` and imported-skill READMEs. No alias or compatibility shim — hard removal, not a rename. See `docs/adr/ADR-0003-council-removal.md`. Its reusable protocol ideas move to an optional, experimental evaluator adapter (`Council of High Intelligence`) in a later PR (§11 of the plan) — not a hardcoded Zeref council.
+- **FAANG-MANGOES council** — `team-packs/faang-mangoes-council.md` deleted completely: pack, registry entry (`shiroe-registry.json` `team_packs` 10 → 9), and all references from `SOUL.md` and imported-skill READMEs. No alias or compatibility shim — hard removal, not a rename. See `docs/adr/ADR-0003-council-removal.md`. Its reusable protocol ideas move to an optional, experimental evaluator adapter (`Council of High Intelligence`) in a later PR (§11 of the plan) — not a hardcoded Shiroe council.
 
 ### Added
 
-- **`zeref/core/reasoning.py`** — six provider-neutral reasoning classes (`fast`, `balanced`, `deep`, `frontier`, `local`, `private`). Criticality → class map: `LOW`→`fast`, `MEDIUM`→`balanced`, `HIGH`→`deep`, `CRITICAL`→`frontier`. `frontier` is CRITICAL-only, enforced in code via `ReasoningPolicyError` (`validate_request`), not left to prose convention.
-- **`zeref/adapters/providers/`** — `JsonProviderAdapter` + declarative `<provider>.json` files (`anthropic.json`, `openai.json`) map reasoning classes to concrete provider model ids and effort levels. This is now the *only* place a provider model id may be canonical. `resolve_model()` in `zeref/adapters/providers/__init__.py` is the resolution entry point.
-- **`zeref/core/deprecations.py`** — one-cycle alias layer (`resolve_alias`) for the terminology pivot: `small`→`lean`, `medium`→`balanced`, `enterprise`→`assured`, `skill-router`→`capability-resolver`, `fleet-activator`→`capability-prober`, `skill-importer`→`capability-manager`, `haiku`→`fast`, `sonnet`→`balanced`, `opus`→`deep`. Warns once per process via `DeprecationWarning`; removal target 2.1.0. See `docs/DEPRECATIONS.md`.
-- **`zeref-registry.json`** — skill entries now carry `reasoning_class` + `status` (`runtime`|`contract`) fields, replacing the old `model`/`model_alias` fields. Registry version bumped to `2.0.0-alpha.1`.
+- **`shiroe/core/reasoning.py`** — six provider-neutral reasoning classes (`fast`, `balanced`, `deep`, `frontier`, `local`, `private`). Criticality → class map: `LOW`→`fast`, `MEDIUM`→`balanced`, `HIGH`→`deep`, `CRITICAL`→`frontier`. `frontier` is CRITICAL-only, enforced in code via `ReasoningPolicyError` (`validate_request`), not left to prose convention.
+- **`shiroe/adapters/providers/`** — `JsonProviderAdapter` + declarative `<provider>.json` files (`anthropic.json`, `openai.json`) map reasoning classes to concrete provider model ids and effort levels. This is now the *only* place a provider model id may be canonical. `resolve_model()` in `shiroe/adapters/providers/__init__.py` is the resolution entry point.
+- **`shiroe/core/deprecations.py`** — one-cycle alias layer (`resolve_alias`) for the terminology pivot: `small`→`lean`, `medium`→`balanced`, `enterprise`→`assured`, `skill-router`→`capability-resolver`, `fleet-activator`→`capability-prober`, `skill-importer`→`capability-manager`, `haiku`→`fast`, `sonnet`→`balanced`, `opus`→`deep`. Warns once per process via `DeprecationWarning`; removal target 2.1.0. See `docs/DEPRECATIONS.md`.
+- **`shiroe-registry.json`** — skill entries now carry `reasoning_class` + `status` (`runtime`|`contract`) fields, replacing the old `model`/`model_alias` fields. Registry version bumped to `2.0.0-alpha.1`.
 - **`docs/GLOSSARY.md`, `docs/DEPRECATIONS.md`, `docs/adr/ADR-0001` through `ADR-0005`** — final vNext glossary, deprecation map, and architecture decision records for the canonical store invariant, reasoning classes/provider adapters, council removal, capability lifecycle, and policy precedence.
 
 ### Changed
 
-- **`AGENTS.md`** — "Model-Tier Routing" section replaced by "Reasoning-Class Routing": weight → reasoning class → effort table, cascade pattern, and hard constraints now reference `zeref/core/reasoning.py` and `zeref/adapters/providers/` instead of naming Anthropic tiers directly.
-- **`zeref/prompt/inject.py`, `zeref/cli.py`** — provider ids moved out of inline logic into `zeref/adapters/harness_targets.json` and `zeref/adapters/providers/`.
-- **Version** — `2.0.0-alpha.1` across `zeref/VERSION`, `pyproject.toml`, `zeref-registry.json`, `.claude-plugin/plugin.json`, README badge, `docs/RELEASE_LOG.md`, `docs/wiki/Installation.md`. This is presented as a breaking architectural release, not a minor patch, per the plan's versioning guidance (§19.4).
+- **`AGENTS.md`** — "Model-Tier Routing" section replaced by "Reasoning-Class Routing": weight → reasoning class → effort table, cascade pattern, and hard constraints now reference `shiroe/core/reasoning.py` and `shiroe/adapters/providers/` instead of naming Anthropic tiers directly.
+- **`shiroe/prompt/inject.py`, `shiroe/cli.py`** — provider ids moved out of inline logic into `shiroe/adapters/harness_targets.json` and `shiroe/adapters/providers/`.
+- **Version** — `2.0.0-alpha.1` across `shiroe/VERSION`, `pyproject.toml`, `shiroe-registry.json`, `.claude-plugin/plugin.json`, README badge, `docs/RELEASE_LOG.md`, `docs/wiki/Installation.md`. This is presented as a breaking architectural release, not a minor patch, per the plan's versioning guidance (§19.4).
 
 ### Migration
 
@@ -188,18 +188,18 @@ Post-v1.1.0 CI green-up + branch cleanup. No behavioral changes to product code;
 
 ### Fixed
 
-- **`agents/evidence-curator.md`, `agents/pattern-observer.md`, `commands/review-skill.md`** — moved `<!-- privacy-audit: allow-file "..." -->` marker from before the `---` YAML frontmatter to after the closing `---`. Unblocks `scripts/zeref-validate.py` frontmatter detection + `tests/test_validator.py` (R13).
-- **`.github/workflows/privacy-audit.yml`** — added editable install step; workflow now calls `python3 -m zeref audit-privacy --strict --max-hits 30 --max-files 25`, matching the `_check_privacy_scan` ceiling in `zeref/release/checks.py` so CI + release-check share the same enforcement (R14).
+- **`agents/evidence-curator.md`, `agents/pattern-observer.md`, `commands/review-skill.md`** — moved `<!-- privacy-audit: allow-file "..." -->` marker from before the `---` YAML frontmatter to after the closing `---`. Unblocks `scripts/shiroe-validate.py` frontmatter detection + `tests/test_validator.py` (R13).
+- **`.github/workflows/privacy-audit.yml`** — added editable install step; workflow now calls `python3 -m shiroe audit-privacy --strict --max-hits 30 --max-files 25`, matching the `_check_privacy_scan` ceiling in `shiroe/release/checks.py` so CI + release-check share the same enforcement (R14).
 - **`.github/workflows/branch-retention.yml`** — trigger now filters to protected refs only (`main`, `dev`, `release/*`). Auto-deletion of merged feature-branch heads no longer red-flags the workflow (R15).
 - **All 4 workflows** — bumped `actions/checkout` pin from v4.2.2 (Node 20) to v7.0.0 (Node 24) SHA `9c091bb2...`. Silences GitHub's Node 20 deprecation warnings (R16).
 
 ### Changed
 
-- **`zeref/cli.py cmd_audit_privacy`** — added `--max-hits` + `--max-files` threshold flags. When either is >0, exit code follows the ceiling instead of any-hit-fails. Preserves original behavior when both are 0 (backwards compatible) (R14).
+- **`shiroe/cli.py cmd_audit_privacy`** — added `--max-hits` + `--max-files` threshold flags. When either is >0, exit code follows the ceiling instead of any-hit-fails. Preserves original behavior when both are 0 (backwards compatible) (R14).
 
 ### Removed (remote housekeeping)
 
-- **7 empty `audit/zeref__ws-*` branches** on remote (R17). Never received commits; created for the Phase 0.4 audit swarm and superseded by the merged v1.1.0 remediation on `main`.
+- **7 empty `audit/shiroe__ws-*` branches** on remote (R17). Never received commits; created for the Phase 0.4 audit swarm and superseded by the merged v1.1.0 remediation on `main`.
 
 ### dev branch sync
 
@@ -221,16 +221,16 @@ batch lands.
 - `references/target-model-profiles/` — YAML profile schema + first 2 profiles
   (`claude-opus-4-8.md`, `gpt-5-5-instant.md`) + `README.md`. Derived summaries
   only; **no source text vendored**.
-- `zeref/prompt/target_profile.py` — typed loader (frozen dataclass), schema
+- `shiroe/prompt/target_profile.py` — typed loader (frozen dataclass), schema
   validation, freshness gate, cost helpers, skip-list export. Zero deps.
-- `zeref/release/checks.py` — new `target_profiles` subcheck (schema-valid +
+- `shiroe/release/checks.py` — new `target_profiles` subcheck (schema-valid +
   `<=60d` stale). Fail-open when profiles/ absent.
 - `benchmarks/token_efficiency.py` — new `target_aware_reduction` sub-axis.
   Canary aggregate: **75% theoretical reduction (Opus 4.8=83%, GPT-5.5=67%)**;
   scores 10/10 against 15% release-gate floor.
 
 ### Changed
-- `zeref/prompt/inject.py` — `inject_prompt(target, profile_id=None)`
+- `shiroe/prompt/inject.py` — `inject_prompt(target, profile_id=None)`
   consults the target profile; emits `_target-profile:<id> — skip: <csv>_`
   preamble line for caveman-handoff to trust. Fail-open when no profile.
 - `skills/caveman-handoff/SKILL.md` — new "Target-aware skip lists" section.
@@ -247,7 +247,7 @@ batch lands.
 ### Not shipped in this canary
 - Tier-1 profiles 3-12 (10 remaining). Extraction is mechanical against
   the schema in `references/target-model-profiles/README.md`.
-- `zeref/memory/cost_router.py` deep integration — kept surgical; callers
+- `shiroe/memory/cost_router.py` deep integration — kept surgical; callers
   invoke `estimate_input_tokens` / `relative_cost` from the profile module
   directly. Deeper wiring lands with the full Tier-1 batch.
 - Empirical (runtime measured) token-reduction numbers — the 75% aggregate
@@ -266,14 +266,14 @@ Baseline commit `b82c641`.
 ### Added
 
 - **`SOUL.md`** — 5 operating principles at repo root; boot step 0 per AGENTS.md §0
-  is now fulfilled (ZRF-AUDIT-015).
-- **`zeref/security/policy.py`** — typed loaders for PRIVACY.md, REDACT.md,
+  is now fulfilled (SHR-AUDIT-015).
+- **`shiroe/security/policy.py`** — typed loaders for PRIVACY.md, REDACT.md,
   SHARING_POLICY.md, config/PERMISSIONS.md; every LLM/network call gates through
-  `require_connector` / `require_network` (ZRF-AUDIT-001, 002, 006, 007).
-  Session-override lanes: `ZEREF_ALLOW_NETWORK=1`, `ZEREF_ALLOW_CONNECTOR=<csv>`.
-- **`zeref-registry.json`** — Registry v1.1 adds `agents[]`, `commands[]`,
+  `require_connector` / `require_network` (SHR-AUDIT-001, 002, 006, 007).
+  Session-override lanes: `SHIROE_ALLOW_NETWORK=1`, `SHIROE_ALLOW_CONNECTOR=<csv>`.
+- **`shiroe-registry.json`** — Registry v1.1 adds `agents[]`, `commands[]`,
   `team_packs[]`, `gates[]` arrays; `skill-importer` registered
-  (ZRF-AUDIT-016, 017).
+  (SHR-AUDIT-016, 017).
 - **`team-packs/faang-mangoes-council.md`** — 12-persona architectural decision
   panel (opt-in only).
 - **`skills/imported/{gstack,ecc,mantishack,raptor,hacker-bob}/README.md`** —
@@ -284,35 +284,35 @@ Baseline commit `b82c641`.
 
 - **`pyproject.toml`** — `build-backend` corrected from
   `setuptools.backends.legacy:build` to `setuptools.build_meta`; `pip install .`
-  now works (ZRF-AUDIT-009). Python 3.13 and 3.14 classifiers added.
-- **`zeref/privacy.py`** — `audit()` default target = project root; `--strict`
+  now works (SHR-AUDIT-009). Python 3.13 and 3.14 classifiers added.
+- **`shiroe/privacy.py`** — `audit()` default target = project root; `--strict`
   extends scan to `.py / .json / .yml / .yaml / .toml / .jsonl`; `_SKIP`
-  narrowed to `docs/archive` + `tests/fixtures` only (ZRF-AUDIT-005).
-- **`zeref/memory/core.py`** — `discover_project_root` prefers
+  narrowed to `docs/archive` + `tests/fixtures` only (SHR-AUDIT-005).
+- **`shiroe/memory/core.py`** — `discover_project_root` prefers
   `config/PROJECT.md`, falls back to `AGENTS.md`; `scaffold_project` no
   longer writes absolute host paths into tracked config
-  (ZRF-AUDIT-003, 010).
-- **`zeref/cli.py`** — `cmd_init` skips prompts under non-TTY stdin; `cmd_grade`
-  now scrubs and gates before LLM egress (ZRF-AUDIT-001, 023).
-- **`zeref/lineage/importer.py`** — every `urlopen` gated through security
-  policy (ZRF-AUDIT-002).
-- **`zeref/release/checks.py`** — 6 → 12 subchecks; SHA-bound evidence blob
-  under `docs/audits/release-evidence/` (ZRF-AUDIT-021, R9).
+  (SHR-AUDIT-003, 010).
+- **`shiroe/cli.py`** — `cmd_init` skips prompts under non-TTY stdin; `cmd_grade`
+  now scrubs and gates before LLM egress (SHR-AUDIT-001, 023).
+- **`shiroe/lineage/importer.py`** — every `urlopen` gated through security
+  policy (SHR-AUDIT-002).
+- **`shiroe/release/checks.py`** — 6 → 12 subchecks; SHA-bound evidence blob
+  under `docs/audits/release-evidence/` (SHR-AUDIT-021, R9).
 - **`.github/workflows/ci.yml`** — YAML block-collection repaired; SemVer tag
-  guard + zeref-scope sweep now execute (ZRF-AUDIT-011).
+  guard + shiroe-scope sweep now execute (SHR-AUDIT-011).
 - **`scripts/check-version-consistency.py`** — also compares against latest git
   tag; documented lineage restart via `docs/PIVOT_LOG.md` marker
-  (ZRF-AUDIT-020).
+  (SHR-AUDIT-020).
 - **`benchmarks/run-all.py`** — trust axis override requires
   `docs/TRUST_AUDIT.md` `Bound-commit-SHA` matching HEAD; else deterministic
-  draft published (ZRF-AUDIT-013).
+  draft published (SHR-AUDIT-013).
 - **`benchmarks/lineage_common.py`** — `_fake_resolver` renamed to
-  `_stub_resolver` with explicit conformance-scope note (ZRF-AUDIT-014).
+  `_stub_resolver` with explicit conformance-scope note (SHR-AUDIT-014).
 - **`docs/HARNESS_MATRIX.md`** — evidence-state matrix replaces self-attested
-  ✅ marks (ZRF-AUDIT-022, D7).
+  ✅ marks (SHR-AUDIT-022, D7).
 - **`.github/ISSUE_TEMPLATE/{bug_report,feature_request}.md`** — security
-  redirect banner added (ZRF-AUDIT-026). `config.yml` URL corrected to
-  `kanadhiayash/zeref-memory-engine` (ZRF-AUDIT-028).
+  redirect banner added (SHR-AUDIT-026). `config.yml` URL corrected to
+  `kanadhiayash/shiroe-memory-engine` (SHR-AUDIT-028).
 - Multiple doc drift fixes across `QUICKSTART.md`, `MIGRATION.md`,
   `docs/HARDENING_OVERVIEW.md`, `docs/wiki/Home.md`, `AGENTS.md`,
   `commands/{start,status}.md`, `benchmarks/run-all.py` docstring, and
@@ -321,18 +321,18 @@ Baseline commit `b82c641`.
 ### Fixed
 
 - Two absolute-path leaks: `config/PROJECT.md`, `references/shared-anti-hallucination.md`
-  (ZRF-AUDIT-003, 004).
-- Docstring vs code drift in `benchmarks/run-all.py` (ZRF-AUDIT-038).
-- Stale wiki links + hero image URL (ZRF-AUDIT-031).
+  (SHR-AUDIT-003, 004).
+- Docstring vs code drift in `benchmarks/run-all.py` (SHR-AUDIT-038).
+- Stale wiki links + hero image URL (SHR-AUDIT-031).
 - `God Mode` → `Enterprise` tier vocabulary across AGENTS.md + commands
-  (ZRF-AUDIT-036).
+  (SHR-AUDIT-036).
 
 ### Notes
 
 - Version bump `1.0.0 → 1.1.0` per council-ratified D3 decision.
 - Compatibility identifier retained per council-ratified D2:
-  `zeref-os` for install URLs (`pyproject.name`, `plugin.name`,
-  `marketplace.name`); `zeref:` namespace alias remains available.
+  `shiroe-os` for install URLs (`pyproject.name`, `plugin.name`,
+  `marketplace.name`); `shiroe:` namespace alias remains available.
 - Tag lineage divergence with `v2.6.x` retained via `restart-from-2.6.1`
   marker in `docs/PIVOT_LOG.md`.
 
@@ -345,13 +345,13 @@ version, operationally verified guarantees on every public surface. The
 v2.6.x architecture (4-gate Auto-Activation, 14 skills, 6 agents,
 R6 Zero Context Loss, three privacy modes, flat memory layout) is carried
 forward unchanged. Pre-v1 history is archived to
-`kanadhiayash/zeref-os-archive`.
+`kanadhiayash/shiroe-os-archive`.
 
 ### Added
 
-- **`zeref/VERSION`** — single source of truth for the active version.
-  `zeref/__init__.py`, `zeref/cli.py`, `pyproject.toml`,
-  `zeref-registry.json`, `.claude-plugin/plugin.json`, README badge, wiki
+- **`shiroe/VERSION`** — single source of truth for the active version.
+  `shiroe/__init__.py`, `shiroe/cli.py`, `pyproject.toml`,
+  `shiroe-registry.json`, `.claude-plugin/plugin.json`, README badge, wiki
   installation copy, and `docs/RELEASE_LOG.md` all align with this file.
 - **`scripts/check-version-consistency.py`** — fails CI on any drift
   between version surfaces.
@@ -359,8 +359,8 @@ forward unchanged. Pre-v1 history is archived to
   privacy redaction (positive + negative cases for every supported
   pattern), CLI contract, init scaffold, write-decision round-trip,
   db-status surface, and the structural validator. Coverage target on
-  `zeref/` is ≥85%; CI publishes the coverage report.
-- **11 expanded privacy patterns** in `zeref/privacy.py`:
+  `shiroe/` is ≥85%; CI publishes the coverage report.
+- **11 expanded privacy patterns** in `shiroe/privacy.py`:
   - `sk-proj-…` (OpenAI project keys)
   - bare `sk-…` provider-shaped tokens
   - `github_pat_…`, `ghp_…` (GitHub PATs)
@@ -370,7 +370,7 @@ forward unchanged. Pre-v1 history is archived to
   - PEM private-key blocks (`-----BEGIN … PRIVATE KEY-----`)
   - natural-language `API key <token>`, `secret key <token>`,
     `access token <token>`
-- **`zeref audit-privacy --strict`** — exits non-zero on any unredacted
+- **`shiroe audit-privacy --strict`** — exits non-zero on any unredacted
   hit, suitable for CI gates.
 - **`SECURITY.md` rewrite** — vulnerabilities now route through GitHub
   Private Vulnerability Reporting plus a PGP-encrypted fallback contact;
@@ -403,7 +403,7 @@ forward unchanged. Pre-v1 history is archived to
 - All version surfaces aligned on `1.0.0` (was: `pyproject.toml` 2.0.0,
   `__init__.py` 2.0.0, plugin manifest 1.0.0, README 2.6.1,
   registry 2.6.1-phaseD).
-- `zeref-registry.json` `version` and `generated` fields refreshed.
+- `shiroe-registry.json` `version` and `generated` fields refreshed.
 - `README.md` reframed for public launch; install matrix unchanged.
 - `docs/RELEASE_LOG.md` rewritten with v1.0.0 as the first public release;
   pre-v1 tags listed as archived.
@@ -431,14 +431,14 @@ No data migration required. `memory/`, `PRIVACY.md`, `REDACT.md`,
 pick up v1.0.0:
 
 ```bash
-claude plugin uninstall zeref-os@zeref-os
-claude plugin marketplace add kanadhiayash/zeref-os
-claude plugin install zeref-os@zeref-os
-claude plugin list | grep "zeref-os.*1.0.0"
+claude plugin uninstall shiroe-os@shiroe-os
+claude plugin marketplace add kanadhiayash/shiroe-os
+claude plugin install shiroe-os@shiroe-os
+claude plugin list | grep "shiroe-os.*1.0.0"
 ```
 
 If you need to stay on v2.6.1, install from the archive repo
-`kanadhiayash/zeref-os-archive` (branch `legacy/v2.6.1`).
+`kanadhiayash/shiroe-os-archive` (branch `legacy/v2.6.1`).
 
 ---
 
@@ -446,7 +446,7 @@ If you need to stay on v2.6.1, install from the archive repo
 
 The entries below describe the v2.6.x line that preceded the v1.0.0
 public launch. The corresponding git history lives in
-`kanadhiayash/zeref-os-archive`.
+`kanadhiayash/shiroe-os-archive`.
 
 ---
 
@@ -480,9 +480,9 @@ extends R6 (Zero Context Loss) coverage.
 
 ### Changed
 
-- `scripts/zeref-validate.py` — skill count read dynamically from registry
+- `scripts/shiroe-validate.py` — skill count read dynamically from registry
   (no hardcode). PATTERNS.jsonl lint reports unknown event types.
-- `zeref-registry.json` — model identifiers normalized to full Anthropic ids.
+- `shiroe-registry.json` — model identifiers normalized to full Anthropic ids.
 
 ### Removed
 

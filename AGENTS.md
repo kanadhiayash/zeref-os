@@ -51,7 +51,9 @@ present target-only commands as available before their implementation phase.
 - Capabilities must be executable through an adapter. Drift or revocation blocks
   invocation.
 - Retries, iteration, timeout, and concurrency are bounded.
-- Contradictions surface for human arbitration and are never silently resolved.
+- Supported polarity contradictions surface for human arbitration and are never
+  silently resolved. Shiroe does not claim general natural-language
+  contradiction detection.
 - Every canonical write passes privacy, evidence, claim, contradiction, and
   write validation required by its operation.
 

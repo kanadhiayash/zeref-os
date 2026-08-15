@@ -61,6 +61,20 @@ class RetryPolicy:
 
 
 @dataclass(frozen=True)
+class Placement:
+    mode: str = "local"
+    node_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"local", "node"}:
+            raise ValueError("unsupported placement mode")
+        if self.mode == "node" and not self.node_id:
+            raise ValueError("node placement requires node_id")
+        if self.mode == "local" and self.node_id is not None:
+            raise ValueError("local placement cannot name node_id")
+
+
+@dataclass(frozen=True)
 class WorkNode:
     id: str
     graph_id: str
@@ -73,6 +87,7 @@ class WorkNode:
     evidence_required: bool = False
     expected_outputs: tuple[str, ...] = ()
     retry: RetryPolicy = field(default_factory=RetryPolicy)
+    placement: Placement = field(default_factory=Placement)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -84,6 +99,8 @@ class WorkNode:
         object.__setattr__(self, "expected_outputs", tuple(self.expected_outputs))
         if not isinstance(self.retry, RetryPolicy):
             object.__setattr__(self, "retry", RetryPolicy(**self.retry))
+        if not isinstance(self.placement, Placement):
+            object.__setattr__(self, "placement", Placement(**self.placement))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
 

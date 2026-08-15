@@ -13,6 +13,7 @@ from shiroe.cli import (
     handoff,
     init,
     memory,
+    node,
     plan,
     policy,
     run,
@@ -30,6 +31,7 @@ _COMMANDS = (
     run,
     approve,
     memory,
+    node,
     verify,
     handoff,
     doctor,
@@ -37,6 +39,22 @@ _COMMANDS = (
     capability,
     state,
     version,
+)
+
+_PUBLIC_COMMAND_NAMES = (
+    "init",
+    "status",
+    "plan",
+    "run",
+    "approve",
+    "memory",
+    "verify",
+    "handoff",
+    "doctor",
+    "policy",
+    "capability",
+    "state",
+    "version",
 )
 
 
@@ -52,7 +70,11 @@ def iter_registered_commands():
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="shiroe", description=f"Shiroe CLI v{__version__}")
     parser.add_argument("--version", action="version", version=f"shiroe {__version__}")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+        metavar="{" + ",".join(_PUBLIC_COMMAND_NAMES) + "}",
+    )
     for module in _COMMANDS:
         module.register(subparsers)
     return parser

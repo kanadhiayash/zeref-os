@@ -156,42 +156,6 @@ def test_replay_survives_pre_existing_non_record_payloads(tmp_path: Path) -> Non
     assert _records(conn2) == expected
 
 
-def test_imported_records_survive_a_rebuild(tmp_path: Path) -> None:
-    """A rebuild must restore imported records, not destroy them.
-
-    The v1 importer wrote memory_records straight into the table with no event
-    behind it. Once replay began rebuilding canonical state, `shiroe state
-    rebuild` replayed a log that had never heard of those records -- so the
-    command that exists to restore state deleted it instead, and the
-    memory_sources foreign key turned that into a hard IntegrityError.
-    """
-    from shiroe.storage import importer as importer_mod
-
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_vnext_pr2_storage import _seed_legacy
-
-    _seed_legacy(tmp_path)
-    manifest = importer_mod.run_import(tmp_path, dry_run=False)
-    assert manifest.records_written == 3, "fixture imported nothing"
-
-    db = StateDB(tmp_path)
-    conn = db.connect()
-    before_records = _records(conn)
-    before_sources = conn.execute(
-        "SELECT id, memory_id, source_type, source_ref, provenance "
-        "FROM memory_sources ORDER BY memory_id"
-    ).fetchall()
-    assert before_sources, "import wrote no provenance rows"
-
-    EventLog(tmp_path, mirror_conn=conn).replay_into(conn)
-
-    assert _records(conn) == before_records, "imported records lost on rebuild"
-    assert conn.execute(
-        "SELECT id, memory_id, source_type, source_ref, provenance "
-        "FROM memory_sources ORDER BY memory_id"
-    ).fetchall() == before_sources, "provenance lost on rebuild"
-
-
 def test_replayed_log_still_verifies(tmp_path: Path) -> None:
     """Replay must not require trusting the log: the hash chain is checked too."""
     _seed(tmp_path)

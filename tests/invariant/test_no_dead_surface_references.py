@@ -6,101 +6,120 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-
-def _root_markdown_files() -> tuple[Path, ...]:
-    """Root-level *.md files (harness shims, contributor docs, guides)."""
-    return tuple(sorted(p for p in ROOT.glob("*.md") if p.is_file()))
-
-
-ACTIVE_ROOTS: tuple[Path, ...] = (
-    *_root_markdown_files(),
-    ROOT / ".aider.conf.yml.example",
-    ROOT / ".claude-plugin",
-    ROOT / ".cursor",
-    ROOT / ".windsurfrules",
-    ROOT / "_shared",
-    ROOT / "config",
-    ROOT / "docs" / "GLOSSARY.md",
-    ROOT / "docs" / "architecture",
-    ROOT / "docs" / "wiki",
-    ROOT / "references",
-    ROOT / "shiroe",
-    ROOT / "tests",
+ROOT_OPERATIONAL_FILES = (
+    "AGENTS.md",
+    "SOUL.md",
+    "SKILL.md",
+    "CLAUDE.md",
+    "CODEX.md",
+    "GEMINI.md",
+    "LLAMA.md",
+    "README.md",
+    "QUICKSTART.md",
+    "INSTALL.md",
+    "GITHUB_OS.md",
+    "PRIVACY.md",
+    "REDACT.md",
+    "SHARING_POLICY.md",
+    ".aider.conf.yml.example",
+    ".windsurfrules",
 )
 
-ALLOWLIST = {
-    # Retirement register: intentionally names removed surfaces.
-    ROOT / "docs" / "architecture" / "REMOVALS.md",
-    # Identity-only compatibility register (post-Phase-08 shape).
-    ROOT / "docs" / "DEPRECATIONS.md",
-    # Migration guide: legitimate references to pre-rebrand names.
-    ROOT / "MIGRATION.md",
-    # Release notes: append-only historical claims.
-    ROOT / "CHANGELOG.md",
-    # Canon docs (pre-vNext architecture snapshots kept for parity with
-    # the parent project; not our active surface to rewrite unilaterally).
-    ROOT / "references" / "v4x-canon" / "SHIROE_OS.md",
-    ROOT / "references" / "v4x-canon" / "DECISION_LOG.md",
-    ROOT / "references" / "v4x-canon" / "MODEL_DEBATE.md",
-    # Target-model profiles: describe cross-harness handoff features from
-    # the shared harness catalog, not vNext product surfaces.
-    ROOT / "references" / "target-model-profiles" / "README.md",
-    ROOT / "references" / "target-model-profiles" / "claude-opus-4-8.md",
-    ROOT / "references" / "target-model-profiles" / "gpt-5-5-instant.md",
-    # Retired-feature reference doc: documents a superseded sub-system
-    # (parent sync). Retained as historical reference; not scaffolded.
-    ROOT / "config" / "PARENT_SYNC.md",
-    # Shared cross-agent enforcement rules; retired-agent names remain as
-    # per-agent scoping tokens for a rule set that predates vNext.
-    ROOT / "_shared" / "rules.md",
-    # This scanner file itself: contains the pattern strings by definition.
-    Path(__file__).resolve(),
-}
+ACTIVE_DOC_FILES = (
+    "docs/DOCTOR.md",
+    "docs/GETTING_STARTED.md",
+    "docs/GLOSSARY.md",
+    "docs/HARNESS_MATRIX.md",
+    "docs/MEMORY_WRITES.md",
+    "docs/architecture/CORE_SCOPE.md",
+    "docs/canon/SOURCE_AUTHORITY.md",
+    "docs/wiki/Memory-Model.md",
+    "docs/wiki/Stack.md",
+    "memory/README.md",
+    "references/harness-translation-map.md",
+    "references/shared-anti-hallucination.md",
+    "references/shiroe-qa-gate.md",
+    "references/shiroe-safety-principles.md",
+)
 
-FORBIDDEN = (
-    re.compile(r"pattern-to-skill", re.I),
-    re.compile(r"skill-importer", re.I),
-    re.compile(r"fleet-activator", re.I),
-    re.compile(r"caveman-handoff", re.I),
-    re.compile(r"parent-sync", re.I),
-    re.compile(r"skill-router", re.I),
-    re.compile(r"budget-governor", re.I),
-    # Retired product surfaces: proper-noun / hyphenated forms only so English
-    # prose like "mission-critical" or "seat belt" cannot false-hit.
-    re.compile(r"\bTeam Packs?\b"),
-    re.compile(r"\bMission Packs?\b"),
-    re.compile(r"\bMission Seats?\b", re.I),
-    re.compile(r"\bBM25\b"),
-    re.compile(r"benchmark score", re.I),
-    re.compile(r"status:\s*contract", re.I),
-    re.compile(r"status:\s*experimental", re.I),
-    re.compile(r'"status"\s*:\s*"contract"', re.I),
-    re.compile(r'"status"\s*:\s*"experimental"', re.I),
-    # Retired runtime identities / view names (H0 residue).
-    re.compile(r"memory-keeper"),
-    re.compile(r"\bactive-team\b"),
+ACTIVE_DIRS = (
+    ".claude-plugin",
+    ".cursor",
+    ".github",
+    "config",
+    "shiroe",
+)
+
+RELEASE_GATE_SCRIPTS = (
+    "scripts/release_ready.py",
+    "scripts/shiroe-validate.py",
+    "scripts/check-version-consistency.py",
+    "scripts/check-active-identity.py",
+)
+
+TEXT_SUFFIXES = {".md", ".py", ".json", ".jsonl", ".txt", ".yml", ".yaml", ".example"}
+
+
+def _phrase(*parts: str) -> str:
+    return "".join(parts)
+
+
+FORBIDDEN = tuple(
+    re.compile(pattern, flags)
+    for pattern, flags in (
+        (_phrase("shiroe", "-runtime"), re.I),
+        (_phrase("privacy", "-guardian"), re.I),
+        (_phrase("project", "-setup"), re.I),
+        (_phrase("wiki", "-maintenance"), re.I),
+        (_phrase("evidence", "-grader"), re.I),
+        (_phrase("pattern", "-observer"), re.I),
+        (_phrase("skill", "-router"), re.I),
+        (_phrase("budget", "-governor"), re.I),
+        (_phrase("pattern", "-to-", "skill"), re.I),
+        (_phrase("skill", "-importer"), re.I),
+        (_phrase("fleet", "-activator"), re.I),
+        (_phrase("caveman", "-handoff"), re.I),
+        (_phrase("parent", "-sync"), re.I),
+        (_phrase("sync", "-coordinator"), re.I),
+        (_phrase(r"\bTeam ", r"Packs?\b"), 0),
+        (_phrase(r"\bteam ", r"packs?\b"), re.I),
+        (_phrase(r"\bMission ", r"Packs?\b"), 0),
+        (_phrase(r"\bMission ", r"Seats?\b"), re.I),
+        (_phrase("PATTERNS", r"\.jsonl"), 0),
+        (_phrase("skills", r"/drafts"), 0),
+        (_phrase("memory", r"/hot\.md"), 0),
+        (_phrase("memory", r"/index\.md"), 0),
+        (_phrase("/", "shiroe", ":start"), 0),
+        (_phrase("/", "shiroe", ":done"), 0),
+        (_phrase("/", "shiroe", ":stop"), 0),
+        (_phrase("/", "shiroe", ":team"), 0),
+        (_phrase("/", "shiroe", ":sync-parent"), 0),
+        (_phrase("/", "shiroe", ":reset-permissions"), 0),
+        (_phrase("/", "shiroe", ":review-skill"), 0),
+        (_phrase("active", "_agents"), 0),
+        (_phrase("active", "_skills"), 0),
+        (r"status:\s*contract", re.I),
+        (r"status:\s*experimental", re.I),
+        (r'"status"\s*:\s*"contract"', re.I),
+        (r'"status"\s*:\s*"experimental"', re.I),
+    )
+)
+
+NVIDIA_RUNTIME_PATTERNS = tuple(
+    re.compile(pattern, re.I)
+    for pattern in (
+        _phrase("nvidia", r"\s+adapter"),
+        _phrase("cuda", r"\s+adapter"),
+        _phrase("tensorrt", r"\s+adapter"),
+        _phrase("NIM", r"\s+(?:provider|adapter)"),
+        _phrase("NeMo", r"\s+adapter"),
+    )
 )
 
 
-def _iter_active_files() -> list[Path]:
-    files: list[Path] = []
-    for root in ACTIVE_ROOTS:
-        if root.is_file():
-            files.append(root)
-            continue
-        for path in root.rglob("*"):
-            if path.is_file() and "__pycache__" not in path.parts:
-                files.append(path)
-    return sorted(set(files))
-
-
-def test_active_surface_has_no_dead_references():
+def test_active_surface_has_no_dead_references() -> None:
     hits: list[str] = []
     for path in _iter_active_files():
-        if path in ALLOWLIST:
-            continue
-        if path.suffix not in {".md", ".py", ".json", ".jsonl", ".txt"}:
-            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for pattern in FORBIDDEN:
             if pattern.search(text):
@@ -108,12 +127,22 @@ def test_active_surface_has_no_dead_references():
     assert not hits, "\n".join(hits)
 
 
-def test_removed_root_component_trees_are_absent():
-    for rel in ("skills", "agents", "commands", "team-packs", "missions", "benchmarks"):
+def test_active_runtime_has_no_nvidia_specific_dependency() -> None:
+    hits: list[str] = []
+    for path in _iter_nvidia_guard_files():
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for pattern in NVIDIA_RUNTIME_PATTERNS:
+            if pattern.search(text):
+                hits.append(f"{path.relative_to(ROOT)}: {pattern.pattern}")
+    assert not hits, "\n".join(hits)
+
+
+def test_removed_root_component_trees_are_absent() -> None:
+    for rel in ("skills", "agents", "commands", "team" + "-packs", "missions", "benchmarks"):
         assert not (ROOT / rel).exists(), rel
 
 
-def test_removed_runtime_trees_and_registries_are_absent():
+def test_removed_runtime_trees_and_registries_are_absent() -> None:
     for rel in (
         "shiroe/missions",
         "shiroe/teams",
@@ -124,3 +153,50 @@ def test_removed_runtime_trees_and_registries_are_absent():
     ):
         assert not (ROOT / rel).exists(), rel
     assert not (ROOT / "shiroe-registry.json").exists()
+
+
+def test_b1_orphan_execution_and_prompt_surfaces_are_absent() -> None:
+    for rel in (
+        "shiroe/prompt",
+        "shiroe/execution/criticality.py",
+        "shiroe/execution/reasoning.py",
+        "references/target-model-profiles",
+    ):
+        assert not (ROOT / rel).exists(), rel
+
+
+def test_b3_contradiction_guard_doc_is_absent() -> None:
+    assert not (ROOT / "docs" / "CONTRADICTIONGUARD.md").exists()
+
+
+def _iter_active_files() -> list[Path]:
+    files: set[Path] = set()
+    for rel in (*ROOT_OPERATIONAL_FILES, *ACTIVE_DOC_FILES, *RELEASE_GATE_SCRIPTS):
+        path = ROOT / rel
+        if path.is_file() and _is_text(path):
+            files.add(path)
+    for rel in ACTIVE_DIRS:
+        root = ROOT / rel
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if path.is_file() and _is_text(path) and "__pycache__" not in path.parts:
+                files.add(path)
+    return sorted(files)
+
+
+def _iter_nvidia_guard_files() -> list[Path]:
+    files: set[Path] = set()
+    for rel in (*ROOT_OPERATIONAL_FILES, "config/PROJECT.md"):
+        path = ROOT / rel
+        if path.is_file() and _is_text(path):
+            files.add(path)
+    for root_rel in ("shiroe", "config"):
+        for path in (ROOT / root_rel).rglob("*"):
+            if path.is_file() and _is_text(path) and "__pycache__" not in path.parts:
+                files.add(path)
+    return sorted(files)
+
+
+def _is_text(path: Path) -> bool:
+    return path.suffix in TEXT_SUFFIXES or path.name in {".windsurfrules"}

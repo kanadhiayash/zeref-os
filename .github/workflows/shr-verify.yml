@@ -63,7 +63,7 @@ jobs:
           # "does this file still exist?". A deleted file still appears in the
           # diff, so retiring a document requires keeping its entry here —
           # removing the entry makes the deletion itself fail the sweep.
-          allowed='^(AGENTS\.md|CHANGELOG.*|CLAUDE\.md|CODEOWNERS|CONTRIBUTING\.md|GEMINI\.md|GITHUB_OS\.md|INSTALL\.md|LICENSE|MIGRATION\.md|PRIVACY\.md|README\.md|REDACT\.md|SECURITY\.md|SECURITY_CONTACTS\.md|SHARING_POLICY\.md|SKILL\.md|SOUL\.md|QUICKSTART\.md|TASKS\.md|CODEX\.md|LLAMA\.md|dashboard\.html|pyproject\.toml|pytest\.ini|zeref-registry\.json|shiroe-registry\.json|_shared/.*|agents/.*|assets/.*|benchmarks/.*|commands/.*|config/.*|docs/.*|memory/.*|missions/.*|policies/.*|references/.*|registry/.*|scripts/.*|skills/.*|team-packs/.*|team/.*|tests/.*|zeref/.*|shiroe/.*|\.claude-plugin/.*|\.cursor/.*|\.github/.*|\.gitignore|\.gitattributes|\.windsurfrules|\.aider\.conf\.yml.*)$'
+          allowed='^(AGENTS\.md|CHANGELOG.*|CLAUDE\.md|CODEOWNERS|CONTRIBUTING\.md|GEMINI\.md|GITHUB_OS\.md|INSTALL\.md|LICENSE|MIGRATION\.md|PRIVACY\.md|README\.md|REDACT\.md|SECURITY\.md|SECURITY_CONTACTS\.md|SHARING_POLICY\.md|SKILL\.md|SOUL\.md|QUICKSTART\.md|TASKS\.md|CODEX\.md|LLAMA\.md|dashboard\.html|pyproject\.toml|pytest\.ini|shiroe-registry\.json|assets/.*|benchmarks/.*|config/.*|docs/.*|memory/.*|references/.*|registry/.*|scripts/.*|tests/.*|shiroe/.*|\.claude-plugin/.*|\.cursor/.*|\.github/.*|\.gitignore|\.gitattributes|\.windsurfrules|\.aider\.conf\.yml.*)$'
           # unscoped = lines that DO NOT match the allowed pattern.
           unscoped=$(grep -Ev "$allowed" /tmp/shiroe-scope.txt || true)
           if [ -n "$unscoped" ]; then

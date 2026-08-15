@@ -1,5 +1,5 @@
 """
-`shiroe init` scaffolds the expected layout.
+`shiroe init` scaffolds only the current vNext runtime surface.
 """
 
 from __future__ import annotations
@@ -8,43 +8,131 @@ import subprocess
 import sys
 from pathlib import Path
 
-from shiroe.memory import MEMORY_DIRS, MEMORY_FILES, PROJECT_DIRS
-
 
 REQUIRED_DIRS = [
-    *MEMORY_DIRS,
-    *PROJECT_DIRS,
+    "config",
+    ".shiroe/policy",
+    "memory/state",
 ]
 
 REQUIRED_FILES = [
     "config/PROJECT.md",
-    "config/BUDGET.md",
     "PRIVACY.md",
-    *MEMORY_FILES,
+    "REDACT.md",
+    "SHARING_POLICY.md",
+    ".shiroe/policy/defaults.json",
+    "memory/state/shiroe.sqlite",
+]
+
+RETIRED_PATHS = [
+    "config/BUDGET.md",
+    "config/PARENT_SYNC.md",
+    "config/PERMISSIONS.md",
+    "memory/patterns/PATTERNS.jsonl",
+    "memory/loops",
+    "memory/layers/L0",
+    "memory/layers/L1",
+    "memory/layers/L2",
+    "memory/layers/L3",
+    "memory/sync/outbound",
+    "memory/sync/parent",
+    "memory/state/events.jsonl",
+    "memory/state/schema.json",
+    "memory/state/" + "ze" + "ref.sqlite",
 ]
 
 
-def test_init_scaffolds_full_layout(repo_root: Path, tmp_path: Path) -> None:
-    r = subprocess.run(
-        [sys.executable, "-m", "shiroe", "init",
-         "--name", "scaffold-test",
-         "--privacy", "abstract",
-         "--tier", "auto",
-         "--parent", "",
-         str(tmp_path)],
-        capture_output=True, text=True, cwd=str(repo_root),
-    )
-    assert r.returncode == 0, (
-        f"init crashed:\nstdout:\n{r.stdout}\nstderr:\n{r.stderr}"
+def _run(repo_root: Path, cwd: Path, args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-m", "shiroe", *args],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+        env={"PYTHONPATH": str(repo_root)},
     )
 
-    for d in REQUIRED_DIRS:
-        assert (tmp_path / d).is_dir(), f"directory {d!r} not created"
 
-    for f in REQUIRED_FILES:
-        assert (tmp_path / f).is_file(), f"file {f!r} not created"
+def test_init_creates_only_current_runtime_surface(repo_root: Path, tmp_path: Path) -> None:
+    result = _run(
+        repo_root,
+        repo_root,
+        [
+            "init",
+            str(tmp_path),
+            "--name",
+            "scaffold-test",
+            "--privacy",
+            "abstract",
+            "--network-scope",
+            "device-only",
+        ],
+    )
+    assert result.returncode == 0, result.stderr
+
+    for directory in REQUIRED_DIRS:
+        assert (tmp_path / directory).is_dir(), f"directory {directory!r} not created"
+
+    for file in REQUIRED_FILES:
+        assert (tmp_path / file).is_file(), f"file {file!r} not created"
+
+    for retired in RETIRED_PATHS:
+        assert not (tmp_path / retired).exists(), f"retired path {retired!r} was created"
+    assert not (tmp_path / "memory" / "state" / "backups").exists()
 
     project = (tmp_path / "config" / "PROJECT.md").read_text(encoding="utf-8")
-    assert "scaffold-test" in project
-    assert "privacy_mode: abstract" in project
-    assert "model_tier: auto" in project
+    assert "project_name: \"scaffold-test\"" in project
+    assert "project_root: \"<discovered-at-runtime>\"" in project
+    assert "privacy_mode" not in project
+    assert "model_tier" not in project
+    assert "parent_project" not in project
+    assert "budget_warn_at" not in project
+    assert "active_agents" not in project
+    assert "active_skills" not in project
+
+    privacy = (tmp_path / "PRIVACY.md").read_text(encoding="utf-8")
+    assert "mode: abstract" in privacy
+    assert "network_scope: device-only" in privacy
+
+    policy = (tmp_path / ".shiroe" / "policy" / "defaults.json").read_text(encoding="utf-8")
+    assert policy == '{"allow":["capability.invoke","subprocess"]}\n'
+
+
+def test_init_rejects_retired_tier_and_parent_flags(repo_root: Path, tmp_path: Path) -> None:
+    result = _run(
+        repo_root,
+        repo_root,
+        [
+            "init",
+            str(tmp_path),
+            "--name",
+            "retired-flags",
+            "--tier",
+            "auto",
+            "--parent",
+            "",
+        ],
+    )
+    assert result.returncode != 0
+    assert "unrecognized arguments" in result.stderr
+
+
+def test_init_accepts_network_scope_tailnet(repo_root: Path, tmp_path: Path) -> None:
+    result = _run(
+        repo_root,
+        repo_root,
+        [
+            "init",
+            str(tmp_path),
+            "--name",
+            "tailnet-scope",
+            "--privacy",
+            "exact",
+            "--network-scope",
+            "tailnet",
+        ],
+    )
+    assert result.returncode == 0, result.stderr
+
+    privacy = (tmp_path / "PRIVACY.md").read_text(encoding="utf-8")
+    assert "mode: exact" in privacy
+    assert "network_scope: tailnet" in privacy

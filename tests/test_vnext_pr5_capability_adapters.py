@@ -19,6 +19,7 @@ from shiroe.adapters.capabilities import (
 from shiroe.adapters.capabilities.base import HealthReport
 from shiroe.adapters.capabilities.cli import CLIAdapter
 from shiroe.adapters.capabilities.repository_tool import RepositoryToolAdapter
+from shiroe.capabilities.store import CapabilityStore
 from shiroe.capabilities import (
     approve,
     inspect_source,
@@ -75,6 +76,22 @@ def _register(tmp_path: Path, name: str, *, files: dict[str, str]) -> str:
     return register_discovery(tmp_path, d, trust=trust)
 
 
+def _set_manifest_command(tmp_path: Path, capability_id: str, command: list[str]) -> None:
+    with CapabilityStore(tmp_path) as store:
+        row = store.conn.execute(
+            "SELECT id, manifest FROM capability_versions WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
+            (capability_id,),
+        ).fetchone()
+        assert row is not None
+        manifest = json.loads(row[1])
+        manifest.setdefault("entrypoint", {})["command"] = command
+        store.conn.execute(
+            "UPDATE capability_versions SET manifest=? WHERE id=?",
+            (json.dumps(manifest, sort_keys=True), row[0]),
+        )
+        store.conn.commit()
+
+
 # ---------------------------------------------------------------------------
 # CLI adapter — policy integration
 # ---------------------------------------------------------------------------
@@ -88,8 +105,6 @@ def _write_deny_subprocess(tmp_path: Path) -> None:
 
 def _write_allow_subprocess(tmp_path: Path) -> None:
     (tmp_path / "config").mkdir(exist_ok=True)
-    # PERMISSIONS.md doesn't yet vocabulary "subprocess", so route through
-    # explicit-user-grant via project-defaults JSON.
     (tmp_path / ".shiroe" / "policy").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".shiroe" / "policy" / "defaults.json").write_text(
         json.dumps({"allow": ["subprocess"]}), encoding="utf-8",
@@ -100,11 +115,11 @@ def test_cli_adapter_denies_when_policy_denies(tmp_path: Path) -> None:
     _write_deny_subprocess(tmp_path)
     cid = _register(tmp_path, "runme",
                     files={"run.sh": "#!/bin/sh\necho ok\n"})
+    _set_manifest_command(tmp_path, cid, ["/bin/echo", "hello"])
     approve(tmp_path, cid)
     result = CLIAdapter().invoke(
         capability_id=cid, action="run",
-        inputs={"root": str(tmp_path),
-                "command": ["/bin/echo", "hello"]},
+        inputs={"root": str(tmp_path)},
     )
     assert not result.ok
     assert "policy" in result.error.lower()
@@ -115,11 +130,11 @@ def test_cli_adapter_runs_when_policy_allows(tmp_path: Path) -> None:
     _write_allow_subprocess(tmp_path)
     cid = _register(tmp_path, "echo",
                     files={"run.sh": "#!/bin/sh\necho hi\n"})
+    _set_manifest_command(tmp_path, cid, ["/bin/echo", "adapter-ok"])
     approve(tmp_path, cid)
     result = CLIAdapter().invoke(
         capability_id=cid, action="run",
         inputs={"root": str(tmp_path),
-                "command": ["/bin/echo", "adapter-ok"],
                 "autonomy_mode": "policy-bound"},
     )
     assert result.ok, result.error
@@ -132,11 +147,11 @@ def test_cli_adapter_enforces_command_allowlist(tmp_path: Path) -> None:
     _write_allow_subprocess(tmp_path)
     cid = _register(tmp_path, "restricted",
                     files={"run.sh": "#!/bin/sh\necho ok\n"})
+    _set_manifest_command(tmp_path, cid, ["/bin/ls"])
     approve(tmp_path, cid)
     result = CLIAdapter().invoke(
         capability_id=cid, action="run",
         inputs={"root": str(tmp_path),
-                "command": ["/bin/ls"],
                 "autonomy_mode": "policy-bound"},
         permissions={"allow_commands": ["/bin/echo"]},
     )

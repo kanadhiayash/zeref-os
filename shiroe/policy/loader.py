@@ -1,10 +1,10 @@
-"""Load a policy stack from disk (JSON + existing PERMISSIONS.md).
+"""Load a policy stack from disk.
 
 Layer files (all optional):
 
 - Runtime invariants  → hardcoded here.
 - Project deny        → .shiroe/policy/deny.json
-- Project defaults    → .shiroe/policy/defaults.json  OR  config/PERMISSIONS.md
+- Project defaults    → .shiroe/policy/defaults.json
 - Global deny         → ~/.shiroe/policies/deny.json
 - Global defaults     → ~/.shiroe/policies/defaults.json
 
@@ -15,11 +15,8 @@ from __future__ import annotations
 
 import json
 import os
-import warnings
 from pathlib import Path
-from typing import Iterable
 
-from shiroe.compat.legacy_identity import LEGACY_WORKSPACE_DIR
 from shiroe.policy.schema import ActionKind, PolicyLayer
 
 
@@ -47,7 +44,13 @@ def _mk_layer(name: str, data: dict) -> PolicyLayer | None:
         return None
     denies = frozenset(ActionKind(k) for k in data.get("deny", []) if _is_kind(k))
     allows = frozenset(ActionKind(k) for k in data.get("allow", []) if _is_kind(k))
-    if not denies and not allows and not data.get("fs_write_scopes"):
+    if (
+        not denies
+        and not allows
+        and not data.get("fs_write_scopes")
+        and not data.get("fs_read_scopes")
+        and not data.get("network_hosts")
+    ):
         return None
     return PolicyLayer(
         name=name,
@@ -67,61 +70,12 @@ def _is_kind(name: str) -> bool:
         return False
 
 
-def _parse_permissions_md(path: Path) -> dict:
-    """Very small parser for config/PERMISSIONS.md defaults."""
-    if not path.exists():
-        return {}
-    text = path.read_text(encoding="utf-8", errors="ignore")
-    allow: list[str] = []
-    deny: list[str] = []
-    fs_write: list[str] = []
-    fs_read: list[str] = []
-    # Common lines: `network: denied`, `write: memory/`, `shell allow: [...]`
-    for line in text.splitlines():
-        low = line.strip().lower()
-        if low.startswith("network:") and "denied" in low:
-            deny.append(ActionKind.network.value)
-        elif low.startswith("write:"):
-            scope = line.split(":", 1)[1].strip()
-            if scope:
-                fs_write.append(scope)
-                allow.append(ActionKind.fs_write.value)
-        elif low.startswith("read:") or low.startswith("filesystem read:"):
-            scope = line.split(":", 1)[1].strip()
-            if scope:
-                fs_read.append(scope)
-                allow.append(ActionKind.fs_read.value)
-    return {
-        "allow": sorted(set(allow)),
-        "deny": sorted(set(deny)),
-        "fs_write_scopes": tuple(fs_write),
-        "fs_read_scopes": tuple(fs_read),
-    }
-
-
 WORKSPACE_DIR = ".shiroe"
-# Pre-rebrand workspace directory. Policy files here are deny rules and write
-# scopes -- if a rename made them stop loading, nothing would error, the
-# guard would just quietly stop denying. So the old location is still read
-# when the new one has no file at that path.
-_LEGACY_WORKSPACE_DIR = LEGACY_WORKSPACE_DIR
 
 
 def _workspace_file(root: Path, *parts: str) -> Path:
-    """Path under .shiroe/, falling back to the legacy dir when only it exists."""
-    current = root.joinpath(WORKSPACE_DIR, *parts)
-    if current.exists():
-        return current
-    legacy = root.joinpath(_LEGACY_WORKSPACE_DIR, *parts)
-    if not legacy.exists():
-        return current
-    warnings.warn(
-        f"{_LEGACY_WORKSPACE_DIR}/ is deprecated; move it to {WORKSPACE_DIR}/ "
-        f"(see docs/DEPRECATIONS.md, removal in 4.0.0).",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return legacy
+    """Path under the current Shiroe workspace directory."""
+    return root.joinpath(WORKSPACE_DIR, *parts)
 
 
 def load_policy_stack(project_root: Path | str,
@@ -131,9 +85,6 @@ def load_policy_stack(project_root: Path | str,
     home = Path(os.path.expanduser("~"))
     if global_root is None:
         global_root = home / WORKSPACE_DIR / "policies"
-        legacy_global = home / _LEGACY_WORKSPACE_DIR / "policies"
-        if not global_root.exists() and legacy_global.exists():
-            global_root = legacy_global
 
     stack: list[PolicyLayer] = [_runtime_invariants()]
 
@@ -145,15 +96,10 @@ def load_policy_stack(project_root: Path | str,
         if layer:
             stack.append(layer)
 
-    perm_md = _parse_permissions_md(project_root / "config" / "PERMISSIONS.md")
-    proj_defaults_json = _load_json(_workspace_file(project_root, "policy", "defaults.json"))
-    merged_defaults = {
-        "allow": sorted(set(perm_md.get("allow", []) + proj_defaults_json.get("allow", []))),
-        "deny": sorted(set(perm_md.get("deny", []) + proj_defaults_json.get("deny", []))),
-        "fs_write_scopes": tuple(perm_md.get("fs_write_scopes", ())) + tuple(proj_defaults_json.get("fs_write_scopes", ())),
-        "fs_read_scopes":  tuple(perm_md.get("fs_read_scopes", ()))  + tuple(proj_defaults_json.get("fs_read_scopes", ())),
-    }
-    proj_defaults = _mk_layer("project-defaults", merged_defaults)
+    proj_defaults = _mk_layer(
+        "project-defaults",
+        _load_json(_workspace_file(project_root, "policy", "defaults.json")),
+    )
     if proj_defaults:
         stack.append(proj_defaults)
 

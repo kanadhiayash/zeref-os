@@ -1,28 +1,18 @@
 # Memory Writes
 
-Guarded memory writes use a proposal file before a card is stored.
+Memory writes use a proposal file and a single canonical service path.
 
 ```bash
-shiroe memory propose "User prefers public-safe copy by default."
-shiroe memory write --from proposal.json
+python3 -m shiroe memory write --from proposal.json
+python3 -m shiroe memory recall "query"
+python3 -m shiroe memory list --json
+python3 -m shiroe memory show <memory-id> --json
+python3 -m shiroe memory archive <memory-id>
 ```
 
-The write gate checks:
+The write path checks privacy class, evidence grade, source references,
+redaction, blocked privacy classes, and supported contradiction patterns before
+state changes are committed.
 
-- memory type, privacy class, evidence grade, and source references
-- `secret` and `do_not_store` privacy blockers
-- unsupported success language
-- high-risk same-title contradictions against active cards
-
-Accepted and rejected writes are recorded in `memory/state/events.jsonl`.
-Dedicated audit logs are added by the audit subsystem.
-
-Useful card commands:
-
-```bash
-shiroe memory list
-shiroe memory list --type decision
-shiroe memory show mem_2026_07_09_0001
-shiroe memory archive mem_2026_07_09_0001
-shiroe memory supersede mem_2026_07_09_0001 --with mem_2026_07_09_0002
-```
+Accepted writes update SQLite and append a redacted event to the hash-chained
+event log. Do not write generated Markdown views directly.

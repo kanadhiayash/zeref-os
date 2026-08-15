@@ -55,9 +55,23 @@ def _applied(conn: sqlite3.Connection) -> set[int]:
     return {row[0] for row in conn.execute("SELECT number FROM schema_version")}
 
 
+def _has_preexisting_state(conn: sqlite3.Connection) -> bool:
+    rows = conn.execute(
+        """
+        SELECT name FROM sqlite_master
+        WHERE type = 'table'
+          AND name NOT IN ('schema_version', 'sqlite_sequence')
+        LIMIT 1
+        """
+    ).fetchone()
+    return rows is not None
+
+
 def migrate(conn: sqlite3.Connection, *, target_version: int | None = None) -> list[str]:
     """Apply all pending migrations on ``conn``. Returns names applied."""
+    had_preexisting_state = _has_preexisting_state(conn)
     applied = _applied(conn)
+    should_backup_destructive = bool(applied) or had_preexisting_state
     ran: list[str] = []
     backed_up = False
     for number, name in _discover():
@@ -66,7 +80,7 @@ def migrate(conn: sqlite3.Connection, *, target_version: int | None = None) -> l
         if number in applied:
             continue
         module = importlib.import_module(f"{__name__}.{name}")
-        if getattr(module, "DESTRUCTIVE", False) and not backed_up:
+        if getattr(module, "DESTRUCTIVE", False) and should_backup_destructive and not backed_up:
             _backup_database(conn)
             backed_up = True
         with conn:  # implicit transaction
@@ -104,3 +118,8 @@ def current_version(conn: sqlite3.Connection) -> int:
     _ensure_schema_version(conn)
     row = conn.execute("SELECT COALESCE(MAX(number), 0) FROM schema_version").fetchone()
     return int(row[0])
+
+
+def latest_version() -> int:
+    discovered = _discover()
+    return discovered[-1][0] if discovered else 0

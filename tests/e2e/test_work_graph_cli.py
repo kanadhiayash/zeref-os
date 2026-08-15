@@ -23,7 +23,7 @@ def _run(cwd: Path, args: list[str]) -> subprocess.CompletedProcess:
 
 
 def test_work_graph_plan_status_and_dry_run(tmp_path: Path) -> None:
-    init = _run(ROOT, ["init", str(tmp_path), "--name", "smoke", "--privacy", "abstract", "--tier", "auto"])
+    init = _run(ROOT, ["init", str(tmp_path), "--name", "smoke", "--privacy", "abstract"])
     assert init.returncode == 0, init.stderr
 
     planned = _run(tmp_path, ["plan", "--from-json", str(FIXTURE), "--json"])

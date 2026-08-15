@@ -1,8 +1,8 @@
 """SHR-032 — the active-surface identity guard.
 
-`scripts/check-active-identity.py` fails when a legacy `Zeref`/`ZRF` reference
-appears on a surface that is supposed to be Shiroe-named, and passes on the
-compat, migration, and archive paths that are supposed to keep the old names.
+`scripts/check-active-identity.py` fails when a retired identity reference
+appears on a surface that is supposed to be Shiroe-named, and passes only on
+narrow historical or private evidence paths that are supposed to keep old names.
 
 The synthetic-injection tests are the point of the file: a guard nobody has
 watched fail is a guard nobody knows works.
@@ -80,12 +80,11 @@ def test_allowlisted_paths_pass(tmp_path: Path) -> None:
     _seed(tmp_path)
     for rel, body in [
         ("CHANGELOG.md", "Renamed Zeref to Shiroe.\n"),
-        ("MIGRATION.md", "ZEREF_* env vars still work.\n"),
         ("docs/archive/old.md", "Zeref OS v4.\n"),
         ("docs/adr/ADR-0009-x.md", "The zeref.sqlite store.\n"),
-        ("shiroe/compat/legacy.py", 'PREFIX = "ZEREF_"\n'),
         ("tests/fixtures/legacy/x.json", '{"n": "zeref"}\n'),
-        ("references/v4x-canon/SHIROE_OS.md", "Zeref OS canon.\n"),
+        ("memory/state/legacy-closure-receipts/local.json", '{"path": "memory/state/zeref.sqlite"}\n'),
+        ("memory/state/legacy-closure-backups/local/source.json", '{"legacy": "ZEREF_HOME"}\n'),
     ]:
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from shiroe.work.schema import NodeKind, RetryPolicy, WorkEdge, WorkGraph, WorkNode
+from shiroe.work.schema import NodeKind, Placement, RetryPolicy, WorkEdge, WorkGraph, WorkNode
 
 
 class WorkGraphError(ValueError):
@@ -21,8 +21,13 @@ def _node(raw: Any, graph_id: str) -> WorkNode:
     if not isinstance(raw, dict):
         raise WorkGraphError(f"node must be a dict, got {type(raw).__name__}")
     try:
+        metadata = dict(raw.get("metadata", {}))
+        if "placement" in metadata:
+            raise ValueError("node placement must use top-level placement, not metadata")
         retry_raw = raw.get("retry", {})
         retry = retry_raw if isinstance(retry_raw, RetryPolicy) else RetryPolicy(**retry_raw)
+        placement_raw = raw.get("placement", {})
+        placement = placement_raw if isinstance(placement_raw, Placement) else Placement(**placement_raw)
         node = WorkNode(
             id=raw.get("id", ""),
             graph_id=graph_id,
@@ -35,7 +40,8 @@ def _node(raw: Any, graph_id: str) -> WorkNode:
             evidence_required=bool(raw.get("evidence_required", False)),
             expected_outputs=tuple(raw.get("expected_outputs", ())),
             retry=retry,
-            metadata=dict(raw.get("metadata", {})),
+            placement=placement,
+            metadata=metadata,
         )
     except (TypeError, ValueError) as exc:
         raise WorkGraphError(str(exc)) from exc

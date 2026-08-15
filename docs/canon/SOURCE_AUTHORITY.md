@@ -18,17 +18,21 @@ ADR's favour.
 
 ## The precedence order
 
-Six tiers, highest authority first. A claim from a lower-numbered rank overrides
+Ten tiers, highest authority first. A claim from a lower-numbered rank overrides
 a conflicting claim from any higher-numbered rank.
 
 | Rank | Tier | What it is | Why it ranks here |
 |------|------|------------|-------------------|
 | 1 | `code-and-schemas` | `shiroe/**`, `pyproject.toml` | It executes. It cannot be aspirational. |
 | 2 | `accepted-adrs` | `docs/adr/ADR-*.md` | A deliberate, dated, reviewed decision that code is obliged to follow. |
-| 3 | `agents-spec` | `AGENTS.md`, `SOUL.md`, `_shared/*.md` | The contract every harness reads. Binding, but written ahead of the code. |
-| 4 | `glossary` | `docs/GLOSSARY.md`, `docs/wiki/Glossary.md` | Fixes vocabulary so the tiers above can be compared at all. |
-| 5 | `generated-docs` | `docs/wiki/**` | Derived from a rank-1 source. Authoritative about itself, never about intent. |
-| 6 | `narrative-docs` | `README.md`, `docs/*.md`, `docs/architecture/*.md`, root manifests | Explanation and onboarding. Loudest, least binding. |
+| 3 | `operational-config` | `config/**` | Can alter runtime behavior and must not hide as evidence. |
+| 4 | `harness-integration` | Harness shims and plugin metadata | Instructs hosts how to boot the runtime. |
+| 5 | `release-gates` | `scripts/**` | Executable validation and release-decision gates. |
+| 6 | `ci-release-ops` | `.github/**` | CI and repository automation. |
+| 7 | `agents-spec` | `AGENTS.md`, `SOUL.md` | The contract every harness reads. Binding, but written ahead of the code. |
+| 8 | `glossary` | `docs/GLOSSARY.md`, `docs/wiki/Glossary.md` | Fixes vocabulary so the tiers above can be compared at all. |
+| 9 | `generated-docs` | `docs/wiki/**` | Derived from a rank-1 source. Authoritative about itself, never about intent. |
+| 10 | `narrative-docs` | `README.md`, `docs/*.md`, `docs/architecture/*.md`, root manifests | Explanation and onboarding. Loudest, least binding. |
 
 ## The three evaluation rules
 
@@ -58,9 +62,9 @@ contradict current canon — that is what "superseded" means — but it must say
 in its first 15 lines, and no active surface may cite an archived directory as if
 it were live.
 
-`CHANGELOG.md` and `MIGRATION.md` are archived for a narrower reason and carry no
-marker: they are *about* the pre-rename project, so they have to name what they
-renamed. Rewriting either to read as current would falsify a record.
+`CHANGELOG.md` is archived for a narrower reason and carries no marker: it is
+*about* prior releases, so it has to name what shipped at the time. Rewriting it
+to read as current would falsify a record.
 
 Every archived entry must therefore carry **either** a `marker` **or** a
 `why_no_marker`; an entry with neither is rejected outright (exit 2). A markerless
@@ -100,22 +104,51 @@ a graph is *not* in order to say what it is.
     },
     {
       "rank": 3,
-      "id": "agents-spec",
-      "paths": ["AGENTS.md", "SOUL.md", "_shared/*.md"]
+      "id": "operational-config",
+      "paths": ["config/**"]
     },
     {
       "rank": 4,
+      "id": "harness-integration",
+      "paths": [
+        ".claude-plugin/**",
+        ".cursor/**",
+        ".windsurfrules",
+        ".aider.conf.yml.example",
+        "CLAUDE.md",
+        "CODEX.md",
+        "GEMINI.md",
+        "LLAMA.md"
+      ]
+    },
+    {
+      "rank": 5,
+      "id": "release-gates",
+      "paths": ["scripts/**"]
+    },
+    {
+      "rank": 6,
+      "id": "ci-release-ops",
+      "paths": [".github/**"]
+    },
+    {
+      "rank": 7,
+      "id": "agents-spec",
+      "paths": ["AGENTS.md", "SOUL.md"]
+    },
+    {
+      "rank": 8,
       "id": "glossary",
       "paths": ["docs/GLOSSARY.md", "docs/wiki/Glossary.md"]
     },
     {
-      "rank": 5,
+      "rank": 9,
       "id": "generated-docs",
       "paths": ["docs/wiki/**"],
       "exclude": ["docs/wiki/Glossary.md"]
     },
     {
-      "rank": 6,
+      "rank": 10,
       "id": "narrative-docs",
       "paths": [
         "README.md",
@@ -129,65 +162,36 @@ a graph is *not* in order to say what it is.
         "REDACT.md",
         "GITHUB_OS.md",
         "SKILL.md",
-        "CLAUDE.md",
-        "GEMINI.md",
-        "CODEX.md",
-        "LLAMA.md",
         "docs/*.md",
         "docs/architecture/*.md",
-        "references/*.md",
-        "references/target-model-profiles/**"
+        "references/*.md"
       ],
       "exclude": ["docs/GLOSSARY.md"]
     }
   ],
   "archived": [
     {
-      "id": "v4x-canon",
-      "paths": ["references/v4x-canon/**"],
-      "marker": "Superseded"
-    },
-    {
       "id": "changelog",
       "paths": ["CHANGELOG.md"],
       "why_no_marker": "A changelog is about the pre-rename project and is still appended to. Stamping it 'Superseded' would falsify a live record."
-    },
-    {
-      "id": "rename-migration-guide",
-      "paths": ["MIGRATION.md"],
-      "why_no_marker": "The migration guide describes the rename and states that everything below it still works today. A 'Superseded' banner would contradict its own content."
-    },
-    {
-      "id": "plans",
-      "paths": ["docs/plans/**"],
-      "marker": "Superseded"
     }
   ],
   "unscoped": [
     "tests/**",
     "benchmarks/**",
-    "scripts/**",
-    ".github/**",
     ".superpowers/**",
-    ".cursor/**",
-    ".claude-plugin/**",
     ".superpowers/**",
     "assets/**",
-    "policies/**",
-    "config/**",
     "memory/**",
-    "team/**",
     "docs/canon/**",
     "docs/security/**",
     "docs/audits/**",
     "docs/_evidence/**",
     "docs/evidence/**",
     "docs/archive/**",
-    "docs/superpowers/**",
+    "retired Superpowers planning snapshots",
     ".gitignore",
     ".coverage",
-    ".windsurfrules",
-    ".aider.conf.yml.example",
     "pytest.ini",
     "LICENSE"
   ],

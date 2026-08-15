@@ -36,15 +36,18 @@
       "id": "readme-cli-commands",
       "surface": "README.md",
       "line": 263,
-      "claim": "shiroe --help lists all 13 top-level commands",
+      "claim": "shiroe --help lists all 14 top-level commands",
       "claim_class": "machine_verified",
-      "status": "verified",
-      "evidence_value": 13,
+      "status": "removed",
+      "evidence_value": null,
       "verify": {
         "kind": "count_regex",
         "file": "shiroe/cli/*.py",
         "pattern": "(?m)^COMMAND_NAME\\s*=\\s*\""
-      }
+      },
+      "owner": "kanadhiayash",
+      "resolving_pr": "zero-legacy-current-surface",
+      "why_unverified": "Withdrawn from README.md. The public README now defers command availability to installed help, and private operational commands are not product-surface claims."
     },
     {
       "id": "readme-skills-count",
@@ -112,7 +115,7 @@
       },
       "owner": "kanadhiayash",
       "resolving_pr": "vnext-phase-01-scope-reset",
-      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. retired collaboration bundles are no longer active product components."
     },
     {
       "id": "readme-agent-cap",
@@ -125,7 +128,7 @@
       "evidence_path": "team-packs/enterprise.md",
       "owner": "kanadhiayash",
       "resolving_pr": "vnext-phase-01-scope-reset",
-      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. retired collaboration bundles are no longer active product components."
     },
     {
       "id": "agents-pack-cap-max",
@@ -138,20 +141,20 @@
       "evidence_path": "team-packs/enterprise.md",
       "owner": "kanadhiayash",
       "resolving_pr": "vnext-phase-01-scope-reset",
-      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. retired collaboration bundles are no longer active product components."
     },
     {
       "id": "agents-pack-cap-capped",
       "surface": "AGENTS.md",
       "line": 275,
-      "claim": "Team packs are on-demand only and capped at 6 agents",
+      "claim": "Retired collaboration bundles are on-demand only and capped at 6 agents",
       "claim_class": "manual",
       "status": "removed",
       "evidence_value": null,
       "evidence_path": "team-packs/enterprise.md",
       "owner": "kanadhiayash",
       "resolving_pr": "vnext-phase-01-scope-reset",
-      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. Team Packs are no longer active product components."
+      "why_unverified": "Withdrawn by vNext Phase 01 scope reset. retired collaboration bundles are no longer active product components."
     }
   ]
 }

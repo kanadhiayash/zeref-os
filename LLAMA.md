@@ -1,37 +1,17 @@
-<!-- privacy-audit: allow-file "Llama harness stub references AGENTS.md + example paths." -->
+# LLAMA.md - Llama-Family Harness Shim
 
-# LLAMA.md — Llama-family harness shim (Shiroe)
+Canonical operating spec: `AGENTS.md`. This file applies to local or hosted
+Llama-family frontends that can read project instructions and optionally call
+the Shiroe CLI.
 
-**Canonical spec: `AGENTS.md`** — read it first. This file only adds
-Llama-specific notes (Ollama, llama.cpp, llamafile, vLLM, LM Studio,
-Open WebUI, and any harness that fronts a Llama-family model).
+## Boot
 
-## Llama-specific
+1. Read `AGENTS.md` and `SOUL.md`.
+2. Discover the project root.
+3. Run `python3 -m shiroe status --json`.
+4. Inspect the relevant Work Graph or memory record through the CLI.
+5. Respect policy, approval, capability, privacy, and sharing gates.
+6. Use `python3 -m shiroe handoff` for bounded continuation.
 
-- These harnesses generally have no built-in concept of "skill" or
-  "agent". Shiroe still works — the memory layer is plain Markdown and
-  reading-order is enforced by `AGENTS.md`.
-- Recommended invocation: point the model's system prompt at `AGENTS.md`
-  via a wrapper script or the harness's prompt-template feature.
-- For tool-calling harnesses (Open WebUI, vLLM with function calling),
-  expose `shiroe` as a subprocess tool: `python3 -m shiroe status`,
-  `python3 -m shiroe memory write …`, `python3 -m shiroe doctor --json`.
-
-## First action every session
-
-Identical to AGENTS.md §"First action every session":
-
-1. Read `config/PROJECT.md`
-2. Read `memory/hot.md` (≤500 words)
-3. Read `memory/index.md` if hot insufficient
-4. Read `PRIVACY.md` (root) — before any write or tool use
-5. Read `REDACT.md` (root) — before any external output
-6. Tail last 3 entries of `memory/patterns/PATTERNS.jsonl`
-7. Report state
-
-## Safety
-
-See `references/shiroe-safety-principles.md`. Irreversible actions always
-require explicit user confirmation. Local Llama harnesses do **not**
-exempt you from this rule — confirmation prompts must still surface in
-the wrapping UI.
+Shiroe does not supply local inference. Any model runtime remains an external
+harness choice, subject to the same policy and approval gates.

@@ -40,17 +40,7 @@ class PolicyService:
         return cls(root_path)
 
     def _stack_for(self, action: Action) -> list[PolicyLayer]:
-        stack = load_policy_stack(self.root, global_root=self.root / "no-global-policy")
-        # Service-level authorization represents an explicit attempt to perform
-        # the action. This grant lets pure policy reach the autonomy gate while
-        # project/global denies still win by precedence.
-        stack.append(
-            PolicyLayer(
-                name="explicit-user-grant",
-                allows=frozenset({action.kind}),
-            )
-        )
-        return stack
+        return load_policy_stack(self.root, global_root=self.root / "no-global-policy")
 
     def authorize(
         self,
