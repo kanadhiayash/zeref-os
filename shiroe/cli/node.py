@@ -89,9 +89,9 @@ def _node_payload(node) -> dict:
         "name": node.name,
         "role": node.role,
         "transport": node.transport,
-        "transport_host": node.transport_host,
-        "ssh_user": node.ssh_user,
-        "tailscale_stable_id": node.tailscale_stable_id,
+        "transport_host_configured": bool(node.transport_host),
+        "ssh_user_configured": bool(node.ssh_user),
+        "stable_identity_configured": bool(node.tailscale_stable_id),
         "trusted": node.trusted,
         "status": node.status,
         "capabilities": list(node.capabilities),
@@ -104,7 +104,7 @@ def _node_payload(node) -> dict:
 
 def _list(args) -> int:
     payload = [_node_payload(node) for node in _store().list_nodes()]
-    print_json(payload) if args.json else [print(f"{n['id']} {n['role']} {n['transport_host']} trusted={n['trusted']}") for n in payload]
+    print_json(payload) if args.json else [print(f"{n['id']} {n['role']} trusted={n['trusted']}") for n in payload]
     return 0
 
 
@@ -131,7 +131,7 @@ def _register(args) -> int:
 
 def _inspect(args) -> int:
     payload = _node_payload(_store().get_node(args.node_id))
-    print_json(payload) if args.json else print(f"{payload['id']} {payload['transport_host']}")
+    print_json(payload) if args.json else print(f"{payload['id']} {payload['role']}")
     return 0
 
 

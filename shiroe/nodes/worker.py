@@ -34,7 +34,7 @@ class ExecutionReceipt:
     stderr_tail: str | None
     metadata: dict[str, Any]
     usage: dict[str, Any]
-    controller_tailnet_id: str
+    controller_tailnet_id_digest: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,7 +47,7 @@ class ExecutionReceipt:
             "stderr_tail": self.stderr_tail,
             "metadata": self.metadata,
             "usage": self.usage,
-            "controller_tailnet_id": self.controller_tailnet_id,
+            "controller_tailnet_id_digest": self.controller_tailnet_id_digest,
         }
 
 
@@ -76,10 +76,9 @@ def verify_controller_identity(
 ) -> TailnetIdentity:
     source = source_ip_from_ssh_env(env)
     identity = transport.whois(source)
-    if identity.stable_id not in config.trusted_controller_tailscale_ids:
-        raise WorkerIdentityError(
-            f"controller stable Tailnet id {identity.stable_id!r} is not trusted"
-        )
+    digest = LocalNodeConfig.digest_tailnet_id(identity.stable_id)
+    if digest not in config.trusted_controller_tailscale_id_digests:
+        raise WorkerIdentityError("controller stable Tailnet id is not trusted")
     return identity
 
 
@@ -118,7 +117,7 @@ def worker_run_package(
         stderr_tail=result.get("stderr_tail"),
         metadata=dict(result.get("metadata", {})),
         usage=dict(result.get("usage", _zero_usage())),
-        controller_tailnet_id=controller.stable_id,
+        controller_tailnet_id_digest=LocalNodeConfig.digest_tailnet_id(controller.stable_id),
     )
 
 

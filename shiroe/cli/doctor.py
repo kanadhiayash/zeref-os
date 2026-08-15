@@ -215,7 +215,7 @@ def _node_transport_checks(
             checks.append({
                 "name": f"{prefix}:stable_identity",
                 "status": "pass" if stable_ok else "fail",
-                "detail": identity.stable_id if stable_ok else f"{identity.stable_id} != {node.tailscale_stable_id}",
+                "detail": "verified" if stable_ok else "stable identity mismatch",
             })
         except Exception as exc:  # noqa: BLE001
             checks.append({"name": f"{prefix}:stable_identity", "status": "fail", "detail": str(exc)})

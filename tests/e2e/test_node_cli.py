@@ -5,12 +5,14 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 from shiroe.nodes.protocol import make_work_package
 
 
 ROOT = Path(__file__).resolve().parents[2]
+CONTROLLER_DIGEST = sha256(b"n-controller").hexdigest()
 
 
 def _run(cwd: Path, args: list[str], *, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
@@ -51,10 +53,17 @@ def test_node_register_list_trust_inspect(tmp_path: Path) -> None:
     assert registered.returncode == 0, registered.stderr
     node = json.loads(registered.stdout)
     assert node["trusted"] is False
+    assert "transport_host" not in node
+    assert "ssh_user" not in node
+    assert "tailscale_stable_id" not in node
 
     trusted = _run(tmp_path, ["node", "trust", node["id"], "--json"])
     assert trusted.returncode == 0, trusted.stderr
-    assert json.loads(trusted.stdout)["trusted"] is True
+    trusted_payload = json.loads(trusted.stdout)
+    assert trusted_payload["trusted"] is True
+    assert "transport_host" not in trusted_payload
+    assert "ssh_user" not in trusted_payload
+    assert "tailscale_stable_id" not in trusted_payload
 
     listed = _run(tmp_path, ["node", "list", "--json"])
     assert listed.returncode == 0, listed.stderr
@@ -62,7 +71,9 @@ def test_node_register_list_trust_inspect(tmp_path: Path) -> None:
 
     inspected = _run(tmp_path, ["node", "inspect", node["id"], "--json"])
     assert inspected.returncode == 0, inspected.stderr
-    assert json.loads(inspected.stdout)["transport_host"] == "worker-a.tailnet.ts.net"
+    inspected_payload = json.loads(inspected.stdout)
+    assert inspected_payload["id"] == node["id"]
+    assert "transport_host" not in inspected_payload
 
 
 def test_node_probe_uses_tailscale_transport_without_mutation(tmp_path: Path) -> None:
@@ -125,7 +136,7 @@ def test_node_worker_run_validates_package_and_source_identity(tmp_path: Path) -
                 "schema": "shiroe.node-local/v1",
                 "node_id": "node_worker",
                 "role": "worker",
-                "trusted_controller_tailscale_ids": ["n-controller"],
+                "trusted_controller_tailscale_id_digests": [CONTROLLER_DIGEST],
             }
         ),
         encoding="utf-8",
@@ -152,4 +163,5 @@ def test_node_worker_run_validates_package_and_source_identity(tmp_path: Path) -
     receipt = json.loads(result.stdout)
     assert receipt["schema"] == "shiroe.execution-receipt/v1"
     assert receipt["package_digest"] == package["digest"]
-    assert receipt["controller_tailnet_id"] == "n-controller"
+    assert receipt["controller_tailnet_id_digest"] == CONTROLLER_DIGEST
+    assert "controller_tailnet_id" not in receipt

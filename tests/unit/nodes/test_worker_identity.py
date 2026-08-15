@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,9 @@ import pytest
 from shiroe.nodes.local_config import LocalNodeConfig, LocalNodeConfigError, load_local_node_config
 from shiroe.nodes.worker import WorkerIdentityError, source_ip_from_ssh_env, verify_controller_identity
 from shiroe.transport import TailnetIdentity
+
+
+CONTROLLER_DIGEST = sha256(b"n-controller").hexdigest()
 
 
 class FakeTransport:
@@ -33,7 +37,7 @@ def test_load_local_node_config_rejects_secret_material(tmp_path: Path) -> None:
                 "schema": "shiroe.node-local/v1",
                 "node_id": "node_worker",
                 "role": "worker",
-                "trusted_controller_tailscale_ids": ["n-controller"],
+                "trusted_controller_tailscale_id_digests": [CONTROLLER_DIGEST],
                 "auth_key": "tskey-secret",
             }
         ),
@@ -61,7 +65,7 @@ def test_verify_controller_identity_requires_trusted_stable_id() -> None:
     config = LocalNodeConfig(
         node_id="node_worker",
         role="worker",
-        trusted_controller_tailscale_ids=("n-controller",),
+        trusted_controller_tailscale_id_digests=(CONTROLLER_DIGEST,),
     )
     transport = FakeTransport(stable_id="n-controller")
 
@@ -79,7 +83,7 @@ def test_verify_controller_identity_rejects_wrong_controller() -> None:
     config = LocalNodeConfig(
         node_id="node_worker",
         role="worker",
-        trusted_controller_tailscale_ids=("n-controller",),
+        trusted_controller_tailscale_id_digests=(CONTROLLER_DIGEST,),
     )
 
     with pytest.raises(WorkerIdentityError, match="not trusted"):

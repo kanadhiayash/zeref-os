@@ -15,7 +15,36 @@ def project_root() -> Path:
 
 
 def print_json(payload: Any) -> None:
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(json.dumps(_redact_json_payload(payload), indent=2, sort_keys=True))
+
+
+_SENSITIVE_JSON_KEYS = {
+    "auth_key",
+    "api_key",
+    "apikey",
+    "password",
+    "private_key",
+    "secret",
+    "ssh_user",
+    "tailscale_stable_id",
+    "token",
+    "transport_host",
+    "trusted_controller_tailscale_ids",
+}
+
+
+def _redact_json_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[Any, Any] = {}
+        for key, child in value.items():
+            key_text = str(key).lower()
+            if key_text in _SENSITIVE_JSON_KEYS:
+                continue
+            redacted[key] = _redact_json_payload(child)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_json_payload(item) for item in value]
+    return value
 
 
 def record_payload(record) -> dict[str, Any]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 
 import pytest
 
@@ -11,6 +12,7 @@ from shiroe.transport import TailnetIdentity
 
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=timezone.utc)
+CONTROLLER_DIGEST = sha256(b"n-controller").hexdigest()
 
 
 class FakeTransport:
@@ -30,7 +32,7 @@ def _config() -> LocalNodeConfig:
     return LocalNodeConfig(
         node_id="node_worker",
         role="worker",
-        trusted_controller_tailscale_ids=("n-controller",),
+        trusted_controller_tailscale_id_digests=(CONTROLLER_DIGEST,),
     )
 
 
@@ -67,7 +69,10 @@ def test_worker_run_creates_receipt_bound_to_package_digest() -> None:
     assert receipt.package_digest == package["digest"]
     assert receipt.ok is True
     assert receipt.output == {"seen": 1}
-    assert receipt.controller_tailnet_id == "n-controller"
+    payload = receipt.to_dict()
+    assert receipt.controller_tailnet_id_digest == CONTROLLER_DIGEST
+    assert payload["controller_tailnet_id_digest"] == CONTROLLER_DIGEST
+    assert "controller_tailnet_id" not in payload
 
 
 def test_worker_run_rejects_capability_drift_before_execution() -> None:

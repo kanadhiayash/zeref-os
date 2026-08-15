@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from shiroe.transport.tailscale_ssh import RemoteExecutionError, execute_remote_
 
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=timezone.utc)
+CONTROLLER_DIGEST = sha256(b"n-controller").hexdigest()
 
 
 class FakeTransport:
@@ -115,7 +117,7 @@ print(json.dumps({{
     "stderr_tail": None,
     "metadata": {{}},
     "usage": {{"cost_usd": 0.0, "tokens_in": 0, "tokens_out": 0}},
-    "controller_tailnet_id": "n-controller"
+    "controller_tailnet_id_digest": {CONTROLLER_DIGEST!r}
 }}))
 """,
     )
@@ -156,20 +158,20 @@ def test_tailscale_ssh_executor_rejects_wrong_package_receipt(tmp_path: Path) ->
     scp = _fake_executable(tmp_path / "scp", "raise SystemExit(0)\n")
     ssh = _fake_executable(
         tmp_path / "ssh",
-        """
+        f"""
 import json
-print(json.dumps({
+print(json.dumps({{
     "schema": "shiroe.execution-receipt/v1",
     "package_digest": "sha256:wrong",
     "ok": True,
-    "output": {},
+    "output": {{}},
     "error": None,
     "exit_code": 0,
     "stderr_tail": None,
-    "metadata": {},
-    "usage": {"cost_usd": 0.0, "tokens_in": 0, "tokens_out": 0},
-    "controller_tailnet_id": "n-controller"
-}))
+    "metadata": {{}},
+    "usage": {{"cost_usd": 0.0, "tokens_in": 0, "tokens_out": 0}},
+    "controller_tailnet_id_digest": {CONTROLLER_DIGEST!r}
+}}))
 """,
     )
 

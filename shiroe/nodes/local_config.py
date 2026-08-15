@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 
 LOCAL_NODE_SCHEMA = "shiroe.node-local/v1"
 _SECRET_KEY_PARTS = ("secret", "token", "api_key", "apikey", "auth_key", "private_key", "password")
+_SHA256_HEX = set("0123456789abcdef")
 
 
 class LocalNodeConfigError(ValueError):
@@ -24,7 +26,7 @@ class LocalNodeConfigError(ValueError):
 class LocalNodeConfig:
     node_id: str
     role: str
-    trusted_controller_tailscale_ids: tuple[str, ...]
+    trusted_controller_tailscale_id_digests: tuple[str, ...]
     schema: str = LOCAL_NODE_SCHEMA
 
     def __post_init__(self) -> None:
@@ -36,17 +38,24 @@ class LocalNodeConfig:
             raise LocalNodeConfigError("worker local config role must be worker")
         object.__setattr__(
             self,
-            "trusted_controller_tailscale_ids",
-            tuple(str(item) for item in self.trusted_controller_tailscale_ids),
+            "trusted_controller_tailscale_id_digests",
+            tuple(str(item) for item in self.trusted_controller_tailscale_id_digests),
         )
+        for digest in self.trusted_controller_tailscale_id_digests:
+            if len(digest) != 64 or any(ch not in _SHA256_HEX for ch in digest):
+                raise LocalNodeConfigError("trusted controller ids must be SHA-256 hex digests")
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": self.schema,
             "node_id": self.node_id,
             "role": self.role,
-            "trusted_controller_tailscale_ids": list(self.trusted_controller_tailscale_ids),
+            "trusted_controller_tailscale_id_digests": list(self.trusted_controller_tailscale_id_digests),
         }
+
+    @staticmethod
+    def digest_tailnet_id(stable_id: str) -> str:
+        return sha256(stable_id.encode("utf-8")).hexdigest()
 
 
 def default_local_config_path(*, home: Path | None = None) -> Path:
@@ -62,7 +71,9 @@ def load_local_node_config(path: Path | str | None = None) -> LocalNodeConfig:
             schema=data.get("schema", ""),
             node_id=data.get("node_id", ""),
             role=data.get("role", ""),
-            trusted_controller_tailscale_ids=tuple(data.get("trusted_controller_tailscale_ids", ())),
+            trusted_controller_tailscale_id_digests=tuple(
+                data.get("trusted_controller_tailscale_id_digests", ())
+            ),
         )
     except TypeError as exc:
         raise LocalNodeConfigError(f"malformed local node config: {exc}") from exc
