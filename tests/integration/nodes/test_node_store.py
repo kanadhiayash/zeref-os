@@ -11,9 +11,9 @@ def test_register_candidate_distinguishes_logical_and_transport_identity(tmp_pat
     store = NodeStore(tmp_path, id_factory=lambda: "node_abc123")
 
     node = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
         tailscale_stable_id="n123",
         capabilities=("cap.remote.exec",),
@@ -21,7 +21,7 @@ def test_register_candidate_distinguishes_logical_and_transport_identity(tmp_pat
     )
 
     assert node.id == "node_abc123"
-    assert node.transport_host == "node1.tailnet.ts.net"
+    assert node.transport_host == "worker-a.tailnet.ts.net"
     assert node.tailscale_stable_id == "n123"
     assert node.trusted is False
     assert node.capabilities == ("cap.remote.exec",)
@@ -30,7 +30,7 @@ def test_register_candidate_distinguishes_logical_and_transport_identity(tmp_pat
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("transport_host", "node1; rm -rf /"),
+        ("transport_host", "worker-a; rm -rf /"),
         ("ssh_user", "root;touch pwned"),
         ("role", "admin"),
         ("transport", "ssh"),
@@ -38,10 +38,10 @@ def test_register_candidate_distinguishes_logical_and_transport_identity(tmp_pat
 )
 def test_register_candidate_validates_conservative_identity_fields(tmp_path, field, value) -> None:
     kwargs = {
-        "name": "Node1",
+        "name": "WorkerA",
         "role": "worker",
         "transport": "tailscale",
-        "transport_host": "node1.tailnet.ts.net",
+        "transport_host": "worker-a.tailnet.ts.net",
         "ssh_user": "shiroe_worker",
     }
     kwargs[field] = value
@@ -53,9 +53,9 @@ def test_register_candidate_validates_conservative_identity_fields(tmp_path, fie
 def test_untrusted_or_controller_node_cannot_acquire_lease(tmp_path) -> None:
     store = NodeStore(tmp_path, id_factory=lambda: "node_worker")
     worker = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
     )
 
@@ -66,7 +66,7 @@ def test_untrusted_or_controller_node_cannot_acquire_lease(tmp_path) -> None:
     controller = NodeStore(tmp_path, id_factory=lambda: "node_controller").register_candidate(
         name="Controller",
         role="controller",
-        transport_host="node0.tailnet.ts.net",
+        transport_host="controller.tailnet.ts.net",
         ssh_user="shiroe",
     )
     store.trust_node(controller.id, trusted=True)
@@ -78,9 +78,9 @@ def test_untrusted_or_controller_node_cannot_acquire_lease(tmp_path) -> None:
 def test_one_active_lease_per_work_node(tmp_path) -> None:
     store = NodeStore(tmp_path, id_factory=lambda: "node_worker")
     node = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
     )
     store.trust_node(node.id, trusted=True)
@@ -97,9 +97,9 @@ def test_expired_active_lease_is_marked_expired_before_replacement(tmp_path) -> 
     now = datetime(2026, 8, 15, tzinfo=timezone.utc)
     store = NodeStore(tmp_path, id_factory=lambda: "node_worker", clock=lambda: now)
     node = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
     )
     store.trust_node(node.id, trusted=True)
@@ -132,9 +132,9 @@ def test_expired_active_lease_is_marked_expired_before_replacement(tmp_path) -> 
 def test_completed_lease_is_not_completed_twice(tmp_path) -> None:
     store = NodeStore(tmp_path, id_factory=lambda: "node_worker")
     node = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
     )
     store.trust_node(node.id, trusted=True)

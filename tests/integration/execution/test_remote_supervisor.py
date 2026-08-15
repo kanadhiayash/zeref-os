@@ -89,9 +89,9 @@ def test_remote_placement_uses_node_dispatcher_not_local_adapter(tmp_path: Path)
     digest = _register_capability(tmp_path, capability_id)
     node_store = NodeStore(tmp_path, id_factory=lambda: "node_worker")
     node = node_store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
         capability_digest=digest,
     )

@@ -16,7 +16,7 @@ python3 -m shiroe --help
 ## Initialize a project
 
 ```bash
-python3 -m shiroe init /path/to/project --name my-project --privacy abstract --tier auto
+python3 -m shiroe init /path/to/project --name my-project --privacy abstract
 cd /path/to/project
 python3 -m shiroe status --json
 ```
@@ -43,7 +43,7 @@ python3 -m shiroe --help
 
 ```bash
 TMP="$(mktemp -d)"
-python3 -m shiroe init "$TMP" --name smoke --privacy abstract --tier auto
+python3 -m shiroe init "$TMP" --name smoke --privacy abstract
 cd "$TMP"
 python3 -m shiroe status --json
 ```

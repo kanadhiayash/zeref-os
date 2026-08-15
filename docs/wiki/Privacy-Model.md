@@ -6,7 +6,7 @@ depends on a model remembering to be careful.
 
 That distinction is the whole design. A model asked to redact is a model that can be talked out of redacting. A regex cannot be persuaded.
 
-## Three modes
+## Two modes
 
 Set in the root `PRIVACY.md`.
 
@@ -14,18 +14,14 @@ Set in the root `PRIVACY.md`.
 |---|---|---|
 | `exact` | — | Write verbatim. No abstraction. |
 | `abstract` | **yes** | Strip PII, internal paths, and credentials before write. |
-| `local-only` | — | Block all external transmission — outbound sync, connectors, handoff push. |
 
 ```yaml
-mode: abstract                  # exact | abstract | local-only
+mode: abstract                  # exact | abstract
 abstract_rules:
   strip_pii: true
   strip_internal_paths: true
   strip_credentials: true
   strip_numbers: false
-local_only_blocks:
-  - memory/sync/outbound/
-  - memory/sync/parent/
 connectors_default: off
 external_transmission: off
 ```
@@ -62,13 +58,13 @@ Handoff artifacts are compiled from stored atoms and filtered by privacy class o
 | `public-safe` | Exported | Exported |
 | `private` | Withheld | Exported |
 | `unknown` | Withheld | Exported |
-| `local-only` | **Never** | **Never** |
+| `restricted` | Withheld | Withheld |
 
 Two properties are worth stating explicitly.
 
 **`unknown` is treated exactly like `private`.** An atom whose privacy class was never asserted must not leak simply because nobody got around to classifying it. The default for unclassified content is withhold, not share.
 
-**`local-only` never leaves the machine.** Not with a flag, not with private export enabled. That is the contract of the class; if a flag could override it, the class would mean nothing.
+**`restricted` records never leave the machine.** Not with a flag, not with private export enabled. That is the contract of the class; if a flag could override it, the class would mean nothing.
 
 ## Sharing policy
 
@@ -78,7 +74,7 @@ Two properties are worth stating explicitly.
 
 Nothing syncs automatically. Content is filtered by evidence grade, redacted, and staged with a manifest. You see a preview of exactly what would leave before anything moves, and approval is explicit.
 
-Under `local-only`, the path is blocked entirely and staging does not proceed.
+For `restricted` records, the path is blocked entirely and staging does not proceed.
 
 ## Configuration files
 

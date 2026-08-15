@@ -24,11 +24,11 @@ import json, sys
 assert sys.argv[1:] == ["status", "--json"], sys.argv
 print(json.dumps({
     "BackendState": "Running",
-    "Self": {"ID": "n-controller", "DNSName": "node0.tailnet.ts.net."},
+    "Self": {"ID": "n-controller", "DNSName": "controller.tailnet.ts.net."},
     "Peer": {
-        "node1": {
-            "DNSName": "node1.tailnet.ts.net.",
-            "HostName": "node1",
+        "worker-a": {
+            "DNSName": "worker-a.tailnet.ts.net.",
+            "HostName": "worker-a",
             "TailscaleIPs": ["100.64.0.2"],
             "Online": True,
             "OS": "linux",
@@ -42,8 +42,8 @@ print(json.dumps({
 
     assert status.backend_state == "Running"
     assert status.self_stable_id == "n-controller"
-    assert status.self_host == "node0.tailnet.ts.net"
-    assert status.peers[0].host == "node1.tailnet.ts.net"
+    assert status.self_host == "controller.tailnet.ts.net"
+    assert status.peers[0].host == "worker-a.tailnet.ts.net"
     assert status.peers[0].ip == "100.64.0.2"
     assert status.peers[0].online is True
     assert status.peers[0].os == "linux"
@@ -81,14 +81,14 @@ def test_probe_parses_ping_path_and_latency(tmp_path: Path) -> None:
         tmp_path,
         """
 import sys
-assert sys.argv[1:] == ["ping", "--c", "1", "node1"], sys.argv
-print("pong from node1 (100.64.0.2) via DERP(tor) in 42.5ms")
+assert sys.argv[1:] == ["ping", "--c", "1", "worker-a"], sys.argv
+print("pong from worker-a (100.64.0.2) via DERP(tor) in 42.5ms")
 """,
     )
 
-    result = TailscaleTransport(command=fake).probe("node1")
+    result = TailscaleTransport(command=fake).probe("worker-a")
 
-    assert result.host == "node1"
+    assert result.host == "worker-a"
     assert result.reachable is True
     assert result.path_type == "relay"
     assert result.latency_ms == 42.5
@@ -105,7 +105,7 @@ raise SystemExit(1)
 """,
     )
 
-    result = TailscaleTransport(command=fake).probe("node1")
+    result = TailscaleTransport(command=fake).probe("worker-a")
 
     assert result.reachable is False
     assert result.path_type == "unreachable"
@@ -121,7 +121,7 @@ assert sys.argv[1:] == ["whois", "--json", "100.64.0.2:22"], sys.argv
 print(json.dumps({
     "Node": {
         "ID": "n123",
-        "Name": "node1.tailnet.ts.net.",
+        "Name": "worker-a.tailnet.ts.net.",
         "Tags": ["tag:shiroe-worker"],
     },
     "UserProfile": {"LoginName": "worker@example.com"},
@@ -132,7 +132,7 @@ print(json.dumps({
     identity = TailscaleTransport(command=fake).whois("100.64.0.2:22")
 
     assert identity.stable_id == "n123"
-    assert identity.name == "node1.tailnet.ts.net"
+    assert identity.name == "worker-a.tailnet.ts.net"
     assert identity.user_login == "worker@example.com"
     assert identity.tags == ("tag:shiroe-worker",)
 

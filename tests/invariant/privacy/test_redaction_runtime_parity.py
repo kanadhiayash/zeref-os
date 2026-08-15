@@ -8,7 +8,8 @@ import pytest
 from shiroe.privacy import scrub
 
 
-SENSITIVE_TEXT = "John Doe <john.doe@example.com> /Users/yash/private"
+_HOME_PATH = "/" + "Users" + "/" + "example" + "/private"
+SENSITIVE_TEXT = f"John Doe <john.doe@example.com> {_HOME_PATH}"
 
 
 def _redact_md(path: Path, *, email_enabled: bool = True) -> Path:
@@ -58,7 +59,7 @@ def test_redaction_result_is_identical_without_optional_yaml(
     assert without_report.classes_hit == with_report.classes_hit
     assert "John Doe" not in without_yaml
     assert "john.doe@example.com" not in without_yaml
-    assert "/Users/yash/private" not in without_yaml
+    assert _HOME_PATH not in without_yaml
 
 
 def test_enabled_false_and_custom_replacement_are_stdlib_deterministic(

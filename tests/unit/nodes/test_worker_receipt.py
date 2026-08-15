@@ -20,7 +20,7 @@ class FakeTransport:
     def whois(self, source: str) -> TailnetIdentity:
         return TailnetIdentity(
             stable_id=self.stable_id,
-            name="node0.tailnet.ts.net",
+            name="controller.tailnet.ts.net",
             user_login="controller@example.com",
             tags=(),
         )

@@ -77,7 +77,7 @@ def test_doctor_checks_configured_tailscale_nodes_without_mutation(tmp_path: Pat
         ["init", str(tmp_path), "--name", "doctor", "--privacy", "abstract", "--network-scope", "tailnet"],
     ).returncode == 0
     (tmp_path / ".shiroe" / "policy" / "defaults.json").write_text(
-        json.dumps({"allow": ["capability.invoke", "subprocess", "network"], "network_hosts": ["node1.tailnet.ts.net"]}),
+        json.dumps({"allow": ["capability.invoke", "subprocess", "network"], "network_hosts": ["worker-a.tailnet.ts.net"]}),
         encoding="utf-8",
     )
     registered = _run(
@@ -86,9 +86,9 @@ def test_doctor_checks_configured_tailscale_nodes_without_mutation(tmp_path: Pat
             "node",
             "register",
             "--name",
-            "Node1",
+            "WorkerA",
             "--host",
-            "node1.tailnet.ts.net",
+            "worker-a.tailnet.ts.net",
             "--ssh-user",
             "shiroe_worker",
             "--tailscale-stable-id",
@@ -106,11 +106,11 @@ def test_doctor_checks_configured_tailscale_nodes_without_mutation(tmp_path: Pat
         "import json, sys\n"
         "args = sys.argv[1:]\n"
         "if args == ['status', '--json']:\n"
-        "    print(json.dumps({'BackendState': 'Running', 'Self': {'ID': 'n-controller', 'DNSName': 'node0.tailnet.ts.net.'}, 'Peer': {}}))\n"
-        "elif args == ['ping', '--c', '1', 'node1.tailnet.ts.net']:\n"
-        "    print('pong from node1 (100.64.0.2) via direct in 3ms')\n"
-        "elif args == ['whois', '--json', 'node1.tailnet.ts.net']:\n"
-        "    print(json.dumps({'Node': {'ID': 'n-worker', 'Name': 'node1.'}, 'UserProfile': {'LoginName': 'worker@example.com'}}))\n"
+        "    print(json.dumps({'BackendState': 'Running', 'Self': {'ID': 'n-controller', 'DNSName': 'controller.tailnet.ts.net.'}, 'Peer': {}}))\n"
+        "elif args == ['ping', '--c', '1', 'worker-a.tailnet.ts.net']:\n"
+        "    print('pong from worker-a (100.64.0.2) via direct in 3ms')\n"
+        "elif args == ['whois', '--json', 'worker-a.tailnet.ts.net']:\n"
+        "    print(json.dumps({'Node': {'ID': 'n-worker', 'Name': 'worker-a.'}, 'UserProfile': {'LoginName': 'worker@example.com'}}))\n"
         "else:\n"
         "    raise SystemExit(f'unexpected tailscale args: {args!r}')\n",
         encoding="utf-8",

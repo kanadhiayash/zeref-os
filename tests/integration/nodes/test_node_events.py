@@ -33,9 +33,9 @@ def test_d3_event_types_are_registered(tmp_path) -> None:
 def test_node_store_emits_bounded_canonical_events(tmp_path) -> None:
     store = NodeStore(tmp_path, id_factory=lambda: "node_worker")
     node = store.register_candidate(
-        name="Node1",
+        name="WorkerA",
         role="worker",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
         capability_digest="sha256:cap",
     )

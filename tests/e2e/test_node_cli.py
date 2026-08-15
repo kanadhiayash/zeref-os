@@ -40,9 +40,9 @@ def test_node_register_list_trust_inspect(tmp_path: Path) -> None:
             "node",
             "register",
             "--name",
-            "Node1",
+            "WorkerA",
             "--host",
-            "node1.tailnet.ts.net",
+            "worker-a.tailnet.ts.net",
             "--ssh-user",
             "shiroe_worker",
             "--json",
@@ -62,7 +62,7 @@ def test_node_register_list_trust_inspect(tmp_path: Path) -> None:
 
     inspected = _run(tmp_path, ["node", "inspect", node["id"], "--json"])
     assert inspected.returncode == 0, inspected.stderr
-    assert json.loads(inspected.stdout)["transport_host"] == "node1.tailnet.ts.net"
+    assert json.loads(inspected.stdout)["transport_host"] == "worker-a.tailnet.ts.net"
 
 
 def test_node_probe_uses_tailscale_transport_without_mutation(tmp_path: Path) -> None:
@@ -71,8 +71,8 @@ def test_node_probe_uses_tailscale_transport_without_mutation(tmp_path: Path) ->
     fake.write_text(
         "#!/usr/bin/env python3\n"
         "import sys\n"
-        "assert sys.argv[1:] == ['ping', '--c', '1', 'node1.tailnet.ts.net'], sys.argv\n"
-        "print('pong from node1 (100.64.0.2) via direct in 3ms')\n",
+        "assert sys.argv[1:] == ['ping', '--c', '1', 'worker-a.tailnet.ts.net'], sys.argv\n"
+        "print('pong from worker-a (100.64.0.2) via direct in 3ms')\n",
         encoding="utf-8",
     )
     fake.chmod(0o755)
@@ -84,9 +84,9 @@ def test_node_probe_uses_tailscale_transport_without_mutation(tmp_path: Path) ->
                 "node",
                 "register",
                 "--name",
-                "Node1",
+                "WorkerA",
                 "--host",
-                "node1.tailnet.ts.net",
+                "worker-a.tailnet.ts.net",
                 "--ssh-user",
                 "shiroe_worker",
                 "--json",
@@ -135,7 +135,7 @@ def test_node_worker_run_validates_package_and_source_identity(tmp_path: Path) -
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
         "assert sys.argv[1:] == ['whois', '--json', '100.64.0.1'], sys.argv\n"
-        "print(json.dumps({'Node': {'ID': 'n-controller', 'Name': 'node0.'}, 'UserProfile': {'LoginName': 'controller@example.com'}}))\n",
+        "print(json.dumps({'Node': {'ID': 'n-controller', 'Name': 'controller.'}, 'UserProfile': {'LoginName': 'controller@example.com'}}))\n",
         encoding="utf-8",
     )
     fake.chmod(0o755)

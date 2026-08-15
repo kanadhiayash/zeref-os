@@ -65,7 +65,7 @@ def test_network_scope_device_only_cannot_be_widened_by_env(
         tmp_path,
         {
             "allow": ["network"],
-            "network_hosts": ["node1.tailnet.test"],
+            "network_hosts": ["worker-a.tailnet.test"],
         },
     )
     monkeypatch.setenv("SHIROE_ALLOW_NETWORK", "1")
@@ -74,7 +74,7 @@ def test_network_scope_device_only_cannot_be_widened_by_env(
         require_network(
             load_policy(tmp_path),
             purpose="remote worker probe",
-            target="node1.tailnet.test",
+            target="worker-a.tailnet.test",
             destination_scope="tailnet",
         )
 
@@ -104,15 +104,15 @@ def test_network_grant_for_worker_does_not_allow_other_host(tmp_path: Path) -> N
         tmp_path,
         {
             "allow": ["network"],
-            "network_hosts": ["node1.tailnet.test"],
+            "network_hosts": ["worker-a.tailnet.test"],
         },
     )
 
-    with pytest.raises(NetworkDeniedError, match="node2.tailnet.test"):
+    with pytest.raises(NetworkDeniedError, match="worker-b.tailnet.test"):
         require_network(
             load_policy(tmp_path),
             purpose="remote worker probe",
-            target="node2.tailnet.test",
+            target="worker-b.tailnet.test",
             destination_scope="tailnet",
         )
 

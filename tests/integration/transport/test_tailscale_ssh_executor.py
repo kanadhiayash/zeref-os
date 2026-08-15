@@ -40,7 +40,7 @@ def _write_policy(root: Path) -> None:
     policy = root / ".shiroe" / "policy"
     policy.mkdir(parents=True)
     (policy / "defaults.json").write_text(
-        json.dumps({"allow": ["network"], "network_hosts": ["node1.tailnet.ts.net"]}),
+        json.dumps({"allow": ["network"], "network_hosts": ["worker-a.tailnet.ts.net"]}),
         encoding="utf-8",
     )
 
@@ -48,10 +48,10 @@ def _write_policy(root: Path) -> None:
 def _node() -> NodeRecord:
     return NodeRecord(
         id="node_worker",
-        name="Node1",
+        name="WorkerA",
         role="worker",
         transport="tailscale",
-        transport_host="node1.tailnet.ts.net",
+        transport_host="worker-a.tailnet.ts.net",
         ssh_user="shiroe_worker",
         tailscale_stable_id="n-worker",
         trusted=True,
@@ -134,14 +134,14 @@ print(json.dumps({{
     assert isinstance(result, AdapterResult)
     assert result.ok is True
     assert result.output == {"done": True}
-    assert transport.hosts == ["node1.tailnet.ts.net"]
+    assert transport.hosts == ["worker-a.tailnet.ts.net"]
     assert lines[0]["tool"] == "scp"
-    assert lines[0]["argv"][1] == "shiroe_worker@node1.tailnet.ts.net:~/.shiroe/inbox/pkg_1.json"
+    assert lines[0]["argv"][1] == "shiroe_worker@worker-a.tailnet.ts.net:~/.shiroe/inbox/pkg_1.json"
     assert lines[1]["tool"] == "ssh"
     assert lines[1]["argv"] == [
         "-o",
         "BatchMode=yes",
-        "shiroe_worker@node1.tailnet.ts.net",
+        "shiroe_worker@worker-a.tailnet.ts.net",
         "shiroe",
         "node",
         "worker-run",
