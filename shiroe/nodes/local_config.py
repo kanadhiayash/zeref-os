@@ -82,6 +82,8 @@ def load_local_node_config(path: Path | str | None = None) -> LocalNodeConfig:
 def save_local_node_config(config: LocalNodeConfig, path: Path | str | None = None) -> Path:
     target = Path(path) if path is not None else default_local_config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
+    # Local config stores only validated SHA-256 controller identity digests.
+    # codeql[py/clear-text-storage-sensitive-data]
     target.write_text(json.dumps(config.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return target
 

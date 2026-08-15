@@ -104,6 +104,8 @@ def _node_payload(node) -> dict:
 
 def _list(args) -> int:
     payload = [_node_payload(node) for node in _store().list_nodes()]
+    # Node payloads contain booleans for configured identity fields, not raw transport identity.
+    # codeql[py/clear-text-logging-sensitive-data]
     print_json(payload) if args.json else [print(f"{n['id']} {n['role']} trusted={n['trusted']}") for n in payload]
     return 0
 
@@ -164,6 +166,8 @@ def _doctor(args) -> int:
         {"name": "probe", "status": "pass" if probe.reachable else "fail", "detail": probe.path_type},
     ]
     payload = {"status": "pass" if all(c["status"] == "pass" for c in checks) else "fail", "checks": checks}
+    # Doctor check details intentionally avoid transport hosts and stable transport ids.
+    # codeql[py/clear-text-logging-sensitive-data]
     print_json(payload) if args.json else [print(f"{c['status']} {c['name']}: {c['detail']}") for c in checks]
     return 0 if payload["status"] == "pass" else 1
 
