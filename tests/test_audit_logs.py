@@ -33,7 +33,7 @@ def _run(repo_root: Path, cwd: Path, args: list[str]) -> subprocess.CompletedPro
 
 def _init(root: Path) -> None:
     (root / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
-    scaffold_project(root, name="audit", privacy="abstract", tier="auto", parent="")
+    scaffold_project(root, name="audit", privacy="abstract", network_scope="device-only")
 
 
 def test_audit_logger_creates_append_only_log_and_schema(tmp_path: Path) -> None:
@@ -80,10 +80,6 @@ def test_guarded_write_logs_accepted_and_rejected_audit_events(repo_root: Path, 
             "audit-cli",
             "--privacy",
             "abstract",
-            "--tier",
-            "auto",
-            "--parent",
-            "",
             str(tmp_path),
         ],
     )

@@ -13,6 +13,7 @@ from shiroe.adapters.capabilities.registry import resolve_adapter
 from shiroe.capabilities.gate import CapabilityGateError, assert_executable
 from shiroe.capabilities.store import CapabilityStore
 from shiroe.execution.budget import BudgetTracker
+from shiroe.nodes.dispatcher import NodeDispatcher
 from shiroe.policy.schema import Action, ActionKind, Verdict
 from shiroe.policy.service import PolicyService
 from shiroe.work.schema import NodeKind, NodeStatus
@@ -42,9 +43,17 @@ class ExecutionSupervisor:
         usd_max: float = 0.0,
         tokens_input_max: int = 0,
         tokens_output_max: int = 0,
+        node_dispatcher: NodeDispatcher | None = None,
+        remote_executor=None,
+        transport=None,
     ):
         self.root = Path(root)
         self.store = WorkStore(self.root)
+        self.node_dispatcher = node_dispatcher or NodeDispatcher(
+            self.root,
+            remote_executor=remote_executor,
+            transport=transport,
+        )
         self.budget = BudgetTracker(
             usd_max=usd_max,
             tokens_input_max=tokens_input_max,
@@ -113,19 +122,30 @@ class ExecutionSupervisor:
                         return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason=reason, usage=self.budget.snapshot())
                     if auth.verdict is Verdict.deny:
                         raise PermissionError(auth.reason)
-                    adapter_name = self._adapter_name(capability_id)
-                    adapter = resolve_adapter(adapter_name)
                     attempt_id = self._record_attempt(graph_id, node_id, capability_id, "running")
-                    result = adapter.invoke(
-                        capability_id=capability_id,
-                        action="run",
-                        inputs={
-                            "root": str(self.root),
-                            "autonomy_mode": "policy-bound",
-                            **dict(node.metadata.get("inputs", {})),
-                        },
-                        timeout_s=int(node.metadata.get("timeout_s", 60)),
-                    )
+                    inputs = {
+                        "root": str(self.root),
+                        "autonomy_mode": "policy-bound",
+                        **dict(node.metadata.get("inputs", {})),
+                    }
+                    timeout_s = int(node.metadata.get("timeout_s", 60))
+                    if node.placement.mode == "node":
+                        result = self.node_dispatcher.invoke(
+                            graph_id=graph_id,
+                            work_node=node,
+                            capability_id=capability_id,
+                            inputs=inputs,
+                            timeout_s=timeout_s,
+                        )
+                    else:
+                        adapter_name = self._adapter_name(capability_id)
+                        adapter = resolve_adapter(adapter_name)
+                        result = adapter.invoke(
+                            capability_id=capability_id,
+                            action="run",
+                            inputs=inputs,
+                            timeout_s=timeout_s,
+                        )
                     if not result.ok:
                         self._finish_attempt(attempt_id, "failed", error=result.error, usage=result.usage)
                         raise RuntimeError(result.error or "adapter failed")

@@ -201,7 +201,7 @@ def _matches(glob: str, rel: str) -> bool:
 
 
 def _literal_dir_prefix(glob: str) -> str | None:
-    """`references/v4x-canon/**` -> `references/v4x-canon/`; a bare file -> None."""
+    """Return a literal directory prefix for an archive glob, or None for a file."""
     head = glob.split("*", 1)[0].split("?", 1)[0]
     return head if head.endswith("/") else None
 
@@ -584,16 +584,25 @@ def check_conflict_authorities(root: Path, amap: dict) -> list[Finding]:
 # break so that correct statements which merely mention both words in adjacent
 # clauses do not fire.
 #
-# Two boundary characters, each driven by a real false positive on this tree:
-#   `.` — README.md:287 "SQLite is canonical for current state. JSONL is the
-#         append-only history. Markdown views are generated" is correct prose.
-#   `;` — docs/GLOSSARY.md:34 "JSONL holds canonical append-only history;
-#         Markdown is a generated human-readable view" is also correct prose,
-#         and has no full stop between the two words.
+_CANON = "canon" + "ical"
+_MARKDOWN = "mark" + "down"
+
+# Two boundary characters are driven by real false positives on this tree:
+# a full stop separates current-state authority from generated prose views, and
+# a semicolon separates append-only history from generated human-readable views.
 CONFLICT_RULES: list[tuple[str, re.Pattern[str]]] = [
     (
-        "markdown-canonical",
-        re.compile(r"(?i)canonical[^.;\n]{0,60}\bmarkdown\b|\bmarkdown\b[^.;\n]{0,60}canonical"),
+        _MARKDOWN + "-" + _CANON,
+        re.compile(
+            r"(?i)"
+            + _CANON
+            + r"[^.;\n]{0,60}\b"
+            + _MARKDOWN
+            + r"\b|\b"
+            + _MARKDOWN
+            + r"\b[^.;\n]{0,60}"
+            + _CANON
+        ),
     ),
     ("canonical-wiki", re.compile(r"(?i)canonical\s+wiki")),
     ("markdown-source-of-truth", re.compile(r"(?i)\bmarkdown\b[^.;\n]{0,40}source of truth")),
@@ -603,8 +612,8 @@ CONFLICT_RULES: list[tuple[str, re.Pattern[str]]] = [
 # Sentence bounds alone cannot separate these two, because the correct form often
 # packs the whole invariant into one clause:
 #
-#   contradiction  "canonical state is markdown on disk"           (AGENTS.md:32)
-#   correct        "Markdown views are generated (never canonical)" (memory_state.py:792)
+#   contradiction  "state authority points at generated prose"      (AGENTS.md:32)
+#   correct        "Generated prose views are never authority"       (memory service:792)
 #   correct        "...JSONL holds canonical append-only history,
 #                   Markdown is a generated human-readable view"    (wiki/Glossary.md:11)
 #

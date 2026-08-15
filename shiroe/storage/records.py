@@ -2,12 +2,6 @@
 Event-sourced writes to ``memory_records``.
 
 ADR-0001 splits canonical current state (SQLite) from canonical history (JSONL).
-Before this module the split was one-directional: ``memory_records`` was written
-only by ``storage/importer.py``, and nothing emitted a ``memory.*`` event, so a
-replay rebuilt ``memory_events`` and left canonical state empty. The log was a
-write-only audit trail and SQLite was the only copy of the truth -- exactly the
-single point of failure the split exists to remove.
-
 Every mutation here does both halves in one call: append to the log, then apply
 to the table. Ordering matters. The event is appended *first* so that a crash
 between the two leaves a durable record that can be replayed forward; the

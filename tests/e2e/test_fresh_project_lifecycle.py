@@ -76,7 +76,7 @@ def _allow_subprocess_policy(root: Path) -> None:
     policy_dir = root / ".shiroe" / "policy"
     policy_dir.mkdir(parents=True, exist_ok=True)
     (policy_dir / "defaults.json").write_text(
-        json.dumps({"allow": ["subprocess"]}),
+        json.dumps({"allow": ["capability.invoke", "subprocess"]}),
         encoding="utf-8",
     )
 
@@ -127,7 +127,7 @@ def _seed_approval_graph(root: Path) -> str:
 
 
 def test_fresh_project_lifecycle(tmp_path: Path) -> None:
-    _assert_ok(_run(ROOT, ["init", str(tmp_path), "--name", "smoke", "--privacy", "abstract", "--tier", "auto"]))
+    _assert_ok(_run(ROOT, ["init", str(tmp_path), "--name", "smoke", "--privacy", "abstract"]))
     _seed_cli_capability(tmp_path)
     _allow_subprocess_policy(tmp_path)
 

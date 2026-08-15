@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 from pathlib import Path
 
 import pytest
@@ -47,6 +48,12 @@ class _CountingAdapter:
 
 
 def _register(root: Path, adapter: _CountingAdapter, capability_id: str) -> None:
+    policy_dir = root / ".shiroe" / "policy"
+    policy_dir.mkdir(parents=True, exist_ok=True)
+    (policy_dir / "defaults.json").write_text(
+        json.dumps({"allow": ["capability.invoke", "subprocess"]}),
+        encoding="utf-8",
+    )
     register_adapter(adapter.name, adapter)
     src = root / "capabilities" / capability_id.replace(".", "_") / "run.sh"
     src.parent.mkdir(parents=True)

@@ -15,6 +15,7 @@ from shiroe.work.schema import (
     GraphStatus,
     NodeKind,
     NodeStatus,
+    Placement,
     RetryPolicy,
     WorkEdge,
     WorkGraph,
@@ -90,8 +91,9 @@ class WorkStore:
                     INSERT INTO work_nodes(
                         id, graph_id, kind, objective, requires_json, risk,
                         approval_required, independent_review, evidence_required,
-                        expected_outputs_json, retry_json, metadata_json, status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        expected_outputs_json, retry_json, placement_json,
+                        metadata_json, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         node.id,
@@ -107,6 +109,10 @@ class WorkStore:
                         _json({
                             "max_attempts": node.retry.max_attempts,
                             "backoff_s": node.retry.backoff_s,
+                        }),
+                        _json({
+                            "mode": node.placement.mode,
+                            "node_id": node.placement.node_id,
                         }),
                         _json(node.metadata),
                         NodeStatus.pending.value,
@@ -132,7 +138,7 @@ class WorkStore:
             """
             SELECT id, graph_id, kind, objective, requires_json, risk,
                    approval_required, independent_review, evidence_required,
-                   expected_outputs_json, retry_json, metadata_json
+                   expected_outputs_json, retry_json, placement_json, metadata_json
             FROM work_nodes WHERE graph_id=? ORDER BY id
             """,
             (graph_id,),
@@ -168,7 +174,8 @@ class WorkStore:
             evidence_required=bool(row[8]),
             expected_outputs=tuple(_loads(row[9], [])),
             retry=RetryPolicy(**retry),
-            metadata=_loads(row[11], {}),
+            placement=Placement(**_loads(row[11], {"mode": "local", "node_id": None})),
+            metadata=_loads(row[12], {}),
         )
 
     def set_graph_status(self, graph_id: str, status: GraphStatus | str) -> None:
@@ -237,15 +244,16 @@ class WorkStore:
             """
             SELECT id, graph_id, kind, objective, requires_json, risk,
                    approval_required, independent_review, evidence_required,
-                   expected_outputs_json, retry_json, metadata_json, status, state_version
+                   expected_outputs_json, retry_json, placement_json, metadata_json,
+                   status, state_version
             FROM work_nodes WHERE id=?
             """,
             (node_id,),
         ).fetchone()
         if row is None:
             raise KeyError(node_id)
-        node = self._node_from_row(row[:12])
-        return StoredWorkNode(node=node, status=NodeStatus(row[12]), state_version=int(row[13]))
+        node = self._node_from_row(row[:13])
+        return StoredWorkNode(node=node, status=NodeStatus(row[13]), state_version=int(row[14]))
 
     def _node_statuses(self, graph_id: str) -> dict[str, str]:
         rows = self.conn.execute(

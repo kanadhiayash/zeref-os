@@ -9,10 +9,10 @@ The chain (highest wins; lower may only *narrow* a higher grant, never
 widen a higher deny):
 
     1. Runtime safety invariants (hardcoded, never negotiable)
-    2. Project deny rules  (.shiroe/policy/deny.json OR config/PERMISSIONS.md)
+    2. Project deny rules  (.shiroe/policy/deny.json)
     3. Global deny rules   (~/.shiroe/policies/deny.json)
     4. Explicit user grants (per-session, in-memory)
-    5. Project defaults    (config/PERMISSIONS.md)
+    5. Project defaults    (.shiroe/policy/defaults.json)
     6. Global defaults     (~/.shiroe/policies/defaults.json)
     7. Harness defaults    (adapter-supplied)
 """

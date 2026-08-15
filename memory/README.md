@@ -1,20 +1,16 @@
 # memory/
 
-Local memory layer. Populated per-user-project — never bundled in this repo.
-
-Bootstrap a fresh memory tree with:
+`memory/` contains local runtime state for a Shiroe project. In this repository
+it is a development fixture; user projects create their own tree with:
 
 ```bash
-python3 -m shiroe init
+python3 -m shiroe init /path/to/project --name "My Project"
 ```
 
-After init, this directory holds:
+Canonical current state is `memory/state/shiroe.sqlite`. Canonical history is
+the hash-chained event log under `memory/events/<yyyy>/<mm>/events.jsonl`.
+Generated Markdown views, if present, are rebuildable projections and are not
+the authority.
 
-- `hot.md` — last few sessions, current context (≤500 words, read first)
-- `index.md` — domain index across the flat memory files
-- `DECISIONS.md`, `RISKS.md`, `OPEN_QUESTIONS.md`, `CONFLICTS.md` — durable project memory registers
-- `MEMORY.md` — agent-written session notes
-- `patterns/PATTERNS.jsonl` — append-only event log
-- `raw/`, `snapshots/`, `sync/` — local-only working state
-
-All entries are governed by `PRIVACY.md` + `REDACT.md` at the repo root. Default privacy mode is `abstract` — `privacy-abstraction` rewrites sensitive content before any write.
+Write through `python3 -m shiroe memory ...` so privacy, evidence, policy, and
+event-log checks run.

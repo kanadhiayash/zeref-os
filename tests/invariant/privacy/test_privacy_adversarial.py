@@ -149,7 +149,7 @@ def _handoff_root(tmp_path: Path) -> tuple[Path, dict[str, dict]]:
     from shiroe.memory.service import MemoryService
 
     (tmp_path / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
-    scaffold_project(tmp_path, name="adversarial", privacy="abstract", tier="auto", parent="")
+    scaffold_project(tmp_path, name="adversarial", privacy="abstract", network_scope="device-only")
     service = MemoryService(tmp_path)
     atoms: dict[str, dict] = {}
     for privacy in ("public", "internal", "restricted", "unknown"):

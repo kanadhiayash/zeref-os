@@ -65,6 +65,12 @@ _KNOWN_EVENT_TYPES: set[str] = {
     "evidence.reviewed", "evaluator.ran",
     # policy
     "policy.applied", "policy.denied",
+    # nodes / transfer / remote execution
+    "node.registered", "node.trust_changed", "node.probed",
+    "node.lease_acquired", "node.lease_completed", "node.lease_failed",
+    "transfer.started", "transfer.completed", "transfer.rejected",
+    "remote.execution_started", "remote.execution_completed",
+    "remote.execution_failed",
 }
 
 

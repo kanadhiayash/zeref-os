@@ -4,6 +4,8 @@ from shiroe.storage.state import StateDB
 
 
 OBSOLETE = {
+    "contradictions",
+    "evidence_reviews",
     "missions",
     "team_runs",
     "team_assignments",

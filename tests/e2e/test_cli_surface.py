@@ -13,6 +13,7 @@ EXPECTED = {
     "doctor",
     "policy",
     "capability",
+    "node",
     "state",
     "version",
 }

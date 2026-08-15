@@ -1,121 +1,55 @@
-<!-- privacy-audit: allow-file "Install doc. Documents env-var-shaped tokens (OPENAI_API_KEY, GITHUB_TOKEN) as example config strings. No real credentials." -->
+<!-- privacy-audit: allow-file "Install doc with example commands. No real credentials." -->
 
 # Install Shiroe
 
-## Claude Code (CLI)
+## Python Runtime
 
 ```bash
-claude plugin marketplace add kanadhiayash/shiroe
-claude plugin install shiroe@shiroe
+git clone https://github.com/kanadhiayash/shiroe.git
+cd shiroe
+python3 -m pip install -e .
+python3 -m shiroe --help
 ```
 
-Restart Claude Code. Skills surface as `shiroe:<skill-name>` via the Skill tool. Commands as `/shiroe:<command>`.
-
-## Codex / Gemini CLI / Antigravity / Hermes / Amp / Zed / Perplexity Computer
-
-These harnesses read `AGENTS.md` natively.
-
-1. Clone the repo into your project:
-   ```bash
-   git clone https://github.com/kanadhiayash/shiroe.git .shiroe
-   ```
-2. Point your harness at `.shiroe/AGENTS.md` as the canonical agent spec.
-3. (Optional) Symlink the relevant harness stub to your project root:
-   - Gemini → `.shiroe/GEMINI.md`
-   - Claude → `.shiroe/CLAUDE.md`
-
-## Cursor
+## Project Setup
 
 ```bash
-git clone https://github.com/kanadhiayash/shiroe.git .shiroe
-mkdir -p .cursor/rules
-cp .shiroe/.cursor/rules/shiroe.mdc .cursor/rules/
+python3 -m shiroe init /path/to/project --name "My Project" --privacy abstract --network-scope device-only
+cd /path/to/project
+python3 -m shiroe status --json
+python3 -m shiroe doctor --json
 ```
 
-Cursor auto-loads `.cursor/rules/shiroe.mdc` which points to `.shiroe/AGENTS.md`.
+`init` creates current runtime config, privacy policy files, `.shiroe/policy/`,
+canonical SQLite state, and event-log directories. It does not install or
+enable connectors.
 
-## Windsurf
+## Harness Shims
 
-```bash
-git clone https://github.com/kanadhiayash/shiroe.git .shiroe
-cp .shiroe/.windsurfrules .
-```
+Use `AGENTS.md` as the canonical instruction file. Optional shims are included
+for hosts that expect host-specific files:
 
-Windsurf auto-loads `.windsurfrules` at project root.
+- `CLAUDE.md`
+- `CODEX.md`
+- `GEMINI.md`
+- `LLAMA.md`
+- `.cursor/rules/shiroe.mdc`
+- `.windsurfrules`
+- `.aider.conf.yml.example`
 
-## Aider
-
-```bash
-git clone https://github.com/kanadhiayash/shiroe.git .shiroe
-cp .shiroe/.aider.conf.yml.example .aider.conf.yml
-# Edit .aider.conf.yml as needed
-```
-
-Aider reads `AGENTS.md` natively and `.aider.conf.yml` for harness-specific behavior.
-
-## First-time setup (any harness)
-
-In any new project:
-```
-/shiroe:start
-```
-(or just `/start` if your harness namespaces slash commands automatically).
-
-This triggers the `project-setup` interview. ~5 min. Writes:
-- `config/PROJECT.md`
-- `PRIVACY.md` (root)
-- `REDACT.md` (root)
-- `SHARING_POLICY.md` (root)
-- `config/PERMISSIONS.md`
-- `config/PARENT_SYNC.md`
-- `config/BUDGET.md`
-
-Re-run `/shiroe:start` after to boot the session. Default privacy mode is **abstract**; default connectors are **all OFF**.
+Each shim points back to the same runtime boot sequence and does not change
+authority.
 
 ## Verify
 
 ```bash
-python3 .shiroe/scripts/shiroe-validate.py
-```
-
-Expect output like the following (exact rows are derived from the tree at
-run time):
-
-```
-Shiroe validator — /path/to/your/project
-Contract dirs:    absent
-Config:           5/5
-Root privacy:     3/3 (PRIVACY, REDACT, SHARING_POLICY)
-Harness stubs:    3/3
-Memory layout:    flat
-PATTERNS lint:    0 finding(s)
-✔ Validation passed
-```
-
-For the installed Python runtime (once `pip install -e .` has run):
-
-```bash
+python3 -m shiroe version
 python3 -m shiroe doctor --json
-python3 -m shiroe version --json
+python3 -m shiroe state verify --json
 ```
 
-## Checking install freshness
+## Remove
 
-If commands seem out of date after an update, confirm what's actually
-installed:
-
-```bash
-python3 -m shiroe version --json
-```
-
-If the reported version doesn't match the latest tag on the source repo,
-your harness is serving a cached copy — reinstall the plugin to refresh it.
-
-## Uninstall
-
-```bash
-claude plugin uninstall shiroe@shiroe
-claude plugin marketplace remove shiroe
-```
-
-Your `memory/` directory is local data — preserved unless you delete it.
+Remove the checkout or installed package with your normal Python environment
+tooling. Project state under a user project remains local until the user
+deletes it.

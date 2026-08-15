@@ -17,15 +17,15 @@ class MemoryWrite:
     title: str
     claim: str
     source_refs: tuple[str, ...]
+    evidence_grade: str
     summary: str = ""
     confidence: str = "unknown"
-    evidence_grade: str = "unknown"
     privacy_class: str = "internal"
     authority: float = 0.0
     scope: str = "project"
     valid_from: str | None = None
     valid_until: str | None = None
-    owner: str = "shiroe-runtime"
+    owner: str = "shiroe"
     tags: tuple[str, ...] = ()
 
 
@@ -96,7 +96,6 @@ class RecallResult:
     query: str
     hits: tuple[SearchHit, ...]
     evidence_refs: tuple[str, ...] = ()
-    open_contradictions: tuple[MemoryRecord, ...] = ()
 
     @property
     def abstained(self) -> bool:

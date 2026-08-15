@@ -32,8 +32,8 @@ Paste command outputs:
 
     python3 -m pytest -q
     python3 scripts/shiroe-validate.py
-    python3 -m shiroe audit
-    python3 -m shiroe audit-privacy --strict
+    python3 -m shiroe doctor --json
+    python3 -m shiroe state verify --json
     python3 scripts/check-version-consistency.py
     git diff --check
 

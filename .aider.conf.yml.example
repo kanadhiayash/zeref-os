@@ -1,35 +1,16 @@
-# Shiroe — Aider config example (opt-in)
-#
-# Copy to .aider.conf.yml and adjust per your environment.
-# Aider reads AGENTS.md natively (convention-based). This file only pins
-# Aider-specific behavior so it lines up with Shiroe's reading order.
-#
-# Canonical agent spec: AGENTS.md
-# Per-harness quirks: config/aider-overrides.md (create if needed)
+# Shiroe Aider config example.
+# Copy to .aider.conf.yml only if you use Aider for this repository.
 
-# Always read these files first on every aider session
 read:
   - AGENTS.md
-  - memory/hot.md
+  - SOUL.md
   - PRIVACY.md
   - REDACT.md
+  - SHARING_POLICY.md
 
-# Do not auto-commit; let the user / agent decide
 auto-commits: false
 
-# Conventions file (Aider standard)
-# Aider treats this as additional guidance on every prompt
-# Point it at AGENTS.md to stay single-source
-# (alternatively, create a small AIDER.md stub pointing to AGENTS.md)
-# conventions: AGENTS.md
-
-# Model selection — Shiroe is model-agnostic; pin to whatever you have
-# model: gpt-4o
-# weak-model: gpt-4o-mini
-
-# Avoid mode that touches files outside the wiki rules
-# (Shiroe's privacy-guardian enforces this on its side; this is a redundant guard)
-# read-only: false   # default; set true for /team red sessions
-
-# Do NOT enable any feature that transmits the codebase to an external service
-# without explicit user approval per action.
+# Shiroe is model-agnostic. Choose models in Aider according to your local
+# environment and task risk.
+# model:
+# weak-model:

@@ -157,7 +157,7 @@ not survive verification. Neither changes any classification.
 2. **"Two deleted scripts" carried the Notion URL.** One did.
    `scripts/shiroe-publish-releases.sh` carried it and was deleted in PR 05;
    `scripts/shiroe-cleanup-branches.sh` never contained it. The second
-   URL-carrying script is `scripts/zeref-publish-releases.sh`, deleted much
+   URL-carrying script is `scripts/shiroe-publish-releases.sh`, deleted much
    earlier at the namespace rename.
 
 ### Cross-reference to the surface inventory
@@ -224,7 +224,7 @@ exemption.
     {
       "id": "SHR-029-C1",
       "pattern_class": "private-notion-workspace",
-      "what": "The private Notion workspace URL (host copper-tv-288[.]notion[.]site, page id 358d695d836a81af9f6adf30770217c3) as it stood in the working tree. It was live in four tracked files at a30aeda: CHANGELOG.md, GITHUB_OS.md, references/v4x-canon/RESEARCH_RESOURCES.md, and scripts/shiroe-publish-releases.sh.",
+      "what": "The private Notion workspace URL (host copper-tv-288[.]notion[.]site, page id 358d695d836a81af9f6adf30770217c3) as it stood in the working tree. It was live in four tracked files at a30aeda: CHANGELOG.md, GITHUB_OS.md, retired research resource, and scripts/shiroe-publish-releases.sh.",
       "classification": "current-tree cleanup",
       "still_live": false,
       "owner": "kanadhiayash",
@@ -233,11 +233,11 @@ exemption.
         "paths": [
           "CHANGELOG.md",
           "GITHUB_OS.md",
-          "references/v4x-canon/RESEARCH_RESOURCES.md",
+          "retired research resource",
           "scripts/shiroe-publish-releases.sh"
         ],
         "objects": 0,
-        "first_commit": "c8205f2 (2026-05-12) — chore: Zeref Agent OS v2.0.0",
+        "first_commit": "c8205f2 (2026-05-12) — chore: Shiroe Agent OS v2.0.0",
         "last_commit": "a30aeda (2026-08-04) — last commit whose tree carried it; removed by 3da7ff2 (PR 05)",
         "verify": "git grep -n -i -e 'notion[.]site' HEAD -- ':!docs/security' ':!tests/test_no_private_operational_references.py'  # exits 1, no output"
       },
@@ -264,14 +264,14 @@ exemption.
           "docs/wiki/Installation.md",
           "docs/wiki/README.md",
           "docs/wiki/_Sidebar.md",
-          "references/v4x-canon/RESEARCH_RESOURCES.md",
+          "retired research resource",
           "scripts/shiroe-publish-releases.sh",
-          "scripts/zeref-publish-releases.sh",
-          "wiki/projects/zeref-v2-rebuild.md",
-          "wiki/sources/zeref-reference-links.md"
+          "scripts/shiroe-publish-releases.sh",
+          "wiki/projects/shiroe-v2-rebuild.md",
+          "wiki/sources/shiroe-reference-links.md"
         ],
         "objects": 56,
-        "first_commit": "c8205f2 (2026-05-12) — chore: Zeref Agent OS v2.0.0 — description rewrites, references layer, registry, manifests",
+        "first_commit": "c8205f2 (2026-05-12) — chore: Shiroe Agent OS v2.0.0 — description rewrites, references layer, registry, manifests",
         "last_commit": "a30aeda (2026-08-04) — fix(compat): isolate legacy identity behind a boundary",
         "verify": "bash scripts/scan-history-sensitive.sh | grep private-notion-workspace"
       },
@@ -333,10 +333,10 @@ exemption.
           "docs/06_Workflow_Examples.md",
           "memory/MEMORY.md",
           "references/shared-anti-hallucination.md",
-          "tests/sandbox/caveman-handoff/adversarial.md",
+          "tests/sandbox/canonical-handoff/adversarial.md",
           "tests/security-audit-v2.6-C.md",
           "wiki/index.md",
-          "wiki/projects/zeref-v2-rebuild.md"
+          "wiki/projects/shiroe-v2-rebuild.md"
         ],
         "objects": 11,
         "first_commit": "c8205f2 (2026-05-12) — earliest blob carrying a real home segment",

@@ -28,6 +28,33 @@ def _layer_dict(stack: Iterable[PolicyLayer]) -> dict[str, PolicyLayer]:
     return {layer.name: layer for layer in stack}
 
 
+def _path_in_scopes(target: str, scopes: tuple[str, ...]) -> bool:
+    if not scopes:
+        return True
+    normalized_target = target.strip().rstrip("/")
+    if not normalized_target:
+        return False
+    for scope in scopes:
+        normalized_scope = scope.strip().rstrip("/")
+        if not normalized_scope:
+            continue
+        if normalized_target == normalized_scope:
+            return True
+        if normalized_target.startswith(normalized_scope + "/"):
+            return True
+    return False
+
+
+def _target_allowed(action: Action, layer: PolicyLayer) -> bool:
+    if action.kind is ActionKind.network:
+        return not layer.network_hosts or action.target in layer.network_hosts
+    if action.kind is ActionKind.fs_write:
+        return _path_in_scopes(action.target, layer.fs_write_scopes)
+    if action.kind is ActionKind.fs_read:
+        return _path_in_scopes(action.target, layer.fs_read_scopes)
+    return True
+
+
 def resolve(action: Action, stack: Iterable[PolicyLayer]) -> Decision:
     layers = _layer_dict(stack)
 
@@ -42,12 +69,12 @@ def resolve(action: Action, stack: Iterable[PolicyLayer]) -> Decision:
         layer = layers.get(name)
         if layer is None:
             continue
-        if action.kind in layer.denies:
+        if action.kind in layer.denies and _target_allowed(action, layer):
             return Decision(Verdict.deny, f"denied by {name}", name)
 
     # 4. Explicit user grants — override defaults but not denies above.
     egrant = layers.get("explicit-user-grant")
-    if egrant is not None and action.kind in egrant.allows:
+    if egrant is not None and action.kind in egrant.allows and _target_allowed(action, egrant):
         return Decision(Verdict.allow, "explicit user grant",
                         "explicit-user-grant")
 
@@ -56,9 +83,9 @@ def resolve(action: Action, stack: Iterable[PolicyLayer]) -> Decision:
         layer = layers.get(name)
         if layer is None:
             continue
-        if action.kind in layer.allows:
+        if action.kind in layer.allows and _target_allowed(action, layer):
             return Decision(Verdict.allow, f"allowed by {name}", name)
-        if action.kind in layer.denies:
+        if action.kind in layer.denies and _target_allowed(action, layer):
             return Decision(Verdict.deny, f"denied by {name}", name)
 
     # Default is deny.

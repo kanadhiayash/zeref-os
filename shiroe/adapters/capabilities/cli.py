@@ -1,15 +1,13 @@
 """CLI adapter — invoke an approved CLI capability via subprocess.
 
-Enforcement is Level A: we own the subprocess. Every invocation routes
-through ``shiroe.policy.evaluate`` with an ``ActionKind.subprocess`` and,
-if the capability declares an outbound host, ``ActionKind.network``. No
-bypass path exists.
+Enforcement is Level A for launch control: Shiroe owns the subprocess
+invocation and policy gate. This is not an OS/network sandbox; a child process
+can still perform syscalls the operating system permits.
 """
 
 from __future__ import annotations
 
 import json
-import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -45,11 +43,17 @@ class CLIAdapter:
         if root is None:
             return AdapterResult(ok=False, error="missing 'root' input")
 
-        # 1. Resolve source location
+        if "command" in inputs:
+            return AdapterResult(
+                ok=False,
+                error="inputs.command is not allowed; execution uses the approved manifest command",
+            )
+
+        # 1. Resolve approved manifest and source location.
         store = CapabilityStore(root)
         try:
             row = store.conn.execute(
-                "SELECT source_location FROM capability_versions "
+                "SELECT manifest, source_location FROM capability_versions "
                 "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
                 (capability_id,),
             ).fetchone()
@@ -59,23 +63,28 @@ class CLIAdapter:
             return AdapterResult(
                 ok=False, error=f"no version record for {capability_id!r}",
             )
-        source = Path(row[0])
+        manifest = json.loads(row[0])
+        source = Path(row[1])
 
-        # 2. Resolve command
-        raw_cmd = inputs.get("command")
-        if raw_cmd is None:
-            # default: exec the source as a script
-            if source.is_file():
-                argv: list[str] = [str(source)] + list(inputs.get("args", ()))
-            else:
+        # 2. Resolve command from the approved manifest only.
+        raw_cmd = manifest.get("entrypoint", {}).get("command")
+        if not isinstance(raw_cmd, list) or not raw_cmd or not all(isinstance(x, str) for x in raw_cmd):
+            return AdapterResult(
+                ok=False,
+                error="capability manifest entrypoint.command must be a non-empty list of strings",
+            )
+        argv: list[str] = list(raw_cmd)
+        raw_args = inputs.get("args", ())
+        if raw_args:
+            contract = manifest.get("entrypoint", {}).get("args")
+            if not isinstance(contract, list):
                 return AdapterResult(
                     ok=False,
-                    error=f"no 'command' provided and source {source} is not a script",
+                    error="inputs.args are not allowed unless manifest entrypoint.args declares an argument contract",
                 )
-        elif isinstance(raw_cmd, list):
-            argv = [str(x) for x in raw_cmd]
-        else:
-            argv = shlex.split(str(raw_cmd))
+            if not isinstance(raw_args, (list, tuple)) or not all(isinstance(x, str) for x in raw_args):
+                return AdapterResult(ok=False, error="inputs.args must be a list of strings")
+            argv.extend(raw_args)
 
         # 3. Policy check — always. Every subprocess flows through here.
         stack = load_policy_stack(root)
@@ -114,6 +123,7 @@ class CLIAdapter:
                 text=True,
                 timeout=timeout_s or 60,
                 cwd=str(source.parent if source.is_file() else source),
+                shell=False,
             )
         except subprocess.TimeoutExpired as e:
             return AdapterResult(

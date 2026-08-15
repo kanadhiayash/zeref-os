@@ -31,8 +31,6 @@ def _init(repo_root: Path, root: Path) -> None:
             "init",
             "--name", "memory-cli-test",
             "--privacy", "abstract",
-            "--tier", "auto",
-            "--parent", "",
             str(root),
         ],
     )

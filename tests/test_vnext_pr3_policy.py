@@ -163,7 +163,7 @@ def test_policy_bound_runs_non_approval_actions() -> None:
 # Loader
 # ---------------------------------------------------------------------------
 
-def test_loader_reads_existing_permissions_md(tmp_path: Path) -> None:
+def test_loader_ignores_permissions_md_for_project_policy(tmp_path: Path) -> None:
     cfg = tmp_path / "config"
     cfg.mkdir()
     (cfg / "PERMISSIONS.md").write_text(
@@ -174,6 +174,18 @@ def test_loader_reads_existing_permissions_md(tmp_path: Path) -> None:
     d = resolve(Action(ActionKind.network), stack)
     assert d.verdict is Verdict.deny
     d = resolve(Action(ActionKind.fs_write), stack)
+    assert d.verdict is Verdict.deny
+
+
+def test_loader_reads_project_defaults_json(tmp_path: Path) -> None:
+    (tmp_path / ".shiroe" / "policy").mkdir(parents=True)
+    (tmp_path / ".shiroe" / "policy" / "defaults.json").write_text(
+        json.dumps({"allow": ["fs.write"], "fs_write_scopes": ["memory"]}),
+        encoding="utf-8",
+    )
+
+    stack = load_policy_stack(tmp_path, global_root=tmp_path / "no-such")
+    d = resolve(Action(ActionKind.fs_write, target="memory/hot.md"), stack)
     assert d.verdict is Verdict.allow
 
 

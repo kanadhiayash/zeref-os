@@ -27,4 +27,4 @@ assignees: []
 
 ## Architectural fit
 
-<!-- does this respect Shiroe's core principles? (local-first, harness-agnostic, privacy-first, single-writer wiki, human-arbitration, boundary-first reads, progressive activation) -->
+<!-- does this respect local canonical state, default deny, privacy, executable capabilities, and bounded handoff? -->

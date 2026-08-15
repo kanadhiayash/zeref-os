@@ -93,6 +93,7 @@ def test_contradictions_never_silently_warns_on_opposing_active_claim(tmp_path):
             title="prior",
             claim="Postgres does not support MVCC",
             source_refs=("docs/pg.md",),
+            evidence_grade="A",
         ))
 
     report = _report(tmp_path, claim="Postgres does support MVCC")

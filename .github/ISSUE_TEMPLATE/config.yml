@@ -5,4 +5,4 @@ contact_links:
     about: AGENTS.md is the canonical Shiroe spec — start there.
   - name: Installation
     url: https://github.com/kanadhiayash/shiroe/blob/main/INSTALL.md
-    about: Install Shiroe in Claude Code, Codex, or Gemini CLI.
+    about: Install Shiroe and configure optional harness shims.

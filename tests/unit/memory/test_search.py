@@ -44,6 +44,7 @@ def test_filters_to_active_status_by_default(tmp_path):
             title="Limiter",
             claim="Use local in-process rate limiter",
             source_refs=("user-input",),
+            evidence_grade="C",
         )
     )
     svc.supersede(old.id)

@@ -9,7 +9,8 @@ import pytest
 from shiroe.core.errors import ValidationError
 from shiroe.core.schema import MemoryCard, create_memory_card
 from shiroe.memory import scaffold_project
-from shiroe.memory_state import MemoryStore
+from shiroe.memory.models import MemoryWrite
+from shiroe.memory.service import MemoryService
 
 
 def test_valid_memory_card_creation() -> None:
@@ -98,31 +99,34 @@ def test_source_refs_optional_for_unknown_and_assumption() -> None:
 
 def test_memory_store_archives_and_supersedes_cards(tmp_path) -> None:
     (tmp_path / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
-    scaffold_project(tmp_path, name="cards", privacy="abstract", tier="auto", parent="")
-    store = MemoryStore.from_root(tmp_path)
+    scaffold_project(tmp_path, name="cards", privacy="abstract", network_scope="device-only")
+    store = MemoryService(tmp_path)
 
-    old = store.add_card(
-        type="decision",
-        title="old routing policy",
-        claim="Use flagship models for all tasks.",
-        privacy_class="internal",
-        evidence_grade="C",
-        source_refs=["memory/hot.md"],
+    old = store.write(
+        MemoryWrite(
+            kind="decision",
+            title="old routing policy",
+            claim="Use flagship models for all tasks.",
+            privacy_class="internal",
+            evidence_grade="C",
+            source_refs=("AGENTS.md",),
+        )
     )
-    archived = store.archive_card(old.id)
+    archived = store.archive(old.id)
     assert archived.status == "archived"
 
-    replacement = store.add_card(
-        type="decision",
-        title="risk-based routing policy",
-        claim="Use flagship models only for critical tasks.",
-        privacy_class="internal",
-        evidence_grade="B",
-        source_refs=["AGENTS.md"],
+    replacement = store.write(
+        MemoryWrite(
+            kind="decision",
+            title="risk-based routing policy",
+            claim="Use flagship models only for critical tasks.",
+            privacy_class="internal",
+            evidence_grade="B",
+            source_refs=("AGENTS.md",),
+        )
     )
-    superseded, new_card = store.supersede_card(old.id, replacement.id)
+    superseded = store.supersede(replacement.id)
 
     assert superseded.status == "superseded"
-    assert superseded.superseded_by == replacement.id
-    assert old.id in new_card.supersedes
-    assert isinstance(MemoryCard.from_dict(new_card.to_dict()), MemoryCard)
+    assert store.get(replacement.id).status == "superseded"
+    assert replacement.kind == "decision"

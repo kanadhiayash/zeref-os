@@ -1,9 +1,8 @@
 """Runtime enforcement for the documentary policy layer.
 
-At v1.0.0 these policies (PRIVACY.md, REDACT.md, SHARING_POLICY.md,
-config/PERMISSIONS.md) were parsed as documentation only. This module
-turns them into typed runtime inputs consulted by every network-egress
-and LLM-egress code path (see SHR-AUDIT-001, 002, 006, 007, 008).
+PRIVACY.md and SHARING_POLICY.md are typed runtime inputs. Network and
+filesystem authorization uses the canonical JSON policy stack under
+.shiroe/policy/.
 """
 from shiroe.security.policy import (
     SecurityPolicy,

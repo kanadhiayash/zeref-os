@@ -24,6 +24,6 @@ hash-chained append-only event log is the canonical state model. Generated
 Markdown and indexes are rebuildable views, not sources of truth.
 
 Safety, privacy, policy precedence, human approval, capability drift and
-revocation, bounded execution, atomic writes, and replay integrity remain active
-through every migration phase.
-
+revocation, bounded execution, atomic writes, and replay integrity are active.
+Private operational transport tooling is excluded from the public product
+inventory and does not create public readiness claims.

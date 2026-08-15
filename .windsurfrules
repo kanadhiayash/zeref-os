@@ -1,23 +1,12 @@
-# Shiroe (Windsurf stub)
+# Shiroe Windsurf Shim
 
-Canonical agent spec: AGENTS.md
+Canonical operating spec: AGENTS.md.
 
-On every session start, load AGENTS.md FIRST.
+1. Read AGENTS.md and SOUL.md.
+2. Discover the project root.
+3. Run `python3 -m shiroe status --json`.
+4. Inspect relevant Work Graph or memory state through the CLI.
+5. Respect policy, approval, capability, privacy, and sharing gates.
+6. Use `python3 -m shiroe handoff` for bounded continuation.
 
-## Reading order (per AGENTS.md §0)
-
-1. memory/hot.md — last 3 sessions, ≤500 words
-2. memory/index.md — if hot insufficient
-3. PRIVACY.md — before any wiki write or tool use
-4. REDACT.md — before any external output
-5. Individual wiki pages only when domain specifics needed
-
-## Per-harness quirks
-
-config/windsurf-overrides.md (create if Windsurf behavior diverges).
-
-## Do NOT
-
-- Duplicate AGENTS.md content here.
-- Bypass PRIVACY.md mode checks.
-- Write outside the wiki rules in AGENTS.md.
+Do not duplicate canonical instructions here.

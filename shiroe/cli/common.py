@@ -9,13 +9,41 @@ from typing import Any
 
 
 def project_root() -> Path:
-    from shiroe.memory import MemoryRoot
+    from shiroe.memory import discover_project_root
 
-    return MemoryRoot.discover().root
+    return discover_project_root()
 
 
 def print_json(payload: Any) -> None:
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    print(json.dumps(_redact_json_payload(payload), indent=2, sort_keys=True))
+
+
+_SENSITIVE_JSON_KEYS = {
+    "auth_key",
+    "api_key",
+    "apikey",
+    "password",
+    "private_key",
+    "secret",
+    "ssh_user",
+    "tailscale_stable_id",
+    "token",
+    "transport_host",
+}
+
+
+def _redact_json_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[Any, Any] = {}
+        for key, child in value.items():
+            key_text = str(key).lower()
+            if key_text in _SENSITIVE_JSON_KEYS:
+                continue
+            redacted[key] = _redact_json_payload(child)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_json_payload(item) for item in value]
+    return value
 
 
 def record_payload(record) -> dict[str, Any]:
@@ -37,7 +65,7 @@ def memory_write_from_payload(payload: dict[str, Any]):
         summary=str(payload.get("summary") or ""),
         source_refs=tuple(str(ref) for ref in (payload.get("source_refs") or payload.get("sources") or ["user-input"])),
         confidence=str(payload.get("confidence") or "unknown"),
-        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or "C"),
+        evidence_grade=str(payload.get("evidence_grade") or payload.get("evidence") or ""),
         privacy_class=str(payload.get("privacy_class") or payload.get("privacy") or "internal"),
         tags=tuple(str(tag) for tag in (payload.get("tags") or ())),
     )

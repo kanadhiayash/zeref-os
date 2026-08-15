@@ -13,6 +13,7 @@ import uuid
 from pathlib import Path
 from typing import Iterable
 
+from shiroe.core.schema import EVIDENCE_GRADES
 from shiroe.memory.models import MemoryEvent, MemoryRecord, MemoryRelation, MemoryWrite, SearchResult
 from shiroe.storage.events import EventEnvelope, EventLog
 from shiroe.storage.records import archive_record, supersede_record, write_record
@@ -142,11 +143,11 @@ class MemoryService:
             params.append(limit)
         return tuple(self._record_from_row(row) for row in self._conn.execute(sql, params))
 
-    def supersede(self, record_id: str, *, actor: str = "shiroe-runtime") -> MemoryRecord:
+    def supersede(self, record_id: str, *, actor: str = "shiroe") -> MemoryRecord:
         supersede_record(self._conn, self._log, id_=record_id, actor=actor)
         return self.get(record_id)
 
-    def archive(self, record_id: str, *, actor: str = "shiroe-runtime") -> MemoryRecord:
+    def archive(self, record_id: str, *, actor: str = "shiroe") -> MemoryRecord:
         archive_record(self._conn, self._log, id_=record_id, actor=actor)
         return self.get(record_id)
 
@@ -260,4 +261,6 @@ def _validate_write(proposal: MemoryWrite) -> str | None:
         return "title required"
     if not proposal.claim.strip():
         return "claim required"
+    if proposal.evidence_grade not in EVIDENCE_GRADES:
+        return "evidence_grade must be one of: A, B, C, D, F"
     return None

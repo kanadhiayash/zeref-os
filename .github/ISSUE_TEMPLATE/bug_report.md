@@ -12,10 +12,9 @@ assignees: []
 
 ## Environment
 
-- Shiroe version: <!-- e.g. v4.2.0 -->
-- Claude Code version: <!-- output of `claude --version` -->
+- Shiroe version: <!-- output of `python3 -m shiroe version` -->
 - OS: <!-- macOS 14.x / Linux distro / Windows -->
-- Installed via: <!-- `claude plugin install` / local marketplace / direct clone -->
+- Installed via: <!-- editable Python install / direct clone / harness shim -->
 
 ## What happened
 
@@ -34,9 +33,9 @@ assignees: []
 ## Logs / output
 
 ```
-<!-- paste relevant output, error messages, or session-events.jsonl tail -->
+<!-- paste relevant output or error messages with secrets removed -->
 ```
 
 ## Additional context
 
-<!-- any other info: privacy mode, parent-sync config, MCP servers in use, etc. -->
+<!-- any other info: privacy mode, network scope, enabled connectors, worker nodes, etc. -->

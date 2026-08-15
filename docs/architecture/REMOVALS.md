@@ -24,7 +24,7 @@ transitional until Phase 04 replaces it with Work Graph supervision.
 
 ## Phase 04
 
-- Legacy Missions, Team Pack compilation, loop runtime, old runtime supervisor,
+- Legacy Missions, retired collaboration compilation, loop runtime, old runtime supervisor,
   execution policies, and task graph runtime. Operational execution now flows
   through executable capability adapters and the bounded Work Graph supervisor.
 
@@ -63,7 +63,7 @@ transitional until Phase 04 replaces it with Work Graph supervision.
   `tests/invariant/test_no_dead_surface_references.py` and
   `tests/test_canonical_state_contract.py`, which enforce the vNext
   active-surface invariants without depending on removed abstractions.
-- The vNext one-cycle alias rows in `docs/DEPRECATIONS.md` covering the
+- The vNext one-cycle alias rows in `removed deprecation register` covering the
   removed component names (capability-resolver / capability-prober /
   capability-manager and the execution-policy / reasoning-class tier
   renames). The aliased replacements themselves were retired in earlier
