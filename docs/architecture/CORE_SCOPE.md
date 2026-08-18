@@ -10,6 +10,7 @@ Graphs. A declared component must be executable or it does not ship.
 - Runtime engines: State, Work Graph, Policy and Approval, Capability, Execution, Memory, Verification, Handoff and Context
 - Public CLI: init, status, plan, run, approve, memory, verify, handoff, doctor
 - Operator CLI: policy, capability, state, version
+- Parked/internal CLI (registered, hidden, not benchmark-facing): node
 - Non-operational component statuses: forbidden
 
 ## Current Transition Rule

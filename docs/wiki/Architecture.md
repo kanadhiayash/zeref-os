@@ -74,6 +74,9 @@ Public commands: `init`, `status`, `plan`, `run`, `approve`, `memory`,
 
 Operator commands: `policy`, `capability`, `state`, and `version`.
 
+`node` is registered but hidden (`help=SUPPRESS`) — a parked, internal
+node-registry surface, not part of the operational local benchmark CLI.
+
 ## Removed surfaces
 
 Removed surfaces are tracked in [[../architecture/REMOVALS.md]]. Git history is

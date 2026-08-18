@@ -14,12 +14,18 @@ gates may pass without opening the benchmark gate.
 
 | Axis | Status |
 |---|---|
-| Local runtime cleanup | Local verification required before final claim |
+| Local runtime cleanup | PASS — `scripts/release_ready.py` 14/14, 3× clean pytest, fresh-install lifecycle green |
 | Zero-legacy active runtime | Checked by `scripts/check-active-identity.py` and invariant tests |
 | Current schema baseline | Checked by migration and fresh-init tests |
 | Public product surface | Private operational practice excluded |
 | Benchmark execution | Not started |
 | Private operational qualification | Parked, not proven |
+
+## Candidate (this freeze)
+
+- Candidate commit (hardened tree): `PENDING` — pinned in the Wave 14 freeze commit.
+- Frozen benchmark methodology: `docs/evidence/benchmark-harness-spec.md` (evidence-only; no product surface).
+- Waves 1–14 closed locally; benchmark entry remains gated below.
 
 ## Required Before Opening
 

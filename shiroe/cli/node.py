@@ -17,6 +17,22 @@ from shiroe.transport import TailscaleTransport
 
 COMMAND_NAME = "node"
 
+REMOTE_EXECUTION_NOT_ENABLED = "REMOTE_EXECUTION_NOT_ENABLED"
+
+
+def default_worker_executor(_package) -> dict:
+    """Parked: Node0/Node1 live execution is out of scope.
+
+    No real capability executor is configured, so worker-run fails closed with a
+    structured parked marker instead of fabricating a successful empty output.
+    Wire a real executor here to enable remote execution.
+    """
+    return {
+        "ok": False,
+        "error": "remote execution is parked; no capability executor is configured",
+        "metadata": {"status": "parked", "code": REMOTE_EXECUTION_NOT_ENABLED},
+    }
+
 
 def register(subparsers):
     parser = subparsers.add_parser(COMMAND_NAME, help=argparse.SUPPRESS)
@@ -184,7 +200,7 @@ def _worker_run(args) -> int:
         ssh_env=os.environ,
         transport=TailscaleTransport(),
         capability_digest=capability_digest,
-        executor=lambda _package: {"output": {}},
+        executor=default_worker_executor,
     )
     payload = receipt.to_dict()
     if args.json:

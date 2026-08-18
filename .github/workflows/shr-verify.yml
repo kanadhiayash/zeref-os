@@ -125,24 +125,17 @@ jobs:
           coverage xml -o coverage.xml
           coverage html -d htmlcov
 
-      - name: Governance-critical coverage gate (>=89%; target 90%)
-        # Measured combined (line+branch) coverage on the hardened tree
-        # sits at ~89.3%. The gate ratchets from measured baseline; the
-        # handoff target is 90% and gets tightened as targeted tests
-        # close the remaining gap. Do NOT drop this below 89.
+      - name: Governance-critical coverage gate (line >=90%, branch >=80%)
+        # coverage.py's --fail-under only checks one combined (line+branch)
+        # number, which can hide a low branch% behind a high line%. Measured
+        # on the hardened tree: line ~92.4%, branch ~80.5% for these
+        # packages. scripts/check-critical-coverage.py asserts both
+        # independently from a scoped `coverage json` report. Do NOT lower
+        # these thresholds below 90/80.
         run: |
-          coverage report \
-            --include='shiroe/policy/*,shiroe/execution/*,shiroe/work/*,shiroe/storage/*,shiroe/capabilities/*,shiroe/memory/*' \
-            --fail-under=89
-
-      - name: Governance-critical branch coverage report
-        # Coverage.py cannot fail-under-branch directly, so print the
-        # combined line+branch percentage for the same include set and
-        # rely on the review script's threshold check.
-        run: |
-          coverage report \
-            --include='shiroe/policy/*,shiroe/execution/*,shiroe/work/*,shiroe/storage/*,shiroe/capabilities/*,shiroe/memory/*' \
-            --precision=1
+          coverage json -o critical-coverage.json \
+            --include='shiroe/policy/*,shiroe/execution/*,shiroe/work/*,shiroe/storage/*,shiroe/capabilities/*,shiroe/memory/*'
+          python3 scripts/check-critical-coverage.py critical-coverage.json --min-line 90 --min-branch 80
 
       - name: Upload coverage report
         # actions/upload-artifact — pinned to v4.4.3 release SHA

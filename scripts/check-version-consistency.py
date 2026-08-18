@@ -87,6 +87,26 @@ def _check_wiki_install(root: Path, expected: str) -> tuple[str, str | None]:
     return ("docs/wiki/Installation.md", m.group(1) if m else None)
 
 
+def _classifier_for_version(version: str) -> set[str]:
+    """The trove classifiers a Development Status line must be one of, given
+    shiroe/VERSION's pre-release label. -alpha -> Alpha, -beta -> Beta, no
+    pre-release -> Beta or Production/Stable (either is acceptable)."""
+    label = version.split("-", 1)[1].split(".", 1)[0].lower() if "-" in version else ""
+    if label.startswith("alpha"):
+        return {"3 - Alpha"}
+    if label.startswith("beta"):
+        return {"4 - Beta"}
+    return {"4 - Beta", "5 - Production/Stable"}
+
+
+def _check_dev_status_classifier(root: Path, expected: str) -> tuple[str, str, str | None]:
+    text = _read(root, "pyproject.toml")
+    m = re.search(r'(?m)^\s*"Development Status :: ([^"]+)"', text)
+    observed = m.group(1) if m else None
+    allowed = _classifier_for_version(expected)
+    return ("pyproject.toml:[project].classifiers Development Status", " or ".join(sorted(allowed)), observed)
+
+
 def _check_skill_manifest(root: Path, expected: str) -> tuple[str, str | None]:
     # H7.3: root SKILL.md is a plugin surface with its own YAML frontmatter
     # version. Must stay locked to shiroe/VERSION so a plugin marketplace
@@ -234,7 +254,13 @@ def main() -> int:
         if observed != id_expected:
             identity_drift.append((name, id_expected, observed))
 
-    if drift or identity_drift:
+    classifier_name, classifier_expected_desc, classifier_observed = _check_dev_status_classifier(root, expected)
+    classifier_allowed = _classifier_for_version(expected)
+    classifier_ok = classifier_observed in classifier_allowed
+    mark = "OK" if classifier_ok else "DRIFT"
+    print(f"\n  [{mark}] {classifier_name}: {classifier_observed!r} (expected {classifier_expected_desc})")
+
+    if drift or identity_drift or not classifier_ok:
         if drift:
             print("\nVersion drift detected:", file=sys.stderr)
             for name, observed in drift:
@@ -243,6 +269,12 @@ def main() -> int:
             print("\nIdentity drift detected:", file=sys.stderr)
             for name, id_expected, observed in identity_drift:
                 print(f"  - {name}: expected {id_expected!r}, found {observed!r}", file=sys.stderr)
+        if not classifier_ok:
+            print(
+                f"\nClassifier drift detected: {classifier_name} is {classifier_observed!r}, "
+                f"expected {classifier_expected_desc} for VERSION {expected!r}",
+                file=sys.stderr,
+            )
         return 1
 
     # R8 (SHR-AUDIT-020): also compare against the latest git tag.

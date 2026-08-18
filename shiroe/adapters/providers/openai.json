@@ -1,7 +1,7 @@
 {
   "schema": "shiroe.provider/v2",
   "provider": "openai",
-  "_comment": "OpenAI mapping used by litellm-backed optional paths (e.g. `shiroe grade --llm`). SHR-60: deep/codex-gpt-5-5 could not be confirmed against developers.openai.com/api/docs/models — no such model id appears anywhere on the page. Left lifecycle=unknown and unverified rather than guessing a replacement; do not fill in verified_at for it without an actual confirmed source.",
+  "_comment": "OpenAI mapping used by litellm-backed optional LLM-enhanced routing paths. SHR-60: deep/codex-gpt-5-5 could not be confirmed against developers.openai.com/api/docs/models — no such model id appears anywhere on the page. Left lifecycle=unknown and unverified rather than guessing a replacement; do not fill in verified_at for it without an actual confirmed source. Wave-9 (2026-08-18): re-checked codex-gpt-5-5 against the models list, per-model pages, and the deprecations page — still absent, left unverified. gpt-4o-mini re-confirmed active (absent from deprecations page, has a live per-model page). gpt-4o left as the prior human verdict (deprecated): base gpt-4o is absent from the current featured models list and the evidence was not clean enough to overturn the recent human confirmation.",
   "classes": {
     "deep": {
       "model_id": "codex-gpt-5-5",
@@ -36,8 +36,8 @@
     "fast": {
       "model_id": "gpt-4o-mini",
       "lifecycle": "active",
-      "source_url": "https://developers.openai.com/api/docs/deprecations",
-      "verified_at": "2026-07-27",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+      "verified_at": "2026-08-18",
       "verified_by": "human",
       "context_window": null,
       "max_output_tokens": null,

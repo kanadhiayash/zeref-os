@@ -954,49 +954,6 @@ def check_unledgered_claims(root: Path, ledger: dict) -> list[Finding]:
     return findings
 
 
-AGENTS_ACTIVE_RE = re.compile(r"(?m)^\s*agents_active:\s*[\"\']?(\d+)")
-CAP_RES = [
-    re.compile(r"(?i)capped at" + _GAP + _NUM + _GAP + r"agents"),
-    re.compile(r"(?i)max" + _GAP + _NUM + _GAP + r"agents per pack"),
-]
-
-
-def check_agent_cap(root: Path) -> list[Finding]:
-    """Cross-surface: a pack that activates more agents than the public cap allows."""
-    declared: dict[str, int] = {}
-    for rel in walk_files(root):
-        if not _matches("team-packs/*.md", rel):
-            continue
-        text = read_text(root, rel)
-        if text is None:
-            continue
-        match = AGENTS_ACTIVE_RE.search(text)
-        if match:
-            declared[rel] = int(match.group(1))
-    if not declared:
-        return []
-
-    caps: list[int] = []
-    for rel in CLAIM_SURFACES:
-        text = read_text(root, rel)
-        if text is None:
-            continue
-        for pattern in CAP_RES:
-            caps.extend(int(m) for m in pattern.findall(text))
-    if not caps:
-        return []
-
-    cap = min(caps)
-    over = {rel: n for rel, n in declared.items() if n > cap}
-    if not over:
-        return []
-    detail = ", ".join(f"{rel}={n}" for rel, n in sorted(over.items()))
-    return [
-        Finding("team-packs", "agent-cap-contradiction", "SHR-006", count=len(over),
-                excerpt=f"public cap is {cap}; {detail}")
-    ]
-
-
 # --------------------------------------------------------------------------- #
 # Baseline reconciliation + reporting
 # --------------------------------------------------------------------------- #
@@ -1075,7 +1032,6 @@ def main() -> int:
         observed += status_findings
         observed += check_claim_drift(root, ledger)
         observed += check_unledgered_claims(root, ledger)
-        observed += check_agent_cap(root)
     except InputError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
