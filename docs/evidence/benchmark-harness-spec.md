@@ -12,7 +12,7 @@ private operational qualification); see `docs/evidence/benchmark-entry-audit.md`
 
 | Field | Value |
 |---|---|
-| candidate_sha | `PENDING` — pinned to the runtime-hardening commit in the Wave 14 freeze commit |
+| candidate_sha | `6b6e334bd88916255a6452388a7b314d931967a5` (hardened tree; this doc's SHA-fill lands in the freeze commit) |
 | benchmark_version | `1.0.0` |
 | frozen_at | 2026-08-18 |
 | entry_status | CLOSED (do not run before local gate green **and** owner re-opens qualification) |
