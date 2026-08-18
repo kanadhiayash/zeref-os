@@ -23,7 +23,7 @@ gates may pass without opening the benchmark gate.
 
 ## Candidate (this freeze)
 
-- Candidate commit (hardened tree): `PENDING` — pinned in the Wave 14 freeze commit.
+- Candidate commit (hardened tree): `6b6e334bd88916255a6452388a7b314d931967a5`.
 - Frozen benchmark methodology: `docs/evidence/benchmark-harness-spec.md` (evidence-only; no product surface).
 - Waves 1–14 closed locally; benchmark entry remains gated below.
 
