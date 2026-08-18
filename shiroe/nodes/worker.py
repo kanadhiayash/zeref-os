@@ -110,7 +110,7 @@ def worker_run_package(
     return ExecutionReceipt(
         schema=EXECUTION_RECEIPT_SCHEMA,
         package_digest=package.digest,
-        ok=bool(result.get("ok", True)),
+        ok=bool(result.get("ok", False)),
         output=dict(result.get("output", {})),
         error=result.get("error"),
         exit_code=int(result.get("exit_code", 0)),

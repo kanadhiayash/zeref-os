@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from shiroe.lock import MemoryLock, atomic_append
+from shiroe.lock import MemoryLock, atomic_append, atomic_write
 from shiroe.privacy import scrub
 
 
@@ -147,6 +147,7 @@ class EventLog:
         self._head_path = self.dir / _HEAD_FILE
         self._redact = redact_md or (self.root / "REDACT.md")
         self._mirror = mirror_conn
+        self._recovered = False  # one-time head reconciliation, on first head read
 
     # ------------------------------------------------------------------
     def _current_path(self, ts: str) -> Path:
@@ -156,15 +157,80 @@ class EventLog:
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
 
-    def _load_head(self) -> str:
+    def _validated_tail(self) -> tuple[str, str, set[str]]:
+        """Walk the log validating the chain; return (tail_hash, tail_event_id, all_hashes).
+
+        Raises HashChainError on any break or byte-level tamper, so a caller
+        that trusts the return value has already failed closed on corruption.
+        The tail is the genesis sentinel with an empty event id for an empty log.
+        """
+        prev = "sha256:0"
+        last_event_id = ""
+        hashes: set[str] = set()
+        for env in self.iter_events():
+            validate_envelope(env, strict_type=False)  # historical types accepted
+            if env["previous_hash"] != prev:
+                raise HashChainError(
+                    f"chain break at {env['event_id']}: previous_hash="
+                    f"{env['previous_hash']!r}, expected {prev!r}"
+                )
+            recomputed = _hash_envelope(env)
+            if recomputed != env["hash"]:
+                raise HashChainError(
+                    f"hash mismatch at {env['event_id']}: stored {env['hash']!r}, "
+                    f"recomputed {recomputed!r}"
+                )
+            prev = env["hash"]
+            last_event_id = env["event_id"]
+            hashes.add(env["hash"])
+        return prev, last_event_id, hashes
+
+    def _recover_head(self) -> None:
+        """Reconcile head.json with the log tail once per open (fail closed on tamper).
+
+        The log is the single canonical authority: the head is derived from it,
+        never trusted blindly. A crash between the event fsync and the head
+        replacement leaves head.json pointing at the prior event (or missing);
+        rebuilding it to the validated tail is what stops the next append from
+        forking off that stale head. Runs once, not per append, so the append
+        path stays O(1) over a long log.
+        """
+        tail, tail_event_id, hashes = self._validated_tail()  # raises on tamper (C)
         if not self._head_path.exists():
-            return "sha256:0" * 1  # sentinel genesis
+            if tail != "sha256:0":
+                self._write_head(tail, tail_event_id)  # reconstruct missing head (D)
+            return
+        stored = json.loads(self._head_path.read_text(encoding="utf-8"))["head"]
+        if stored == tail:
+            return
+        # Head disagrees with the log. Advance to the tail only when the stored
+        # head is a real event the log still contains (the head merely lagged the
+        # log after a crash); if it names an event absent from the log, the log
+        # may have lost a sealed event, so fail closed rather than silently fork.
+        if stored == "sha256:0" or stored in hashes:
+            self._write_head(tail, tail_event_id)  # advance lagged head (A)
+            return
+        raise HashChainError(
+            f"head marker {stored!r} references an event absent from the log; "
+            "refusing to reconstruct (possible truncation)"
+        )
+
+    def _load_head(self) -> str:
+        if not self._recovered:
+            self._recover_head()
+            self._recovered = True
+        if not self._head_path.exists():
+            return "sha256:0"  # sentinel genesis (empty log, never written)
         return json.loads(self._head_path.read_text(encoding="utf-8"))["head"]
 
     def _write_head(self, head: str, event_id: str) -> None:
-        self._head_path.write_text(
+        # atomic_write: temp -> fsync -> os.replace -> parent-dir fsync, so a
+        # crash mid-write leaves the prior head.json intact rather than a
+        # truncated marker. A plain write_text left the head less durable than
+        # the fsync'd event it was meant to seal.
+        atomic_write(
+            self._head_path,
             json.dumps({"head": head, "last_event_id": event_id}, indent=2),
-            encoding="utf-8",
         )
 
     def _scrub_payload(self, payload: dict) -> dict:

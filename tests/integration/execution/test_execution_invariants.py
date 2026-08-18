@@ -85,18 +85,19 @@ def _register(root: Path, adapter: _CountingAdapter, capability_id: str) -> None
         store.close()
 
 
-def _seed_one(root, capability_id, *, timeout_s: int | None = None):
+def _seed_one(root, capability_id, *, timeout_s: int | None = None, max_attempts: int | None = None):
     metadata: dict = {}
     if timeout_s is not None:
         metadata["timeout_s"] = timeout_s
+    node: dict = {"id": "n1", "kind": "task", "objective": "one",
+                  "requires": [capability_id], "metadata": metadata}
+    if max_attempts is not None:
+        node["retry"] = {"max_attempts": max_attempts, "backoff_s": 0.0}
     graph = compile_work_graph(
         {
             "id": "g-exec-inv",
             "objective": "single node",
-            "nodes": [
-                {"id": "n1", "kind": "task", "objective": "one",
-                 "requires": [capability_id], "metadata": metadata},
-            ],
+            "nodes": [node],
             "edges": [],
         }
     )
@@ -181,16 +182,27 @@ def test_completed_graph_does_not_re_execute_on_second_run(tmp_path, unique_capa
     assert len(rows) == 1
 
 
-def test_failed_graph_reattempt_currently_does_not_auto_retry(tmp_path, unique_capability):
-    """Pin observed behaviour: supervisor does not auto-retry a failed node.
+def test_bounded_retry_exhausts_exactly_max_attempts_then_terminal(tmp_path, unique_capability):
+    """Wave 2b: the supervisor now DOES bounded-retry within a run.
 
-    If this ever changes (add retry with backoff), the assertion needs to
-    reflect the new invariant explicitly.
+    With max_attempts=3 and an always-failing adapter, one run spends
+    EXACTLY three attempts (no fourth) and terminates in failure. A second
+    run/resume does not reset or re-spend the consumed count -- the failed
+    node is terminal and no further attempts are recorded.
     """
     cap, adapter = unique_capability(tmp_path, ok=False)
-    graph_id = _seed_one(tmp_path, cap)
-    ExecutionSupervisor(tmp_path).run(graph_id)
+    graph_id = _seed_one(tmp_path, cap, max_attempts=3)
+    sup = ExecutionSupervisor(tmp_path)
+    sup._sleep = lambda _s: None
+    summary = sup.run(graph_id)
+    assert summary.status == "failed"
+    assert adapter.calls == 3  # exactly three, no fourth attempt
+    rows = _attempts(tmp_path, "n1")
+    assert [r[1] for r in rows] == [1, 2, 3]  # distinct persisted attempt numbers
+    assert all(state == "failed" for _, _, state in rows)
+
+    # Restart/resume: consumed count is not reset, node stays terminal.
     summary2 = ExecutionSupervisor(tmp_path).run(graph_id)
     assert summary2.status == "failed"
-    rows = _attempts(tmp_path, "n1")
-    assert len(rows) == 1
+    assert adapter.calls == 3
+    assert len(_attempts(tmp_path, "n1")) == 3

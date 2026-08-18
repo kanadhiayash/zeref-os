@@ -412,42 +412,49 @@ def _decode_base32_container(blob: str) -> Optional[str]:
     return _validate_decoded_container(raw)
 
 
-def _probe_for_credentials(decoded: str, remaining_decodes: int) -> bool:
-    """Return True when decoded text contains a credential on any surface.
+# Credential probe patterns — provider-shaped tokens plus the generic
+# labelled-credential pattern. The always-on set the encoded-surface probe
+# uses for the credentials class.
+_CREDENTIAL_PROBE_PATTERNS: tuple[re.Pattern, ...] = (
+    *_PROVIDER_PATTERNS.values(),
+    _BUILTIN_PATTERNS["credentials"],
+)
 
-    Checks the raw decoded text and its normalized fold against provider
-    patterns and the generic credentials pattern, then recurses into any
-    encoded runs nested inside the decoded text. `remaining_decodes` bounds
-    how many further decode levels may be spent on nested encodings.
+
+def _probe_encoded(decoded: str, remaining_decodes: int,
+                   patterns: "tuple[re.Pattern, ...] | list[re.Pattern]") -> bool:
+    """Return True when decoded text matches any of `patterns` on any surface.
+
+    Checks the raw decoded text and its normalized fold against `patterns`,
+    then recurses into any encoded runs nested inside the decoded text.
+    `remaining_decodes` bounds how many further decode levels may be spent on
+    nested encodings. `patterns` selects the sensitivity class(es) probed —
+    credentials, email, pii, or internal_paths — so a single mechanism serves
+    every class rather than being hardwired to credentials.
     """
     surfaces = [decoded]
     normalized = _homoglyph_normalize(_unicode_normalize(decoded))
     if normalized != decoded:
         surfaces.append(normalized)
     for surface in surfaces:
-        for pattern in _PROVIDER_PATTERNS.values():
+        for pattern in patterns:
             if pattern.search(surface):
                 return True
-        if _BUILTIN_PATTERNS["credentials"].search(surface):
-            return True
     if remaining_decodes > 0:
-        for match in _ENCODED_RUN_RE.finditer(decoded):
-            inner = _decode_base64_container(match.group(0))
-            if inner is not None and _probe_for_credentials(inner, remaining_decodes - 1):
-                return True
-        for match in _HEX_RUN_RE.finditer(decoded):
-            inner = _decode_hex_container(match.group(0))
-            if inner is not None and _probe_for_credentials(inner, remaining_decodes - 1):
-                return True
-        for match in _BASE32_RUN_RE.finditer(decoded):
-            inner = _decode_base32_container(match.group(0))
-            if inner is not None and _probe_for_credentials(inner, remaining_decodes - 1):
-                return True
+        for run_re, decoder in ((_ENCODED_RUN_RE, _decode_base64_container),
+                                (_HEX_RUN_RE, _decode_hex_container),
+                                (_BASE32_RUN_RE, _decode_base32_container)):
+            for match in run_re.finditer(decoded):
+                inner = decoder(match.group(0))
+                if inner is not None and _probe_encoded(inner, remaining_decodes - 1, patterns):
+                    return True
     return False
 
 
-def _scan_encoded_surfaces(text: str, max_depth: int = _ENCODED_MAX_DEPTH) -> list[tuple[int, int]]:
-    """Find encoded blobs whose decoded content contains credentials.
+def _scan_encoded_surfaces(text: str,
+                           patterns: "tuple[re.Pattern, ...] | list[re.Pattern]",
+                           max_depth: int = _ENCODED_MAX_DEPTH) -> list[tuple[int, int]]:
+    """Find encoded blobs whose decoded content matches `patterns`.
 
     Returns (start, end) spans in `text` covering the encoded blobs to redact.
     Purely additive: nothing in `text` is modified here.
@@ -460,7 +467,7 @@ def _scan_encoded_surfaces(text: str, max_depth: int = _ENCODED_MAX_DEPTH) -> li
             decoded = decoder(match.group(0))
             # One decode level is spent reaching `decoded`; the probe may
             # spend the rest on nested encodings (3 levels total).
-            if decoded is not None and _probe_for_credentials(decoded, max_depth - 1):
+            if decoded is not None and _probe_encoded(decoded, max_depth - 1, patterns):
                 spans.append((match.start(), match.end()))
     return _merge_spans(spans)
 
@@ -481,25 +488,38 @@ _WS_SCAN_PROVIDERS: tuple[str, ...] = (
 )
 
 
-def _scan_whitespace_collapsed(text: str) -> list[tuple[int, int]]:
-    """Find provider tokens that survive only because whitespace splits them.
+# Sensitivity classes that get the credential-grade evasion surfaces
+# (whitespace-collapsed scan + encoded-blob probe) in addition to the raw and
+# normalized surfaces every class already receives. Program requirement is
+# privacy=100%: a whitespace-split or base64-encoded email/SSN/path must be
+# caught at the same strictness as a credential, not passed through.
+_EVASION_SCAN_CLASSES: tuple[str, ...] = ("email", "pii", "internal_paths")
 
-    Collapses all whitespace while keeping an index map back to `text`, runs
-    the anchored provider patterns over the collapsed view, and returns spans
-    in the ORIGINAL text (including the interior whitespace) for any match
-    whose original span actually contains whitespace — matches without any
-    are already handled by the raw/normalized surfaces.
+
+def _collapsed_pattern_spans(
+    text: str,
+    patterns: "tuple[re.Pattern, ...] | list[re.Pattern]",
+    collapse,
+) -> list[tuple[int, int]]:
+    """Run `patterns` over a whitespace-collapsed view of `text`.
+
+    `collapse(text, i)` decides whether the whitespace char at index `i` is
+    dropped before matching. Matches map back to spans in the ORIGINAL text
+    (including interior whitespace) and are returned only when that original
+    span actually contains whitespace — contiguous matches are already handled
+    by the raw/normalized surfaces.
     """
     collapsed_chars: list[str] = []
     index_map: list[int] = []
     for position, ch in enumerate(text):
-        if not ch.isspace():
-            collapsed_chars.append(ch)
-            index_map.append(position)
+        if ch.isspace() and collapse(text, position):
+            continue
+        collapsed_chars.append(ch)
+        index_map.append(position)
     collapsed = "".join(collapsed_chars)
     spans: list[tuple[int, int]] = []
-    for name in _WS_SCAN_PROVIDERS:
-        for match in _PROVIDER_PATTERNS[name].finditer(collapsed):
+    for pattern in patterns:
+        for match in pattern.finditer(collapsed):
             start, end = match.span()
             if end <= start:
                 continue
@@ -508,6 +528,45 @@ def _scan_whitespace_collapsed(text: str) -> list[tuple[int, int]]:
             if any(text[j].isspace() for j in range(orig_start, orig_end)):
                 spans.append((orig_start, orig_end))
     return _merge_spans(spans)
+
+
+def _scan_whitespace_collapsed(text: str) -> list[tuple[int, int]]:
+    """Provider tokens that survive only because whitespace splits them.
+
+    Collapses ALL whitespace: provider patterns are anchored on fixed prefixes
+    (`sk-proj-`, `AKIA`+16, ...), so a full collapse cannot let a match bleed
+    into neighbouring prose.
+    """
+    patterns = [_PROVIDER_PATTERNS[name] for name in _WS_SCAN_PROVIDERS]
+    return _collapsed_pattern_spans(text, patterns, lambda _text, _i: True)
+
+
+def _borders_punctuation(text: str, index: int) -> bool:
+    """True when the nearest non-space neighbour on either side is non-alphanumeric.
+
+    Collapses only the whitespace an attacker splices around a token's
+    structural characters (`@`, `.`, `-`) to break email/SSN/path matching,
+    while leaving the spaces that separate ordinary words intact. So
+    "john.doe @ example . com" rejoins into an email, but "contact me at ...
+    please" is left alone — an unanchored email/path/SSN pattern under a full
+    collapse would otherwise swallow the surrounding words.
+    """
+    left = index - 1
+    while left >= 0 and text[left].isspace():
+        left -= 1
+    right = index + 1
+    while right < len(text) and text[right].isspace():
+        right += 1
+    left_punct = left >= 0 and not text[left].isalnum()
+    right_punct = right < len(text) and not text[right].isalnum()
+    return left_punct or right_punct
+
+
+def _scan_whitespace_split_classes(
+    text: str, patterns: "tuple[re.Pattern, ...] | list[re.Pattern]",
+) -> list[tuple[int, int]]:
+    """Email/pii/path tokens split by whitespace around their structural chars."""
+    return _collapsed_pattern_spans(text, patterns, _borders_punctuation)
 
 
 def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -620,7 +679,7 @@ def scrub(
         working = _redact_spans(working, ws_spans, "[REDACTED:credentials]")
 
     # Surface 4 — encoded blobs (additive probe; original blob is redacted).
-    encoded_spans = _scan_encoded_surfaces(working)
+    encoded_spans = _scan_encoded_surfaces(working, _CREDENTIAL_PROBE_PATTERNS)
     if encoded_spans:
         _record_credential_hits(
             report, "credentials_encoded", len(encoded_spans), "[REDACTED:credentials]"
@@ -651,6 +710,26 @@ def scrub(
                 "replacement": cls.replacement,
             })
             working = pattern.sub(cls.replacement, working)
+
+        # Evasion surfaces for high-sensitivity classes — same strictness as
+        # credentials. Runs AFTER the contiguous scan above (on the already-
+        # redacted `working`) so ordinary matches are handled there and only
+        # genuinely whitespace-split or base64-encoded evasions are caught here.
+        if cls.name in _EVASION_SCAN_CLASSES:
+            evasion_spans = _merge_spans(
+                _scan_whitespace_split_classes(working, [pattern])
+                + _scan_encoded_surfaces(working, [pattern])
+            )
+            if evasion_spans:
+                report.redacted += len(evasion_spans)
+                if cls.name not in report.classes_hit:
+                    report.classes_hit.append(cls.name)
+                report.audit_trail.append({
+                    "class": cls.name,
+                    "count": len(evasion_spans),
+                    "replacement": cls.replacement,
+                })
+                working = _redact_spans(working, evasion_spans, cls.replacement)
 
     return working, report
 

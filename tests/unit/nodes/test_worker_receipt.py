@@ -61,7 +61,7 @@ def test_worker_run_creates_receipt_bound_to_package_digest() -> None:
         ssh_env={"SSH_CONNECTION": "100.64.0.1 55555 100.64.0.2 22"},
         transport=FakeTransport(),
         capability_digest="sha256:cap",
-        executor=lambda work_package: {"output": {"seen": work_package.inputs["value"]}},
+        executor=lambda work_package: {"ok": True, "output": {"seen": work_package.inputs["value"]}},
         now=NOW,
     )
 

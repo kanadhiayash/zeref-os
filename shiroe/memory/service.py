@@ -46,7 +46,7 @@ class MemoryService:
         self.close()
 
     def write(self, proposal: MemoryWrite) -> MemoryRecord:
-        rejection_reason = _validate_write(proposal)
+        rejection_reason = _validate_write(proposal) or _verify_write(self.root, proposal)
         if rejection_reason:
             self._log.append(
                 EventEnvelope(
@@ -58,7 +58,7 @@ class MemoryService:
                         "title": proposal.title,
                         "reason": rejection_reason,
                     },
-                    privacy_class=_event_privacy_class(proposal.privacy_class),
+                    privacy_class=_rejection_event_privacy_class(proposal.privacy_class),
                 )
             )
             raise ValueError(rejection_reason)
@@ -250,6 +250,39 @@ def _event_privacy_class(value: str) -> str:
         "local-only": "restricted",
         "unknown": "internal",
     }.get(value, value)
+
+
+def _rejection_event_privacy_class(value: str) -> str:
+    """Safe event-log label for a rejection notice.
+
+    A write blocked for a `secret`/`do_not_store` class must still be logged,
+    but that class is not a valid event-log label. Fall back to the most
+    protective allowed class so recording the refusal never itself fails.
+    """
+    mapped = _event_privacy_class(value)
+    return mapped if mapped in {"public", "internal", "confidential", "restricted"} else "restricted"
+
+
+def _verify_write(root: Path, proposal: MemoryWrite) -> str | None:
+    """Run the canonical VerificationEngine before persistence.
+
+    This is the single write boundary: direct Python callers get the same
+    privacy/credential/claim/contradiction gate the CLI wrapper applied.
+    The engine reads existing memory via the read path (`MemoryService.list`),
+    so it never recurses back into `write`.
+    """
+    from shiroe.verification import VerificationEngine
+
+    report = VerificationEngine(root).verify_memory_write(proposal)
+    if report.status.value != "block":
+        return None
+    messages = [
+        finding.message
+        for check in report.checks
+        for finding in check.findings
+        if finding.severity.value == "block"
+    ]
+    return "; ".join(messages) or "verification blocked memory write"
 
 
 def _validate_write(proposal: MemoryWrite) -> str | None:

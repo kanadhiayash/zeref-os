@@ -18,17 +18,28 @@ def test_ci_declares_coverage_fail_under_threshold() -> None:
     text = CI_WORKFLOW.read_text(encoding="utf-8")
     thresholds = [int(m.group(1)) for m in re.finditer(r"--fail-under=(\d+)", text)]
     assert thresholds, "shr-verify.yml must invoke coverage with --fail-under"
-    # H4.1 tiered coverage contract:
-    #   - global line >= 70 (measured baseline ~72-75%; target 80%);
-    #   - critical line >= 90 (governance packages).
+    # Tiered coverage contract:
+    #   - global line >= 70 via coverage.py --fail-under (measured baseline ~72-75%);
+    #   - critical governance packages: line >= 90 AND branch >= 80, enforced
+    #     independently by scripts/check-critical-coverage.py because coverage.py's
+    #     single --fail-under cannot gate line and branch separately.
     assert min(thresholds) >= 70, (
         f"CI global coverage fail-under is {min(thresholds)}%, contract "
         "requires >= 70%"
     )
-    assert max(thresholds) >= 89, (
-        f"CI critical-package coverage fail-under is {max(thresholds)}%, "
-        "contract requires >= 89% for governance-critical packages "
-        "(measured baseline; handoff target 90%, tighten as new tests land)"
+    assert "check-critical-coverage.py" in text, (
+        "shr-verify.yml must enforce the critical-package coverage split gate "
+        "via scripts/check-critical-coverage.py"
+    )
+    line_gate = re.search(r"--min-line\s+(\d+)", text)
+    branch_gate = re.search(r"--min-branch\s+(\d+)", text)
+    assert line_gate and int(line_gate.group(1)) >= 90, (
+        "critical-package line coverage gate must be >= 90 "
+        f"(found {line_gate.group(1) if line_gate else 'none'})"
+    )
+    assert branch_gate and int(branch_gate.group(1)) >= 80, (
+        "critical-package branch coverage gate must be >= 80 "
+        f"(found {branch_gate.group(1) if branch_gate else 'none'})"
     )
 
 

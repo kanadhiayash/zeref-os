@@ -12,7 +12,7 @@ license = { text = "MIT" }
 requires-python = ">=3.11"
 keywords = ["ai", "memory", "context", "llm", "agent", "shiroe"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -27,8 +27,8 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-llm       = ["litellm>=1.0"]    # shiroe grade (LLM-enhanced)
-duckdb    = ["duckdb>=0.10"]    # shiroe db snapshot --parquet
+llm       = ["litellm>=1.0"]    # LLM-enhanced routing
+duckdb    = ["duckdb>=0.10"]    # Parquet snapshot export
 yaml      = ["pyyaml>=6.0"]     # richer REDACT.md YAML parsing
 tokenizer = ["tiktoken>=0.5"]   # cost_router token estimate (model-family tokenizer)
 all       = ["litellm>=1.0", "duckdb>=0.10", "pyyaml>=6.0", "tiktoken>=0.5"]
