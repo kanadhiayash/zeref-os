@@ -1,5 +1,9 @@
 <!-- privacy-audit: allow-file "Public project overview and install commands. No user memory." -->
 
+<p align="center">
+  <img src="assets/shiroe-banner.png" alt="Shiroe — local-first AI work control plane" width="720">
+</p>
+
 # Shiroe
 
 Shiroe is a local-first governance and continuity plane for persistent AI Work
@@ -9,6 +13,10 @@ operator's machine.
 
 Shiroe is not a harness, hosted backend, bundled connector collection, or model
 provider.
+
+<p align="center">
+  <img src="assets/shiroe-character-snapshot.png" alt="Shiroe" width="240">
+</p>
 
 Current release: `v3.0.0-alpha.1`.
 
