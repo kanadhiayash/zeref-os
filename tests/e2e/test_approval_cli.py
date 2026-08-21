@@ -6,8 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from shiroe.capabilities.inspection import inspect_source
-from shiroe.capabilities.store import CapabilityStore
 from shiroe.policy.approval_service import ApprovalService
 
 
@@ -25,7 +23,15 @@ def _run(cwd: Path, args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+def _ok(result: subprocess.CompletedProcess) -> str:
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    return result.stdout
+
+
 def _seed_reasoner(root: Path) -> str:
+    """Onboard the reasoner capability through the real CLI (project-relative
+    source path -- REDACT.md would scrub an absolute external path such as
+    sys.executable) and approve it so the gate lets `advise` invoke it."""
     script = root / "advisor.py"
     script.write_text(
         "#!/usr/bin/env python3\n"
@@ -34,26 +40,14 @@ def _seed_reasoner(root: Path) -> str:
         encoding="utf-8",
     )
     script.chmod(0o755)
-    capability_id = "test.reasoner"
-    CapabilityStore(root).upsert_capability(
-        capability_id=capability_id,
-        name="Test Reasoner",
-        type_="script",
-        lifecycle="active",
-        digest=inspect_source(script).digest,
-        manifest={
-            "schema": "shiroe.capability/v1",
-            "id": capability_id,
-            "name": "Test Reasoner",
-            "type": "script",
-            "version": "1.0.0",
-            "source": {"kind": "file", "location": str(script)},
-            "entrypoint": {"adapter": "cli", "command": [sys.executable, str(script)]},
-            "requires": {},
-        },
-        source_kind="file",
-        source_location=str(script),
-    )
+    onboarded = json.loads(_ok(_run(root, ["capability", "onboard", str(script), "--json"])))
+    capability_id = onboarded["capability_id"]
+    _ok(_run(root, [
+        "approve", "decide", onboarded["approval_id"],
+        "--decision", "approved",
+        "--reason", "test setup: allow reasoner capability to execute",
+        "--json",
+    ]))
     return capability_id
 
 

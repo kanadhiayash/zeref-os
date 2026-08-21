@@ -150,7 +150,7 @@ def test_replay_survives_pre_existing_non_record_payloads(tmp_path: Path) -> Non
     rebuilt = StateDB(tmp_path)
     rebuilt.migrate()
     conn2 = rebuilt.connect()
-    replayed = EventLog(tmp_path, mirror_conn=conn2).replay_into(conn2)
+    replayed = EventLog(tmp_path, mirror_conn=conn2).replay_into(conn2)["replayed"]
 
     assert replayed == 2, "both events should be replayed, even the skipped one"
     assert _records(conn2) == expected

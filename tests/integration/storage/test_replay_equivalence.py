@@ -92,7 +92,7 @@ def test_replay_reproduces_canonical_state_over_ten_thousand_events(tmp_path):
         redact_md=tmp_path / "REDACT.md",
         mirror_conn=conn,
     )
-    replayed = log.replay_into(conn)
+    replayed = log.replay_into(conn)["replayed"]
     assert replayed == TOTAL_EVENTS
 
     after_digest, after_rec_count, after_evt_count = _canonical_state_digest(conn)

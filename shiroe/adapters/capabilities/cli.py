@@ -64,7 +64,11 @@ class CLIAdapter:
                 ok=False, error=f"no version record for {capability_id!r}",
             )
         manifest = json.loads(row[0])
-        source = Path(row[1])
+        # ponytail: source_location + entrypoint.command are project-relative
+        # (REDACT scrubs absolute paths from event log). Resolve here.
+        root_path = Path(root)
+        raw_src = Path(row[1])
+        source = raw_src if raw_src.is_absolute() else (root_path / raw_src).resolve()
 
         # 2. Resolve command from the approved manifest only.
         raw_cmd = manifest.get("entrypoint", {}).get("command")
@@ -73,7 +77,13 @@ class CLIAdapter:
                 ok=False,
                 error="capability manifest entrypoint.command must be a non-empty list of strings",
             )
-        argv: list[str] = list(raw_cmd)
+        argv: list[str] = []
+        for i, token in enumerate(raw_cmd):
+            token_path = Path(token)
+            if i == 0 and not token_path.is_absolute() and (root_path / token_path).exists():
+                argv.append(str((root_path / token_path).resolve()))
+            else:
+                argv.append(token)
         raw_args = inputs.get("args", ())
         if raw_args:
             contract = manifest.get("entrypoint", {}).get("args")

@@ -31,9 +31,9 @@ def run(args: argparse.Namespace) -> int:
     elif args.state_command == "rebuild":
         db.migrate()
         conn = db.connect()
-        replayed = EventLog(root, mirror_conn=conn).replay_into(conn)
+        result = EventLog(root, mirror_conn=conn).replay_into(conn)
         rendered = views_mod.render_all(root, conn)
-        payload = {"replayed": replayed, "rendered": [str(path) for path in rendered]}
+        payload = {**result, "rendered": [str(path) for path in rendered]}
     else:
         db.migrate()
         try:

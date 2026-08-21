@@ -47,7 +47,11 @@ def assert_executable(root: Path | str, capability_id: str) -> None:
 def _resolve_source(store: CapabilityStore, capability_id: str,
                     expected_digest: str) -> dict:
     """Look up the on-disk location for the capability, recompute its digest,
-    and (if different) refresh the store — which will re-quarantine."""
+    and (if different) refresh the store — which will re-quarantine.
+
+    ponytail: source_location is project-relative (REDACT.md scrubs absolute
+    paths from event log). Resolve against store.root when relative.
+    """
     row = store.conn.execute(
         "SELECT source_location FROM capability_versions "
         "WHERE capability_id=? ORDER BY created_at DESC LIMIT 1",
@@ -57,7 +61,8 @@ def _resolve_source(store: CapabilityStore, capability_id: str,
         raise CapabilityGateError(
             f"no version record for capability {capability_id!r}"
         )
-    location = Path(row[0])
+    raw = Path(row[0])
+    location = raw if raw.is_absolute() else (store.root / raw).resolve()
     if not location.exists():
         raise CapabilityGateError(
             f"capability {capability_id!r} source no longer exists at {location}"
