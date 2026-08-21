@@ -54,7 +54,9 @@ _KNOWN_EVENT_TYPES: set[str] = {
     "capability.discovered", "capability.quarantined", "capability.inspected",
     "capability.approved", "capability.benchmarked", "capability.activated",
     "capability.deactivated", "capability.revoked", "capability.digest_drift",
-    "capability.invoked",
+    "capability.invoked", "capability.stale", "capability.compromised",
+    # approvals
+    "approval.requested", "approval.decided", "approval.staled",
     # adapters (PR 5)
     "adapter.probed", "adapter.unhealthy",
     # team runs
@@ -310,36 +312,57 @@ class EventLog:
                         f"head marker {declared!r} does not match last event hash {prev!r}"
                     )
 
-    def replay_into(self, conn: sqlite3.Connection) -> int:
+    def replay_into(self, conn: sqlite3.Connection) -> dict:
         """
-        Rebuild current state from the JSONL log. Returns events replayed.
+        Rebuild current state from the JSONL log for every supported domain.
 
-        Rebuilds ``memory_records`` as well as ``memory_events``. Mirroring the
-        events alone left canonical state empty after a rebuild, which made the
-        JSONL log a write-only audit trail and SQLite the only copy of the truth
-        -- the single point of failure that ADR-0001's split exists to remove.
+        Rebuilds each domain's rebuildable current/projection tables, not just
+        ``memory_events``. Mirroring the events alone left canonical state
+        empty after a rebuild, which made the JSONL log a write-only audit
+        trail and SQLite the only copy of the truth -- the single point of
+        failure that ADR-0001's split exists to remove.
 
         Events are folded in file order, which is append order, so a later
         supersede lands after the write it supersedes. Interpretation is
-        delegated to ``records.apply_event``, the same function the live write
-        path uses: a second interpreter here is how a replay stops reproducing
-        the state it is meant to.
-        """
-        from shiroe.storage.records import apply_event
+        delegated to ``storage.projections.apply_event``, the single
+        dispatcher the live write path and replay both go through: a second
+        interpreter here is how a replay stops reproducing the state it is
+        meant to.
 
-        conn.execute("DELETE FROM memory_events")
-        # memory_sources holds a foreign key into memory_records, so it has to
-        # go first or the delete below fails the constraint. Sources are carried
-        # in the memory.written payload and come back with their record.
-        conn.execute("DELETE FROM memory_sources")
-        conn.execute("DELETE FROM memory_records")
+        Returns ``{"replayed": N, "domains": {name: "rebuilt", ...},
+        "legacy_incomplete": []}`` rather than a bare count, so a caller can
+        tell which domains were actually reconstructed.
+        """
+        from shiroe.storage import projections
+
+        self.verify_chain()
+
+        # FK-safe delete order: children before parents in every domain.
+        # memory_sources holds a foreign key into memory_records, so it has
+        # to go before memory_records or the delete fails the constraint.
+        # approval_requests also carries (nullable) FKs into work_graphs and
+        # work_nodes, so it -- and its own child, approval_advice -- must be
+        # cleared before those work tables, not after.
+        for table in (
+            "memory_events", "memory_sources", "memory_records",
+            "approval_advice", "approval_requests",
+            "work_attempts", "work_edges", "work_nodes", "work_graphs",
+            "capability_permissions", "capability_versions", "capabilities",
+        ):
+            conn.execute(f"DELETE FROM {table}")
+
         count = 0
         for env in self.iter_events():
             _mirror_row(conn, env)
-            apply_event(conn, env)
+            projections.apply_event(conn, env)
             count += 1
         conn.commit()
-        return count
+
+        return {
+            "replayed": count,
+            "domains": {domain: "rebuilt" for domain in projections.SUPPORTED_DOMAINS},
+            "legacy_incomplete": [],
+        }
 
 
 def _mirror_row(conn: sqlite3.Connection, env: dict) -> None:

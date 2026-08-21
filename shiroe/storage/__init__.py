@@ -10,5 +10,6 @@ Invariant enforced here:
 
 from shiroe.storage.state import StateDB
 from shiroe.storage.events import EventLog, EventEnvelope
+from shiroe.storage import projections
 
-__all__ = ["StateDB", "EventLog", "EventEnvelope"]
+__all__ = ["StateDB", "EventLog", "EventEnvelope", "projections"]

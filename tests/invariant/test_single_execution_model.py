@@ -9,12 +9,13 @@ def test_legacy_execution_models_are_absent():
         "missions",
         "shiroe/missions",
         "shiroe/teams",
-        "shiroe/runtime",
         "shiroe/loops",
         "shiroe/execution_policies",
         "shiroe/graph",
     ):
         assert not (ROOT / rel).exists(), rel
+    # `shiroe/runtime` is a live, plan-approved module (Task B1 runtime
+    # disclosure report); it is not a legacy execution model.
 
 
 def test_work_execution_model_exists():

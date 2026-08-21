@@ -136,7 +136,7 @@ def test_replay_rebuilds_memory_events(tmp_path: Path) -> None:
     assert n_before == 4
 
     conn.execute("DELETE FROM memory_events"); conn.commit()
-    n = log.replay_into(conn)
+    n = log.replay_into(conn)["replayed"]
     (after,) = conn.execute("SELECT COUNT(*) FROM memory_events").fetchone()
     assert n == 4 and after == 4
 

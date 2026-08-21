@@ -14,7 +14,7 @@ from shiroe.policy.approvals import (
     ApprovalType,
     scope_digest,
 )
-from shiroe.storage.state import StateDB
+from shiroe.storage import EventEnvelope, EventLog, StateDB, projections
 
 
 class AuthorizationError(PermissionError):
@@ -25,19 +25,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-
-
 def _loads(text: str) -> Any:
     return json.loads(text)
 
 
 class ApprovalService:
     def __init__(self, root: Path | str):
-        self.db = StateDB(root)
+        self.root = Path(root)
+        self.db = StateDB(self.root)
         self.conn = self.db.connect()
         self.db.migrate()
+        self.events = EventLog(self.root, mirror_conn=self.conn)
 
     def close(self) -> None:
         self.db.close()
@@ -78,32 +76,36 @@ class ApprovalService:
             status=ApprovalStatus.pending,
             requested_at=_now(),
         )
-        with self.conn:
-            self.conn.execute(
-                """
-                INSERT INTO approval_requests(
-                    id, graph_id, node_id, approval_type, action_kind,
-                    requested_action, scope_json, scope_digest, reason,
-                    options_json, evidence_refs_json, risk, status, requested_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    req.id,
-                    req.graph_id,
-                    req.node_id,
-                    req.approval_type.value,
-                    req.action_kind,
-                    req.requested_action,
-                    _json(dict(req.scope)),
-                    req.digest,
-                    req.reason,
-                    _json(list(req.options)),
-                    _json(list(req.evidence_refs)),
-                    req.risk,
-                    req.status.value,
-                    req.requested_at,
-                ),
-            )
+        # Event-first: the payload keys below (id / requested_at / ...) match
+        # what storage.projections._apply_approval already reads -- the plan's
+        # narrative payload contract used "request_time"/"approval_id" naming
+        # that does not match the already-written reducer or the
+        # approval_requests schema (get() reads decided_by/decided_at/etc.),
+        # so this follows the reducer, not the narrative doc.
+        payload = {
+            "id": req.id,
+            "graph_id": req.graph_id,
+            "node_id": req.node_id,
+            "approval_type": req.approval_type.value,
+            "action_kind": req.action_kind,
+            "requested_action": req.requested_action,
+            "scope": dict(req.scope),
+            "scope_digest": req.digest,
+            "reason": req.reason,
+            "options": list(req.options),
+            "evidence_refs": list(req.evidence_refs),
+            "risk": req.risk,
+            "status": req.status.value,
+            "requested_at": req.requested_at,
+        }
+        env = self.events.append(EventEnvelope(
+            event_type="approval.requested",
+            actor="system",
+            target=f"approval:{req.id}",
+            payload=payload,
+        ))
+        projections.apply_event(self.conn, env)
+        self.conn.commit()
         return req
 
     def get(self, approval_id: str) -> ApprovalRequest:
@@ -152,18 +154,40 @@ class ApprovalService:
         status = ApprovalStatus(decision)
         if status in {ApprovalStatus.pending, ApprovalStatus.stale}:
             raise ValueError(f"{status.value!r} is not a human decision")
-        with self.conn:
-            cur = self.conn.execute(
-                """
-                UPDATE approval_requests
-                SET status=?, decided_at=?, decided_by=?, decision_reason=?
-                WHERE id=?
-                """,
-                (status.value, _now(), actor, reason, approval_id),
-            )
-        if cur.rowcount != 1:
-            raise KeyError(approval_id)
-        return self.get(approval_id)
+        # Existence check BEFORE emitting -- mirrors CapabilityStore.set_lifecycle's
+        # guard-then-emit pattern so an unknown id raises KeyError without
+        # writing a phantom approval.decided event into the log.
+        self.get(approval_id)
+        payload = {
+            "id": approval_id,
+            "decision": status.value,
+            "actor": actor,
+            "actor_kind": actor_kind,
+            "reason": reason,
+            "decided_at": _now(),
+        }
+        env = self.events.append(EventEnvelope(
+            event_type="approval.decided",
+            actor=actor,
+            target=f"approval:{approval_id}",
+            payload=payload,
+        ))
+        projections.apply_event(self.conn, env)
+        self.conn.commit()
+        req = self.get(approval_id)
+        # ponytail: capability-approval decisions chain into the capability
+        # lifecycle transition. Two events, two commits — accept tiny window;
+        # single-process supervisor makes it safe today.
+        if req.approval_type == ApprovalType.capability and status == ApprovalStatus.approved:
+            cap_id = req.scope.get("capability_id")
+            if cap_id:
+                from shiroe.capabilities.store import CapabilityStore
+                store = CapabilityStore(self.root)
+                try:
+                    store.set_lifecycle(cap_id, "approved", actor="human")
+                finally:
+                    store.close()
+        return req
 
     def assert_current(
         self,
@@ -172,13 +196,23 @@ class ApprovalService:
         current_scope: Mapping[str, Any],
     ) -> ApprovalRequest:
         req = self.get(approval_id)
-        if scope_digest(current_scope) == req.digest:
+        current_digest = scope_digest(current_scope)
+        if current_digest == req.digest:
             return req
-        with self.conn:
-            self.conn.execute(
-                "UPDATE approval_requests SET status=? WHERE id=?",
-                (ApprovalStatus.stale.value, approval_id),
-            )
+        payload = {
+            "id": approval_id,
+            "prior_digest": req.digest,
+            "current_digest": current_digest,
+            "reason": "scope changed",
+        }
+        env = self.events.append(EventEnvelope(
+            event_type="approval.staled",
+            actor="system",
+            target=f"approval:{approval_id}",
+            payload=payload,
+        ))
+        projections.apply_event(self.conn, env)
+        self.conn.commit()
         return self.get(approval_id)
 
     def find_pending(

@@ -146,12 +146,13 @@ def test_removed_runtime_trees_and_registries_are_absent() -> None:
     for rel in (
         "shiroe/missions",
         "shiroe/teams",
-        "shiroe/runtime",
         "shiroe/loops",
         "shiroe/benchmark",
         "shiroe/lineage",
     ):
         assert not (ROOT / rel).exists(), rel
+    # `shiroe/runtime` is a live, plan-approved module (Task B1 runtime
+    # disclosure report); it is not a removed tree.
     assert not (ROOT / "shiroe-registry.json").exists()
 
 

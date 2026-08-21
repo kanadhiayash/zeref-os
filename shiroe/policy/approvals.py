@@ -13,6 +13,7 @@ class ApprovalType(str, Enum):
     action = "action"
     strategic = "strategic"
     exception = "exception"
+    capability = "capability"
 
 
 class ApprovalStatus(str, Enum):

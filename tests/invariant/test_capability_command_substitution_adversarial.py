@@ -45,19 +45,26 @@ def _allow_subprocess(root: Path) -> None:
 
 
 def _register_echo_capability(root: Path, extra_argv: list[str]) -> str:
-    """Register a manifest whose command echoes argv[1:] verbatim to a file."""
+    """Register a project-local shebang'd script whose command echoes argv[1:].
+
+    Uses a project-relative script path and a project-relative received-file
+    path so REDACT.md's ``internal_paths`` class cannot scrub argv into
+    unreachability. All argv values stay project-relative.
+    """
     script = root / "capabilities" / "echo_argv.py"
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text(
+        "#!/usr/bin/env python3\n"
         "import json, sys\n"
         "from pathlib import Path\n"
         "out = Path(sys.argv[1])\n"
         "out.write_text(json.dumps(sys.argv[2:]), encoding='utf-8')\n",
         encoding="utf-8",
     )
+    script.chmod(0o755)
     digest = inspect_source(script).digest
     capability_id = "test.echo-argv"
-    received = root / "received.json"
+    received_rel = "received.json"
     manifest = {
         "schema": "shiroe.capability/v1",
         "id": capability_id,
@@ -67,7 +74,7 @@ def _register_echo_capability(root: Path, extra_argv: list[str]) -> str:
         "source": {"kind": "local-file", "location": str(script)},
         "entrypoint": {
             "adapter": "cli",
-            "command": [sys.executable, str(script), str(received), *extra_argv],
+            "command": [str(script), received_rel, *extra_argv],
         },
         "requires": {},
     }
@@ -88,13 +95,19 @@ def _register_echo_capability(root: Path, extra_argv: list[str]) -> str:
 def test_manifest_command_substitution_payload_is_never_shell_interpreted(tmp_path: Path) -> None:
     """A $(...) payload in the manifest command survives as an inert literal.
 
-    If the adapter ever executed this through a shell, `touch {marker}` would
-    run and the marker file would exist while the literal `$(...)` text would
-    be gone from what the child process received. Neither happens.
+    If the adapter ever executed this through a shell, ``touch <marker>``
+    would run and the marker file would exist while the literal ``$(...)``
+    text would be gone from what the child process received. Neither happens.
+
+    The marker path is project-relative so REDACT.md's ``internal_paths``
+    class cannot rewrite it inside the persisted event payload; the shell-
+    safety check that the marker file does NOT exist is the real
+    invariant this test guards.
     """
     _allow_subprocess(tmp_path)
-    marker = tmp_path / "pwned-by-substitution.txt"
-    payload = _SUBSTITUTION_PAYLOAD.format(marker=marker)
+    marker_rel = "pwned-by-substitution.txt"
+    marker = tmp_path / "capabilities" / marker_rel
+    payload = _SUBSTITUTION_PAYLOAD.format(marker=marker_rel)
     capability_id = _register_echo_capability(tmp_path, [payload])
 
     result = CLIAdapter().invoke(
@@ -108,7 +121,7 @@ def test_manifest_command_substitution_payload_is_never_shell_interpreted(tmp_pa
         "command-substitution payload produced a shell side effect: "
         "the adapter must never invoke a shell"
     )
-    received = (tmp_path / "received.json").read_text(encoding="utf-8")
+    received = (tmp_path / "capabilities" / "received.json").read_text(encoding="utf-8")
     assert payload in received, (
         f"payload was not passed through as a literal argv element: {received!r}"
     )
@@ -117,8 +130,9 @@ def test_manifest_command_substitution_payload_is_never_shell_interpreted(tmp_pa
 def test_manifest_command_backtick_payload_is_never_shell_interpreted(tmp_path: Path) -> None:
     """Same property for the backtick substitution form."""
     _allow_subprocess(tmp_path)
-    marker = tmp_path / "pwned-by-backtick.txt"
-    payload = _BACKTICK_PAYLOAD.format(marker=marker)
+    marker_rel = "pwned-by-backtick.txt"
+    marker = tmp_path / "capabilities" / marker_rel
+    payload = _BACKTICK_PAYLOAD.format(marker=marker_rel)
     capability_id = _register_echo_capability(tmp_path, [payload])
 
     result = CLIAdapter().invoke(
@@ -132,7 +146,7 @@ def test_manifest_command_backtick_payload_is_never_shell_interpreted(tmp_path: 
         "backtick substitution payload produced a shell side effect: "
         "the adapter must never invoke a shell"
     )
-    received = (tmp_path / "received.json").read_text(encoding="utf-8")
+    received = (tmp_path / "capabilities" / "received.json").read_text(encoding="utf-8")
     assert payload in received, (
         f"payload was not passed through as a literal argv element: {received!r}"
     )

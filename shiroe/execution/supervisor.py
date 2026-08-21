@@ -39,6 +39,7 @@ class RunSummary:
     blocked: tuple[str, ...] = ()
     reason: str | None = None
     usage: dict[str, Any] = field(default_factory=dict)
+    pending_approvals: tuple[str, ...] = ()
 
 
 def _now() -> str:
@@ -101,10 +102,18 @@ class ExecutionSupervisor:
                 state = self.store.get_node(node_id)
                 node = state.node
                 if node.kind is NodeKind.approval:
+                    approval_id = self._ensure_approval_request(
+                        graph_id=graph_id,
+                        node_id=node_id,
+                        action_kind="approval_node",
+                        scope=dict(node.metadata.get("scope", {})),
+                        reason=str(node.metadata.get("reason") or f"approval required for node {node_id}"),
+                        risk=node.risk or "medium",
+                    )
                     self.store.set_node_status(node_id, "blocked", expected_version=state.state_version)
                     blocked.append(node_id)
                     self.store.set_graph_status(graph_id, "paused")
-                    return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval", usage=self.budget.snapshot())
+                    return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval", usage=self.budget.snapshot(), pending_approvals=(approval_id,))
                 # approval_required gate: a task node cannot execute/complete
                 # (even via the no-requires fast path) without a current,
                 # in-scope human approval. Wrong-scope / revoked / missing ->
@@ -112,10 +121,18 @@ class ExecutionSupervisor:
                 if node.approval_required and not self._task_approval_current(
                     graph_id, node_id, dict(node.metadata.get("scope", {}))
                 ):
+                    approval_id = self._ensure_approval_request(
+                        graph_id=graph_id,
+                        node_id=node_id,
+                        action_kind="approval_required",
+                        scope=dict(node.metadata.get("scope", {})),
+                        reason=str(node.metadata.get("reason") or f"approval required for node {node_id}"),
+                        risk=node.risk or "medium",
+                    )
                     self.store.set_node_status(node_id, "blocked", expected_version=state.state_version)
                     blocked.append(node_id)
                     self.store.set_graph_status(graph_id, "paused")
-                    return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval_required", usage=self.budget.snapshot())
+                    return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason="approval_required", usage=self.budget.snapshot(), pending_approvals=(approval_id,))
                 if not node.requires:
                     # independent_review gates even the no-requires fast path:
                     # a review-required node with no executor cannot be
@@ -163,7 +180,8 @@ class ExecutionSupervisor:
                             blocked.append(node_id)
                             self.store.set_graph_status(graph_id, "paused")
                             reason = f"approval {auth.approval_id}: {auth.reason}" if auth.approval_id else "approval"
-                            return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason=reason, usage=self.budget.snapshot())
+                            pending = (auth.approval_id,) if auth.approval_id else ()
+                            return RunSummary(graph_id, "paused", tuple(completed), tuple(failed), tuple(blocked), reason=reason, usage=self.budget.snapshot(), pending_approvals=pending)
                         if auth.verdict is Verdict.deny:
                             raise PermissionError(auth.reason)
                         attempt_id = self._record_attempt(graph_id, node_id, capability_id, "running")
@@ -243,6 +261,45 @@ class ExecutionSupervisor:
 
     def resume(self, graph_id: str) -> RunSummary:
         return self.run(graph_id)
+
+    def _ensure_approval_request(
+        self,
+        *,
+        graph_id: str,
+        node_id: str,
+        action_kind: str,
+        scope: dict,
+        reason: str,
+        risk: str = "medium",
+    ) -> str:
+        """Return the approval request that gates ``node_id``, minting one
+        via ``ApprovalService.request`` if none exists yet.
+
+        Dedup is keyed on (graph_id, node_id) alone -- the same lookup
+        ``refresh_readiness``/``_task_approval_current`` already treat as
+        the node's governing approval -- so a request seeded by another
+        caller (CLI, PolicyService, a test) is reused rather than
+        duplicated, even if its action_kind/requested_action differ from
+        what this call would have used.
+        """
+        existing_id = self.store._latest_approval_id(graph_id, node_id)
+        if existing_id is not None:
+            return existing_id
+        service = ApprovalService(self.root)
+        try:
+            req = service.request(
+                approval_type="action",
+                requested_action=f"approve {node_id}",
+                scope=scope,
+                reason=reason,
+                risk=risk,
+                graph_id=graph_id,
+                node_id=node_id,
+                action_kind=action_kind,
+            )
+        finally:
+            service.close()
+        return req.id
 
     def _task_approval_current(self, graph_id: str, node_id: str, scope: dict) -> bool:
         """True iff the latest human approval for this node is approved AND
