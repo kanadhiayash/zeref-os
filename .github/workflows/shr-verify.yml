@@ -111,7 +111,13 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install pytest coverage
 
+      - name: Run pytest
+        if: matrix.python-version != '3.12'
+        run: |
+          python3 -m pytest -q
+
       - name: Run pytest with coverage
+        if: matrix.python-version == '3.12'
         # H4.1 tiered coverage: measure once, then gate global and
         # governance-critical packages separately. Subprocess-driven CLI
         # tests still under-count cli.py / lock.py paths, which is why
@@ -126,6 +132,7 @@ jobs:
           coverage html -d htmlcov
 
       - name: Governance-critical coverage gate (line >=90%, branch >=80%)
+        if: matrix.python-version == '3.12'
         # coverage.py's --fail-under only checks one combined (line+branch)
         # number, which can hide a low branch% behind a high line%. Measured
         # on the hardened tree: line ~92.4%, branch ~80.5% for these
@@ -138,10 +145,11 @@ jobs:
           python3 scripts/check-critical-coverage.py critical-coverage.json --min-line 90 --min-branch 80
 
       - name: Upload coverage report
+        if: matrix.python-version == '3.12'
         # actions/upload-artifact — pinned to v4.4.3 release SHA
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: coverage-critical-python-${{ matrix.python-version }}
           path: |
             coverage.xml
             htmlcov/

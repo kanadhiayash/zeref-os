@@ -23,6 +23,7 @@ import pytest
 from shiroe.capabilities.store import CapabilityStore
 from shiroe.policy.approval_service import ApprovalService
 from shiroe.storage import EventEnvelope, EventLog, StateDB
+from shiroe.storage import projections
 from shiroe.work.compiler import compile_work_graph
 from shiroe.work.store import WorkStore
 
@@ -246,6 +247,28 @@ def test_replay_reports_incomplete_domain_for_legacy_partial_payload(tmp_path: P
 
     assert result["domains"]["capabilities"] == "replay_incomplete"
     assert result["legacy_incomplete"] == ["capabilities"]
+
+
+def test_projection_dispatcher_rejects_unknown_and_incomplete_payloads(tmp_path: Path) -> None:
+    conn, _log = _prepare(tmp_path)
+
+    assert projections.domain_for_event({"event_type": "unknown.event"}) is None
+    assert projections.apply_event(conn, {"event_type": "unknown.event", "payload": {}}) == set()
+
+    for env in (
+        {"event_type": "capability.digest_drift", "target": "capability:x", "payload": {}},
+        {"event_type": "capability.approved", "payload": {"to": "approved"}},
+        {"event_type": "capability.invoked", "target": "capability:x", "payload": {}},
+        {"event_type": "approval.requested", "payload": {}},
+        {"event_type": "approval.decided", "payload": {"id": "apr_missing"}},
+        {"event_type": "approval.staled", "payload": {}},
+        {"event_type": "run.created", "payload": {}},
+        {"event_type": "run.completed", "payload": {"id": "graph_missing"}},
+        {"event_type": "step.started", "payload": {}},
+        {"event_type": "attempt.completed", "payload": {"id": "attempt_missing"}},
+        {"event_type": "node.lease_completed", "payload": {}},
+    ):
+        assert projections.apply_event(conn, env) == set(), env
 
 
 def test_replay_applies_capability_lifecycle_and_digest_drift(tmp_path: Path) -> None:
