@@ -19,6 +19,7 @@ from shiroe.policy.approval_service import ApprovalService
 from shiroe.policy.approvals import ApprovalStatus
 from shiroe.policy.schema import Action, ActionKind, Verdict
 from shiroe.policy.service import PolicyService
+from shiroe.storage import EventEnvelope, projections
 from shiroe.verification.review import run_independent_review
 from shiroe.verification.schema import CheckStatus
 from shiroe.work.schema import NodeKind, NodeStatus
@@ -376,13 +377,21 @@ class ExecutionSupervisor:
 
     def _record_attempt(self, graph_id: str, node_id: str, capability_id: str, state: str) -> str:
         attempt_id = "wa_" + uuid.uuid4().hex[:16]
-        self.store.conn.execute(
-            """
-            INSERT INTO work_attempts(id, graph_id, node_id, attempt, capability_id, state, started_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (attempt_id, graph_id, node_id, self._next_attempt(node_id), capability_id, state, _now()),
-        )
+        env = self.store.events.append(EventEnvelope(
+            event_type="attempt.started",
+            actor="system",
+            target=f"work_attempt:{attempt_id}",
+            payload={
+                "id": attempt_id,
+                "graph_id": graph_id,
+                "node_id": node_id,
+                "attempt": self._next_attempt(node_id),
+                "capability_id": capability_id,
+                "state": state,
+                "event_time": _now(),
+            },
+        ))
+        projections.apply_event(self.store.conn, env)
         self.store.conn.commit()
         return attempt_id
 
@@ -408,8 +417,28 @@ class ExecutionSupervisor:
         error: str | None = None,
         usage: dict | None = None,
     ) -> None:
-        self.store.conn.execute(
-            "UPDATE work_attempts SET state=?, error=?, usage_json=?, ended_at=? WHERE id=?",
-            (state, error, json.dumps(usage or {}, sort_keys=True), _now(), attempt_id),
-        )
+        row = self.store.conn.execute(
+            "SELECT graph_id, node_id, attempt, capability_id FROM work_attempts WHERE id=?",
+            (attempt_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(attempt_id)
+        event_type = "attempt.completed" if state == "completed" else "attempt.failed"
+        env = self.store.events.append(EventEnvelope(
+            event_type=event_type,
+            actor="system",
+            target=f"work_attempt:{attempt_id}",
+            payload={
+                "id": attempt_id,
+                "graph_id": row[0],
+                "node_id": row[1],
+                "attempt": row[2],
+                "capability_id": row[3],
+                "state": state,
+                "error": error,
+                "usage": usage or {},
+                "event_time": _now(),
+            },
+        ))
+        projections.apply_event(self.store.conn, env)
         self.store.conn.commit()

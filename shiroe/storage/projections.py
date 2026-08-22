@@ -41,19 +41,35 @@ def apply_event(conn: sqlite3.Connection, env: dict) -> set[str]:
     """
     event_type = env.get("event_type") or ""
 
-    if event_type.startswith("memory."):
+    domain = domain_for_event(env)
+
+    if domain == "memory":
         return {"memory"} if _apply_memory_event(conn, env) else set()
 
-    if event_type.startswith("capability."):
+    if domain == "capabilities":
         return {"capabilities"} if _apply_capability(conn, env) else set()
 
-    if event_type.startswith("approval."):
+    if domain == "approvals":
         return {"approvals"} if _apply_approval(conn, env) else set()
 
-    if event_type.startswith(("run.", "step.", "node.", "transfer.")):
+    if domain == "work_projection":
         return {"work_projection"} if _apply_work(conn, env) else set()
 
     return set()
+
+
+def domain_for_event(env: dict) -> str | None:
+    """Return the rebuildable projection domain claimed by ``event_type``."""
+    event_type = env.get("event_type") or ""
+    if event_type.startswith("memory."):
+        return "memory"
+    if event_type.startswith("capability."):
+        return "capabilities"
+    if event_type.startswith("approval."):
+        return "approvals"
+    if event_type.startswith(("run.", "step.", "attempt.", "node.", "transfer.")):
+        return "work_projection"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -64,17 +80,49 @@ def _apply_capability(conn: sqlite3.Connection, env: dict) -> bool:
     """Fold capability events into ``capabilities``/``capability_versions``/
     ``capability_permissions``.
 
-    Only ``capability.discovered`` is implemented -- the one event type whose
-    full-snapshot payload contract is fixed by source-plan A3 (id, name,
-    type, digest, version_id, version, manifest, source_kind,
-    source_location, permissions, event_time). Older/incomplete
-    ``capability.discovered`` events (today's emitter only carries path +
+    ``capability.discovered`` carries the full snapshot that creates the
+    capability row and version row. Lifecycle and digest-drift events carry
+    only deltas, so they update the capability row created by discovery.
+    Older/incomplete discovery events (today's emitter only carries path +
     digest) are recognised and safely skipped rather than crashing replay.
-    Other capability.* event types (quarantined, approved, ...) are no-ops
-    here until Steps 3-5 define their reducer-facing payloads.
     """
     payload = env.get("payload") or {}
-    if env.get("event_type") != "capability.discovered":
+    event_type = env.get("event_type")
+
+    if event_type == "capability.digest_drift":
+        capability_id = _target_id(env, "capability:")
+        new_digest = payload.get("new_digest")
+        new_state = payload.get("new_state")
+        if capability_id is None or new_digest is None or new_state is None:
+            return False
+        when = payload.get("event_time") or env.get("timestamp")
+        cur = conn.execute(
+            """
+            UPDATE capabilities
+            SET current_digest=?, lifecycle=?, updated_at=COALESCE(?, updated_at)
+            WHERE id=?
+            """,
+            (new_digest, new_state, when, capability_id),
+        )
+        return cur.rowcount > 0
+
+    lifecycle = _CAPABILITY_LIFECYCLE_EVENTS.get(event_type)
+    if lifecycle is not None:
+        capability_id = _target_id(env, "capability:")
+        if capability_id is None:
+            return False
+        when = payload.get("event_time") or env.get("timestamp")
+        cur = conn.execute(
+            """
+            UPDATE capabilities
+            SET lifecycle=?, updated_at=COALESCE(?, updated_at)
+            WHERE id=?
+            """,
+            (payload.get("to", lifecycle), when, capability_id),
+        )
+        return cur.rowcount > 0
+
+    if event_type != "capability.discovered":
         return False
 
     required = (
@@ -141,6 +189,27 @@ def _apply_capability(conn: sqlite3.Connection, env: dict) -> bool:
             ),
         )
     return True
+
+
+_CAPABILITY_LIFECYCLE_EVENTS: dict[str, str] = {
+    "capability.quarantined": "quarantined",
+    "capability.inspected": "inspected",
+    "capability.approved": "approved",
+    "capability.benchmarked": "benchmarked",
+    "capability.activated": "active",
+    "capability.revoked": "revoked",
+    "capability.stale": "stale",
+    "capability.compromised": "compromised",
+}
+
+
+def _target_id(env: dict, prefix: str) -> str | None:
+    target = env.get("target")
+    if isinstance(target, str) and target.startswith(prefix):
+        return target[len(prefix):]
+    payload = env.get("payload") or {}
+    value = payload.get("id") or payload.get("capability_id")
+    return value if isinstance(value, str) and value else None
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +293,7 @@ _RUN_STATUS_EVENTS = frozenset({
     "run.completed", "run.failed", "run.cancelled",
 })
 _STEP_EVENTS = frozenset({"step.started", "step.completed", "step.failed"})
+_ATTEMPT_EVENTS = frozenset({"attempt.started", "attempt.completed", "attempt.failed"})
 
 
 def _apply_work(conn: sqlite3.Connection, env: dict) -> bool:
@@ -248,6 +318,8 @@ def _apply_work(conn: sqlite3.Connection, env: dict) -> bool:
         return _apply_run_status(conn, payload, env.get("timestamp"))
     if event_type in _STEP_EVENTS:
         return _apply_step(conn, payload)
+    if event_type in _ATTEMPT_EVENTS:
+        return _apply_attempt(conn, payload, env.get("timestamp"))
     return False
 
 
@@ -348,4 +420,53 @@ def _apply_step(conn: sqlite3.Connection, payload: dict) -> bool:
             "UPDATE work_nodes SET state_version=state_version+1 WHERE id=?",
             (node_id,),
         )
+    return True
+
+
+def _apply_attempt(conn: sqlite3.Connection, payload: dict, env_timestamp: str | None) -> bool:
+    attempt_id = payload.get("id")
+    graph_id = payload.get("graph_id")
+    node_id = payload.get("node_id")
+    attempt = payload.get("attempt")
+    capability_id = payload.get("capability_id")
+    state = payload.get("state")
+    if (
+        attempt_id is None or graph_id is None or node_id is None
+        or attempt is None or state is None
+    ):
+        return False
+
+    when = payload.get("event_time") or env_timestamp
+    usage = payload.get("usage")
+    usage_json = usage if isinstance(usage, str) else _dumps(usage or {})
+
+    conn.execute(
+        """
+        INSERT INTO work_attempts
+            (id, graph_id, node_id, attempt, capability_id, state,
+             input_digest, output_digest, error, usage_json, started_at, ended_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            state=excluded.state,
+            input_digest=excluded.input_digest,
+            output_digest=excluded.output_digest,
+            error=excluded.error,
+            usage_json=excluded.usage_json,
+            ended_at=COALESCE(excluded.ended_at, work_attempts.ended_at)
+        """,
+        (
+            attempt_id,
+            graph_id,
+            node_id,
+            int(attempt),
+            capability_id,
+            state,
+            payload.get("input_digest"),
+            payload.get("output_digest"),
+            payload.get("error"),
+            usage_json,
+            when,
+            when if state != "running" else None,
+        ),
+    )
     return True

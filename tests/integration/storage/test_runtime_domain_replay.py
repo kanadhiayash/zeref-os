@@ -18,9 +18,11 @@ import hashlib
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from shiroe.capabilities.store import CapabilityStore
 from shiroe.policy.approval_service import ApprovalService
-from shiroe.storage import EventLog, StateDB
+from shiroe.storage import EventEnvelope, EventLog, StateDB
 from shiroe.work.compiler import compile_work_graph
 from shiroe.work.store import WorkStore
 
@@ -44,15 +46,15 @@ def _event_types(conn: sqlite3.Connection) -> list[str]:
 
 
 def _domain_digest(conn: sqlite3.Connection) -> dict[str, str]:
-    digests: dict[str, str] = {}
-    for domain, sql in (
+    return _digest_queries(conn, (
         (
             "capabilities",
-            "SELECT id, name, type, lifecycle, digest FROM capabilities ORDER BY id",
+            "SELECT id, name, type, lifecycle, current_digest "
+            "FROM capabilities ORDER BY id",
         ),
         (
             "approvals",
-            "SELECT id, approval_type, status, actor, decision, digest "
+            "SELECT id, approval_type, status, scope_digest, decided_by, decision_reason "
             "FROM approval_requests ORDER BY id",
         ),
         (
@@ -63,11 +65,19 @@ def _domain_digest(conn: sqlite3.Connection) -> dict[str, str]:
             "work_nodes",
             "SELECT id, graph_id, status, kind FROM work_nodes ORDER BY graph_id, id",
         ),
-    ):
-        try:
-            rows = conn.execute(sql).fetchall()
-        except sqlite3.OperationalError:
-            rows = []
+        (
+            "work_attempts",
+            "SELECT graph_id, node_id, attempt, capability_id, state, input_digest, "
+            "output_digest, error, usage_json FROM work_attempts "
+            "ORDER BY graph_id, node_id, attempt",
+        ),
+    ))
+
+
+def _digest_queries(conn: sqlite3.Connection, queries: tuple[tuple[str, str], ...]) -> dict[str, str]:
+    digests: dict[str, str] = {}
+    for domain, sql in queries:
+        rows = conn.execute(sql).fetchall()
         h = hashlib.sha256()
         for row in rows:
             h.update(repr(tuple(row)).encode("utf-8"))
@@ -138,6 +148,13 @@ def test_work_store_emits_run_events(tmp_path: Path) -> None:
 
     types = _event_types(conn)
     assert "run.created" in types, types
+
+
+def test_semantic_digest_fails_loudly_on_bad_schema_column(tmp_path: Path) -> None:
+    conn, _log = _prepare(tmp_path)
+
+    with pytest.raises(sqlite3.OperationalError):
+        _digest_queries(conn, (("bad", "SELECT missing_column FROM capabilities"),))
 
 
 def test_replay_rebuilds_runtime_domains(tmp_path: Path) -> None:
@@ -214,3 +231,61 @@ def test_replay_rebuilds_runtime_domains(tmp_path: Path) -> None:
 
     after = _domain_digest(conn)
     assert after == before, f"semantic digest drift after replay: {before} != {after}"
+
+
+def test_replay_reports_incomplete_domain_for_legacy_partial_payload(tmp_path: Path) -> None:
+    conn, log = _prepare(tmp_path)
+    log.append(EventEnvelope(
+        event_type="capability.discovered",
+        actor="legacy-test",
+        target="capability:legacy.partial",
+        payload={"path": "./old.py", "digest": "sha256:legacy"},
+    ))
+
+    result = log.replay_into(conn)
+
+    assert result["domains"]["capabilities"] == "replay_incomplete"
+    assert result["legacy_incomplete"] == ["capabilities"]
+
+
+def test_replay_applies_capability_lifecycle_and_digest_drift(tmp_path: Path) -> None:
+    conn, log = _prepare(tmp_path)
+
+    store = CapabilityStore(tmp_path)
+    try:
+        store.upsert_capability(
+            capability_id="cap.drift",
+            name="Drift",
+            type_="script",
+            lifecycle="quarantined",
+            digest="sha256:old",
+            manifest={
+                "schema": "shiroe.capability/v1",
+                "id": "cap.drift",
+                "name": "Drift",
+                "type": "script",
+                "version": "1.0.0",
+                "source": {"kind": "local-file", "location": "./run.py"},
+                "entrypoint": {"adapter": "cli", "command": ["./run.py"]},
+                "requires": {},
+            },
+            source_kind="local-file",
+            source_location="./run.py",
+        )
+        store.set_lifecycle("cap.drift", "inspected", actor="human")
+        store.set_lifecycle("cap.drift", "approved", actor="human")
+        store.refresh_digest("cap.drift", "sha256:new")
+    finally:
+        store.close()
+
+    before = conn.execute(
+        "SELECT id, lifecycle, current_digest FROM capabilities ORDER BY id"
+    ).fetchall()
+
+    _wipe_projections(conn)
+    log.replay_into(conn)
+
+    after = conn.execute(
+        "SELECT id, lifecycle, current_digest FROM capabilities ORDER BY id"
+    ).fetchall()
+    assert after == before

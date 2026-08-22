@@ -97,15 +97,6 @@ def _write_governed_graph(root: Path, capability_id: str) -> Path:
     return graph_path
 
 
-def _allow_subprocess(root: Path) -> None:
-    policy_dir = root / ".shiroe" / "policy"
-    policy_dir.mkdir(parents=True, exist_ok=True)
-    (policy_dir / "defaults.json").write_text(
-        json.dumps({"allow": ["capability.invoke", "subprocess"]}),
-        encoding="utf-8",
-    )
-
-
 def _semantic_digest(state_db: Path) -> dict[str, str]:
     """Domain-scoped semantic digest over current projection tables.
 
@@ -123,11 +114,12 @@ def _semantic_digest(state_db: Path) -> dict[str, str]:
             ),
             (
                 "capabilities",
-                "SELECT id, name, type, lifecycle, digest FROM capabilities ORDER BY id",
+                "SELECT id, name, type, lifecycle, current_digest "
+                "FROM capabilities ORDER BY id",
             ),
             (
                 "approvals",
-                "SELECT id, approval_type, status, actor, decision, digest "
+                "SELECT id, approval_type, status, scope_digest, decided_by, decision_reason "
                 "FROM approval_requests ORDER BY id",
             ),
             (
@@ -136,13 +128,17 @@ def _semantic_digest(state_db: Path) -> dict[str, str]:
             ),
             (
                 "work_nodes",
-                "SELECT id, graph_id, status, kind FROM work_nodes ORDER BY graph_id, id",
+                "SELECT id, graph_id, status, kind, output_json "
+                "FROM work_nodes ORDER BY graph_id, id",
+            ),
+            (
+                "work_attempts",
+                "SELECT graph_id, node_id, attempt, capability_id, state, input_digest, "
+                "output_digest, error, usage_json FROM work_attempts "
+                "ORDER BY graph_id, node_id, attempt",
             ),
         ):
-            try:
-                rows = conn.execute(sql).fetchall()
-            except sqlite3.OperationalError:
-                rows = []
+            rows = conn.execute(sql).fetchall()
             h = hashlib.sha256()
             for row in rows:
                 h.update(repr(tuple(row)).encode("utf-8"))
@@ -181,12 +177,12 @@ def _delete_rebuildable_projections(state_db: Path) -> None:
 
 def test_governed_operator_path(tmp_path: Path) -> None:
     _ok(_run(ROOT, ["init", str(tmp_path), "--name", "governed", "--privacy", "abstract"]))
+    state_db = tmp_path / "memory" / "state" / "shiroe.sqlite"
 
     caps_before = json.loads(_ok(_run(tmp_path, ["capability", "list", "--json"])))
     assert caps_before == [], f"fresh project must start with zero capabilities, got {caps_before}"
 
     script = _write_indexer_fixture(tmp_path)
-    _allow_subprocess(tmp_path)
 
     # A3: `capability onboard` composite command drives inspection,
     # discovery, quarantine, inspected transitions, and creates the human
@@ -235,8 +231,19 @@ def test_governed_operator_path(tmp_path: Path) -> None:
     verified = json.loads(_ok(_run(tmp_path, ["verify", "--graph", "graph_index", "--json"])))
     assert verified["status"] == "pass"
 
+    conn = sqlite3.connect(state_db)
+    try:
+        attempt_before = conn.execute(
+            "SELECT graph_id, node_id, attempt, capability_id, state, input_digest, "
+            "output_digest, error, usage_json FROM work_attempts "
+            "ORDER BY graph_id, node_id, attempt"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert len(attempt_before) == 1
+    assert attempt_before[0][4] == "completed"
+
     # Canonical event history contains the exercised domains.
-    state_db = tmp_path / "memory" / "state" / "shiroe.sqlite"
     conn = sqlite3.connect(state_db)
     try:
         event_types = [
@@ -247,7 +254,10 @@ def test_governed_operator_path(tmp_path: Path) -> None:
         ]
     finally:
         conn.close()
-    for required in ("capability.discovered", "approval.requested", "approval.decided", "run.created"):
+    for required in (
+        "capability.discovered", "approval.requested", "approval.decided",
+        "run.created", "attempt.started", "attempt.completed",
+    ):
         assert required in event_types, f"missing {required} in emitted events: {event_types}"
 
     # Semantic digest BEFORE rebuild.
@@ -257,10 +267,30 @@ def test_governed_operator_path(tmp_path: Path) -> None:
     _delete_rebuildable_projections(state_db)
     rebuilt = json.loads(_ok(_run(tmp_path, ["state", "rebuild", "--json"])))
     assert "domains" in rebuilt, f"state rebuild must report per-domain status, got {rebuilt}"
-    for domain in ("memory", "capabilities", "approvals", "work_projection"):
+    for domain in ("capabilities", "approvals", "work_projection"):
         assert rebuilt["domains"].get(domain) == "rebuilt", rebuilt
+    assert rebuilt["domains"].get("memory") in {"rebuilt", "not_exercised"}, rebuilt
 
     after = _semantic_digest(state_db)
     assert after == before, f"semantic digest drift after rebuild: {before} != {after}"
+
+    # Capability approval and attempt history remain executable/replayable
+    # after rebuilding current projections from JSONL alone.
+    _ok(_run(tmp_path, ["capability", "gate", capability_id]))
+    conn = sqlite3.connect(state_db)
+    try:
+        capability_after = conn.execute(
+            "SELECT lifecycle, current_digest FROM capabilities WHERE id=?",
+            (capability_id,),
+        ).fetchone()
+        attempt_after = conn.execute(
+            "SELECT graph_id, node_id, attempt, capability_id, state, input_digest, "
+            "output_digest, error, usage_json FROM work_attempts "
+            "ORDER BY graph_id, node_id, attempt"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert capability_after == ("approved", digest)
+    assert attempt_after == attempt_before
 
     _ok(_run(tmp_path, ["state", "verify", "--json"]))

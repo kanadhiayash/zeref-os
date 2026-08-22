@@ -63,6 +63,7 @@ _KNOWN_EVENT_TYPES: set[str] = {
     "run.created", "run.compiled", "run.authorized", "run.started",
     "run.paused", "run.resumed", "run.completed", "run.failed", "run.cancelled",
     "step.started", "step.completed", "step.failed", "step.retried",
+    "attempt.started", "attempt.completed", "attempt.failed",
     # evidence / evaluators
     "evidence.reviewed", "evaluator.ran",
     # policy
@@ -352,16 +353,30 @@ class EventLog:
             conn.execute(f"DELETE FROM {table}")
 
         count = 0
+        seen_domains: set[str] = set()
+        incomplete_domains: set[str] = set()
         for env in self.iter_events():
             _mirror_row(conn, env)
-            projections.apply_event(conn, env)
+            expected_domain = projections.domain_for_event(env)
+            if expected_domain is not None:
+                seen_domains.add(expected_domain)
+            applied = projections.apply_event(conn, env)
+            if expected_domain is not None and expected_domain not in applied:
+                incomplete_domains.add(expected_domain)
             count += 1
         conn.commit()
 
         return {
             "replayed": count,
-            "domains": {domain: "rebuilt" for domain in projections.SUPPORTED_DOMAINS},
-            "legacy_incomplete": [],
+            "domains": {
+                domain: (
+                    "replay_incomplete" if domain in incomplete_domains
+                    else "rebuilt" if domain in seen_domains
+                    else "not_exercised"
+                )
+                for domain in projections.SUPPORTED_DOMAINS
+            },
+            "legacy_incomplete": sorted(incomplete_domains),
         }
 
 
